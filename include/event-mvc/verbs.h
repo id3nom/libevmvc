@@ -29,21 +29,25 @@ SOFTWARE.
 
 extern "C" {
 #include <event2/http.h>
+#include <evhtp/evhtp.h>
 }
 
 namespace event { namespace mvc {
 
 enum class verb
+    : unsigned int
 {
-    get = EVHTTP_REQ_GET,
-    post = EVHTTP_REQ_POST,
-    head = EVHTTP_REQ_HEAD,
-    put = EVHTTP_REQ_PUT,
-    del = EVHTTP_REQ_DELETE,
-    options = EVHTTP_REQ_OPTIONS,
-    trace = EVHTTP_REQ_TRACE,
-    connect = EVHTTP_REQ_CONNECT,
-    patch = EVHTTP_REQ_PATCH,
+    get = htp_method_GET,
+    head = htp_method_HEAD,
+    post = htp_method_POST,
+    put = htp_method_PUT,
+    del = htp_method_DELETE,
+    options = htp_method_OPTIONS,
+    trace = htp_method_TRACE,
+    connect = htp_method_CONNECT,
+    patch = htp_method_PATCH,
+    
+    unknown = htp_method_UNKNOWN
 };
 
 mvc::string_view verb_to_string(mvc::verb v)
@@ -51,10 +55,10 @@ mvc::string_view verb_to_string(mvc::verb v)
     switch(v){
         case mvc::verb::get:
             return "GET";
-        case mvc::verb::post:
-            return "POST";
         case mvc::verb::head:
             return "HEAD";
+        case mvc::verb::post:
+            return "POST";
         case mvc::verb::put:
             return "PUT";
         case mvc::verb::del:

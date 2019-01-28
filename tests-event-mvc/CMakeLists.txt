@@ -28,6 +28,7 @@ target_link_libraries(libevent-mvc_tests
     tz
     fmt
     pcre
+    evhtp
     gmock
 #    gtest
 )

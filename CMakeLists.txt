@@ -162,6 +162,7 @@ include_directories("${PROJECT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/date/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/fmt/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/json/include"
+    #"${CMAKE_CURRENT_SOURCE_DIR}/deps/libevhtp/include"
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -233,6 +234,7 @@ target_link_libraries(event-mvc
     tz
     fmt
     pcre
+    evhtp
 )
 
 # install

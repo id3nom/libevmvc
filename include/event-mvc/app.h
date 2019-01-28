@@ -31,6 +31,7 @@ SOFTWARE.
 
 extern "C" {
 #include <event2/http.h>
+#include <evhtp/evhtp.h>
 }
 
 namespace event { namespace mvc {
@@ -60,6 +61,8 @@ public:
         //boost::asio::io_context& ioc,
         uint16_t port = 8080, const mvc::string_view& address = "0.0.0.0")
     {
+        evhtp_t* htp;
+        evhtp_request_t* req;
         // auto const _address = boost::asio::ip::make_address(address.data());
         
         // // Create and launch a listening port
