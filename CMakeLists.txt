@@ -103,11 +103,18 @@ endif()
 # add subdirs
 
 # deps
-if(NOT TARGET gmock)
-    subdirs(deps/googletest)
+if(NOT TARGET date)
+    subdirs(deps/date)
 endif()
 if(NOT TARGET fmt)
     subdirs(deps/fmt)
+endif()
+if(NOT TARGET json)
+    subdirs(deps/json)
+endif()
+
+if(NOT TARGET gmock)
+    subdirs(deps/googletest)
 endif()
 
 # lib dir
@@ -220,10 +227,12 @@ else(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 endif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 
 target_link_libraries(event-mvc 
+    ${Boost_LIBRARIES}
+    ${OPENSSL_LIBRARIES}
+    pthread
+    tz
     fmt
     pcre
-    ${OPENSSL_LIBRARIES}
-    ${Boost_LIBRARIES}
 )
 
 # install

@@ -25,8 +25,9 @@ target_link_libraries(libevent-mvc_tests
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     pthread
-    gmock
-    pcre
+    tz
     fmt
+    pcre
+    gmock
 #    gtest
 )
