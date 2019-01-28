@@ -1,3 +1,27 @@
+#########################
+## libevent-mvc ignore ##
+#########################
+
+# ignore the cmake build dir
+build
+include/event-mvc/event_mvc_export.h
+include/event-mvc/mvc_config.h
+
+##################
+## CMake ignore ##
+##################
+
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+
+
 # Prerequisites
 *.d
 
