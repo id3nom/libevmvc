@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_cb_def_h
-#define _libevent_mvc_cb_def_h
+#ifndef _libevmvc_cb_def_h
+#define _libevmvc_cb_def_h
 
 #include <type_traits>
 #include <functional>
@@ -35,7 +35,7 @@ SOFTWARE.
 #include "utils.h"
 
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 class cb_error
 {
@@ -300,6 +300,5 @@ void assign_async_cb(
 }
 
 
-}} // ns event::mvc
-
-#endif //_libevent_mvc_cb_def_h
+} //ns evmvc
+#endif //_libevmvc_cb_def_h

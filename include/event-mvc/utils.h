@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_utils_h
-#define _libevent_mvc_utils_h
+#ifndef _libevmvc_utils_h
+#define _libevmvc_utils_h
 
 #include <string>
 #include <sstream>
@@ -36,7 +36,7 @@ SOFTWARE.
 #include <functional>
 #include <chrono>
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 inline std::string str_to_lower(const std::string& str)
 {
@@ -180,6 +180,5 @@ inline std::string hex_to_str(const uint8_t* data, int len)
 }
 
 
-}} // ns: boost::beast::mvc
-
+} //ns evmvc
 #endif //_boost_beast_mvc_utils_h

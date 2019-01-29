@@ -22,12 +22,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_response_h
-#define _libevent_mvc_response_h
+#ifndef _libevmvc_response_h
+#define _libevmvc_response_h
 
 #include "stable_headers.h"
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 class response
 {
@@ -49,7 +49,7 @@ class response
 //         _ended = true;
 //     }
     
-//     virtual void send_bad_request(mvc::string_view why) = 0;
+//     virtual void send_bad_request(evmvc::string_view why) = 0;
     
 // protected:
 //     bool _ended;
@@ -68,7 +68,7 @@ class response
 //     {
 //     }
     
-//     void send_bad_request(mvc::string_view why)
+//     void send_bad_request(evmvc::string_view why)
 //     {
 //         http::response<http::string_body> res{
 //             http::status::bad_request,
@@ -91,5 +91,5 @@ class response
 //     Send& _send;
 // };
 
-}} // ns: event::mvc
-#endif //_libevent_mvc_response_h
+} //ns evmvc
+#endif //_libevmvc_response_h

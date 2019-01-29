@@ -33,8 +33,8 @@
 
 #include "fmt/format.h"
 
-#ifndef _libevent_mvc_stable_headers_h
-#define _libevent_mvc_stable_headers_h
+#ifndef _libevmvc_stable_headers_h
+#define _libevmvc_stable_headers_h
 
 #include <boost/logic/tribool.hpp>
 
@@ -49,7 +49,7 @@
     #include "nlohmann/json.hpp"
 #pragma GCC diagnostic pop
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 #ifdef EVENT_MVC_USE_STD_STRING_VIEW
     /// The type of string view used by the library
@@ -75,6 +75,5 @@ typedef nlohmann::json json;
 class app;
 typedef std::shared_ptr<app> sp_app;
 
-}}// ns: event::mvc
-
-#endif //_libevent_mvc_stable_headers_h
+} //ns evmvc
+#endif //_libevmvc_stable_headers_h

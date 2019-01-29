@@ -22,17 +22,18 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_verbs_h
-#define _libevent_mvc_verbs_h
+#ifndef _libevmvc_verbs_h
+#define _libevmvc_verbs_h
 
 #include "stable_headers.h"
 
 extern "C" {
+#define EVHTP_DISABLE_REGEX
 #include <event2/http.h>
 #include <evhtp/evhtp.h>
 }
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 enum class verb
     : unsigned int
@@ -50,31 +51,31 @@ enum class verb
     unknown = htp_method_UNKNOWN
 };
 
-mvc::string_view verb_to_string(mvc::verb v)
+evmvc::string_view verb_to_string(evmvc::verb v)
 {
     switch(v){
-        case mvc::verb::get:
+        case evmvc::verb::get:
             return "GET";
-        case mvc::verb::head:
+        case evmvc::verb::head:
             return "HEAD";
-        case mvc::verb::post:
+        case evmvc::verb::post:
             return "POST";
-        case mvc::verb::put:
+        case evmvc::verb::put:
             return "PUT";
-        case mvc::verb::del:
+        case evmvc::verb::del:
             return "DELETE";
-        case mvc::verb::options:
+        case evmvc::verb::options:
             return "OPTIONS";
-        case mvc::verb::trace:
+        case evmvc::verb::trace:
             return "TRACE";
-        case mvc::verb::connect:
+        case evmvc::verb::connect:
             return "CONNECT";
-        case mvc::verb::patch:
+        case evmvc::verb::patch:
             return "PATCH";
         default:
             return "UNKNOWN";
     }
 }
 
-}} // ns event::mvc
-#endif //_libevent_mvc_verbs_h
+} //ns evmvc
+#endif //_libevmvc_verbs_h

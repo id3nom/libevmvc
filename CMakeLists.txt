@@ -63,13 +63,24 @@ include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
 
 # OpenSSL
-
 find_package(OpenSSL)
-
 if (OPENSSL_FOUND)
     include_directories (${OPENSSL_INCLUDE_DIR})
 endif()
 
+# # libevent
+# if(NOT LIBEVENT_CMake_INCLUDED)
+#     include(FindLibEvent)
+# endif()
+# find_package(LibEvent REQUIRED)
+# include_directories (${LIBEVENT_INCLUDE_DIR})
+
+# # libevhtp
+# if(NOT LIBEVHTP_CMake_INCLUDED)
+#     include(FindLibEvhtp)
+# endif()
+# find_package(libevhtp REQUIRED)
+# include_directories (${LIBEVHTP_INCLUDE_DIR})
 
 # static or shared build configuration
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
@@ -234,6 +245,9 @@ target_link_libraries(event-mvc
     tz
     fmt
     pcre
+    #${LIBEVENT_LIBRARIES}
+    #${LIBEVHTP_LIBRARIES}
+    event
     evhtp
 )
 

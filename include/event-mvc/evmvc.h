@@ -22,9 +22,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_event_mvc_h
-#define _libevent_mvc_event_mvc_h
+#ifndef _libevmvc_event_mvc_h
+#define _libevmvc_event_mvc_h
 
 #include "app.h"
 
-#endif //_libevent_mvc_event_mvc_h
+#endif //_libevmvc_event_mvc_h

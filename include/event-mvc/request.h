@@ -22,15 +22,15 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevent_mvc_request_h
-#define _libevent_mvc_request_h
+#ifndef _libevmvc_request_h
+#define _libevmvc_request_h
 
 #include "stable_headers.h"
 #include "utils.h"
 
 #include <unordered_map>
 
-namespace event { namespace mvc {
+namespace evmvc {
 
 class route;
 //class query_param;
@@ -43,7 +43,7 @@ public:
     {
     }
     
-    query_param(const mvc::string_view& param_value)
+    query_param(const evmvc::string_view& param_value)
         : _is_valid(true), _param_value(param_value)
     {
     }
@@ -90,7 +90,7 @@ private:
 };
 
 template<>
-inline std::string mvc::query_param::as<std::string, -1>() const
+inline std::string evmvc::query_param::as<std::string, -1>() const
 {
     return _param_value;
 }
@@ -102,7 +102,7 @@ class request
 public:
 
    typedef
-        std::unordered_map<std::string, std::shared_ptr<mvc::query_param>>
+        std::unordered_map<std::string, std::shared_ptr<evmvc::query_param>>
         param_map;
 
     request(const evhttp_request* ev_req, const param_map& p)
@@ -110,18 +110,18 @@ public:
     {
     }
     
-    std::shared_ptr<mvc::query_param> query_param(
-        mvc::string_view pname) const noexcept
+    std::shared_ptr<evmvc::query_param> query_param(
+        evmvc::string_view pname) const noexcept
     {
         auto p = _params.find(std::string(pname));
         if(p == _params.end())
-            return std::shared_ptr<mvc::query_param>();
+            return std::shared_ptr<evmvc::query_param>();
         return p->second;
     }
     
     template<typename ParamType>
     ParamType query_param_as(
-        const mvc::string_view& pname,
+        const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
         auto p = _params.find(std::string(pname));
@@ -138,5 +138,5 @@ protected:
 
 
 
-}} // ns: event::mvc
-#endif //_libevent_mvc_request_h
+} //ns evmvc
+#endif //_libevmvc_request_h

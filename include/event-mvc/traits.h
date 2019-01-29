@@ -23,8 +23,8 @@ SOFTWARE.
 */
 
 
-#ifndef _libevent_mvc_traits_h
-#define _libevent_mvc_traits_h
+#ifndef _libevmvc_traits_h
+#define _libevmvc_traits_h
 
 #include <type_traits>
 #include <functional>
@@ -78,7 +78,7 @@ namespace std{
 }
 #endif
 
-namespace event{ namespace mvc {
+namespace mvc {
 
 template <class... Args>
 struct select_last
@@ -96,8 +96,5 @@ struct select_last<T, Args...>
 };
 
 
-}}// ns: event::mvc
-
-
-
-#endif //_libevent_mvc_traits_h
+} //ns evmvc
+#endif //_libevmvc_traits_h

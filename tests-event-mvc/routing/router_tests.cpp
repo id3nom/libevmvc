@@ -23,12 +23,12 @@ SOFTWARE.
 */
 
 #include <gmock/gmock.h>
-#include "event-mvc/event-mvc.h"
+#include "event-mvc/evmvc.h"
 
-namespace event { namespace mvc { namespace tests {
+namespace evmvc { namespace tests {
 
 class response_mock
-    : public mvc::response
+    : public evmvc::response
 {
 public:
     response_mock()
@@ -36,7 +36,7 @@ public:
     {
     }
     
-    void send_bad_request(mvc::string_view /*why*/)
+    void send_bad_request(evmvc::string_view /*why*/)
     {
         // do nothing
     }
@@ -51,15 +51,15 @@ public:
 TEST_F(router_test, routes)
 {
     try{
-        mvc::sp_router r = 
-            std::make_shared<mvc::router>();
+        evmvc::sp_router r = 
+            std::make_shared<evmvc::router>();
         
         std::string rt_val;
         // // # simple route that will match url "/abc/123" and "/abc/123/"
         // // /abc-a/123
         // r->get("/abc-a/123",
         // [&rt_val](
-        //      const mvc::request& /*req*/, mvc::response& /*res*/,
+        //      const evmvc::request& /*req*/, evmvc::response& /*res*/,
         //      async_cb cb
         // ){
         //     rt_val = "abc-a";
@@ -70,7 +70,7 @@ TEST_F(router_test, routes)
         // // /abc-b/123/*
         // r->get("/abc-b/123/*",
         // [&rt_val](
-        //      const mvc::request& /*req*/, mvc::response& /*res*/
+        //      const evmvc::request& /*req*/, evmvc::response& /*res*/
         //      async_cb cb){
         //     rt_val = "abc-b";
         // });
@@ -79,7 +79,7 @@ TEST_F(router_test, routes)
         // # "/abc-c/123/456/" and any sub path "/abc-c/123/def/sub/path/..."
         // /abc-c/123/**
         r->get("/abc-c/123/**",
-        [&rt_val](const mvc::request& /*req*/, mvc::response& /*res*/,
+        [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
             async_cb cb
         ){
             rt_val = "abc-c";
@@ -91,7 +91,7 @@ TEST_F(router_test, routes)
         // // # by enclosing the parameter in square brackets
         // // /abc-d/123/:p1/[:p2]
         // r->get("/abc-d/123/:p1/[:p2]",
-        // [&rt_val](const mvc::request& /*req*/, mvc::response& /*res*/,
+        // [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
         //      async_cb cb
         // ){
         //     rt_val = "abc-d";
@@ -102,7 +102,7 @@ TEST_F(router_test, routes)
         // /abc-e/123/:p1(\\d+)/[:p2]
         r->get("/abc-e/123/:p1(\\d+)/:[p2]",
         [&rt_val](
-            const mvc::request& /*req*/, mvc::response& /*res*/,
+            const evmvc::request& /*req*/, evmvc::response& /*res*/,
             async_cb cb
         ){
             rt_val = "abc-e";
@@ -113,7 +113,7 @@ TEST_F(router_test, routes)
         // # regex parameter can be optional as well
         // /abc-f/123/[:p1(\\d+)]
         r->get("/abc-f/123/:[p1(\\d+)]",
-        [&rt_val](const mvc::request& /*req*/, mvc::response& /*res*/,
+        [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
             async_cb cb
         ){
             rt_val = "abc-f";
@@ -124,7 +124,7 @@ TEST_F(router_test, routes)
         // # all parameters following an optional parameter must be optional
         // /abc-g/123/:p1(\\d+)/[:p2]/[:p3]
         r->get("/abc-g/123/:p1(\\d+)/:[p2]/:[p3]",
-        [&rt_val](const mvc::request& req, mvc::response& /*res*/,
+        [&rt_val](const evmvc::request& req, evmvc::response& /*res*/,
             async_cb next
         ){
             rt_val = "abc-g";
@@ -149,12 +149,12 @@ TEST_F(router_test, routes)
         });
         
         //http::request<http::string_body> hreq;
-        //mvc::request req;
+        //evmvc::request req;
         struct evhttp_request* ev_req = nullptr;
-        mvc::response res;
-        //mvc::tests::response_mock res;
+        evmvc::response res;
+        //evmvc::tests::response_mock res;
         
-        auto rr = r->resolve_url(mvc::verb::get, "/abc-c/123/asdflkj/asdf");
+        auto rr = r->resolve_url(evmvc::verb::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)
             FAIL();
         
@@ -164,10 +164,10 @@ TEST_F(router_test, routes)
             ASSERT_EQ(rt_val, "abc-c");
             
             rt_val.clear();
-            rr = r->resolve_url(mvc::verb::get, "/abc-g/123/a4/arg2/arg3");
+            rr = r->resolve_url(evmvc::verb::get, "/abc-g/123/a4/arg2/arg3");
             if(rr)
                 FAIL();
-            rr = r->resolve_url(mvc::verb::get, "/abc-g/123/4/arg2/arg3");
+            rr = r->resolve_url(evmvc::verb::get, "/abc-g/123/4/arg2/arg3");
             if(!rr)
                 FAIL();
             rr->execute(ev_req, res,
@@ -184,4 +184,4 @@ TEST_F(router_test, routes)
     }
 }
 
-}}} // ns: event::mvc::tests
+}} //ns evevmvc::tests
