@@ -1,5 +1,9 @@
 {
+    "C_Cpp.intelliSenseEngine": "Default",
+    "C_Cpp.autocomplete": "Default",
+    "C_Cpp.intelliSenseEngineFallback": "Disabled",
     "C_Cpp.configurationWarnings": "Disabled",
+    
     "files.associations": {
         "*.hbs": "handlebars",
         "hash_map": "cpp",

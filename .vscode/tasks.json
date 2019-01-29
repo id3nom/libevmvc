@@ -16,7 +16,7 @@
                 "showReuseMessage": true
             },
             "options": {
-                "cwd":"${workspaceFolder}/../../build/",
+                "cwd":"${workspaceFolder}/build/",
                 "env": {
                     "MAKEFLAGS": "-j4"
                 }

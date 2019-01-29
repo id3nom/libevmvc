@@ -44,10 +44,7 @@ enum class app_state
     stopping,
 };
 
-void _on_app_request(evhtp_request_t* req, void* arg)
-{
-    
-}
+void _on_app_request(evhtp_request_t* req, void* arg);
 
 class app
     : public std::enable_shared_from_this<app>
@@ -208,15 +205,15 @@ private:
         http::verb v = req.method();
         evmvc::string_view sv;
         
-        if(v == http::verb::unknown)
+        if(v == http::method::unknown)
             sv = req.method_string();
         else
             sv = http::to_string(v);
         
         auto rr = _router->resolve_url(v, req.target());
         
-        if(!rr && v == http::verb::head)
-            rr = _router->resolve_url(http::verb::get, req.target());
+        if(!rr && v == http::method::head)
+            rr = _router->resolve_url(http::method::get, req.target());
         
         evmvc::response<Body, Allocator, Send> res(req, send);
         
@@ -243,6 +240,39 @@ private:
     
 };
 
+void _on_app_request(evhtp_request_t* req, void* arg)
+{
+    app* a = (app*)arg;
+    
+    evmvc::method v = (evmvc::method)req->method;
+    evmvc::string_view sv;
+    
+    if(v == evmvc::method::unknown)
+        sv = "";// req-> req.method_string();
+    else
+        sv = evmvc::method_to_string(v);
+    
+    char* dp = evhttp_decode_uri(req->uri->path->full);
+    
+    auto rr = a->_router->resolve_url(v, dp);
+    if(!rr && v == evmvc::method::head)
+        rr = a->_router->resolve_url(evmvc::method::get, dp);
+    free(dp);
+    
+    evmvc::response res(req);
+    if(!rr){
+        res.send_bad_request("Invalid route");
+        return;
+    }
+    
+    rr->execute(req, res,
+    [&rr, &req, &res](auto error){
+        if(error){
+            res.send_bad_request(error.c_str());
+            return;
+        }
+    });
+}
 
 
 } // ns evmvc

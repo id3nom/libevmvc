@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_verbs_h
-#define _libevmvc_verbs_h
+#ifndef _libevmvc_methods_h
+#define _libevmvc_methods_h
 
 #include "stable_headers.h"
 
@@ -35,7 +35,7 @@ extern "C" {
 
 namespace evmvc {
 
-enum class verb
+enum class method
     : unsigned int
 {
     get = htp_method_GET,
@@ -51,26 +51,26 @@ enum class verb
     unknown = htp_method_UNKNOWN
 };
 
-evmvc::string_view verb_to_string(evmvc::verb v)
+evmvc::string_view method_to_string(evmvc::method v)
 {
     switch(v){
-        case evmvc::verb::get:
+        case evmvc::method::get:
             return "GET";
-        case evmvc::verb::head:
+        case evmvc::method::head:
             return "HEAD";
-        case evmvc::verb::post:
+        case evmvc::method::post:
             return "POST";
-        case evmvc::verb::put:
+        case evmvc::method::put:
             return "PUT";
-        case evmvc::verb::del:
+        case evmvc::method::del:
             return "DELETE";
-        case evmvc::verb::options:
+        case evmvc::method::options:
             return "OPTIONS";
-        case evmvc::verb::trace:
+        case evmvc::method::trace:
             return "TRACE";
-        case evmvc::verb::connect:
+        case evmvc::method::connect:
             return "CONNECT";
-        case evmvc::verb::patch:
+        case evmvc::method::patch:
             return "PATCH";
         default:
             return "UNKNOWN";
@@ -78,4 +78,4 @@ evmvc::string_view verb_to_string(evmvc::verb v)
 }
 
 } //ns evmvc
-#endif //_libevmvc_verbs_h
+#endif //_libevmvc_methods_h

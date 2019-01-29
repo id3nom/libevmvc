@@ -30,20 +30,26 @@ SOFTWARE.
 
 #include <unordered_map>
 
+extern "C" {
+#define EVHTP_DISABLE_REGEX
+#include <event2/http.h>
+#include <evhtp/evhtp.h>
+}
+
+
 namespace evmvc {
 
 class route;
-//class query_param;
 
-class query_param
+class http_param
 {
 public:
-    query_param()
+    http_param()
         : _is_valid(false)
     {
     }
     
-    query_param(const evmvc::string_view& param_value)
+    http_param(const evmvc::string_view& param_value)
         : _is_valid(true), _param_value(param_value)
     {
     }
@@ -90,7 +96,7 @@ private:
 };
 
 template<>
-inline std::string evmvc::query_param::as<std::string, -1>() const
+inline std::string evmvc::http_param::as<std::string, -1>() const
 {
     return _param_value;
 }
@@ -102,37 +108,37 @@ class request
 public:
 
    typedef
-        std::unordered_map<std::string, std::shared_ptr<evmvc::query_param>>
+        std::unordered_map<std::string, std::shared_ptr<evmvc::http_param>>
         param_map;
 
-    request(const evhttp_request* ev_req, const param_map& p)
-        : _ev_req(ev_req), _params(p)
+    request(evhtp_request_t* ev_req, const param_map& p)
+        : _ev_req(ev_req), _rt_params(p)
     {
     }
     
-    std::shared_ptr<evmvc::query_param> query_param(
+    std::shared_ptr<evmvc::http_param> route_param(
         evmvc::string_view pname) const noexcept
     {
-        auto p = _params.find(std::string(pname));
-        if(p == _params.end())
-            return std::shared_ptr<evmvc::query_param>();
+        auto p = _rt_params.find(std::string(pname));
+        if(p == _rt_params.end())
+            return std::shared_ptr<evmvc::http_param>();
         return p->second;
     }
     
     template<typename ParamType>
-    ParamType query_param_as(
+    ParamType route_param_as(
         const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
-        auto p = _params.find(std::string(pname));
-        if(p == _params.end())
+        auto p = _rt_params.find(std::string(pname));
+        if(p == _rt_params.end())
             return default_val;
         return p->second->as<ParamType>();
     }
     
 protected:
-    const evhttp_request* _ev_req;
-    param_map _params;
+    evhtp_request_t* _ev_req;
+    param_map _rt_params;
     
 };
 

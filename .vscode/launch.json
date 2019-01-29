@@ -8,11 +8,32 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/../../build/bin/libevmvc_tests",
+            "program": "${workspaceFolder}/build/bin/libevmvc_tests",
             "args": [
             ],
             "stopAtEntry": false,
-            "cwd": "${workspaceFolder}/../../build/bin/",
+            "cwd": "${workspaceFolder}/build/bin/",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
+        
+        {
+            "name": "(gdb) Launch web_server",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/evmvc_web_server",
+            "args": [
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/bin/",
             "environment": [],
             "externalConsole": true,
             "MIMode": "gdb",
@@ -24,5 +45,6 @@
                 }
             ]
         }
+        
     ]
 }

@@ -25,35 +25,37 @@ SOFTWARE.
 
 // the configured options and settings for libevmvc
 
-#ifndef _EVENT_MVC_CONFIGURATION_HEADER_GUARD_H_
-#define _EVENT_MVC_CONFIGURATION_HEADER_GUARD_H_
+#ifndef _EVMVC_CONFIG_H_
+#define _EVMVC_CONFIG_H_
 
-#define EVENT_MVC_VERSION_MAJOR @EVENT_MVC_VERSION_MAJOR@
-#define EVENT_MVC_VERSION_MINOR @EVENT_MVC_VERSION_MINOR@
+#define EVMVC_VERSION @libevmvc_VERSION@
+#define EVMVC_VERSION_MAJOR @libevmvc_VERSION_MAJOR@
+#define EVMVC_VERSION_MINOR @libevmvc_VERSION_MINOR@
+#define EVMVC_VERSION_PATCH @libevmvc_VERSION_PATCH@
 
 #if _DEBUG
 #define CMAKE_COMMAND "@CMAKE_COMMAND@"
-#define EVENT_MVC_PROJECT_SOURCE_DIR "@PROJECT_SOURCE_DIR@"
-#define EVENT_MVC_PROJECT_BINARY_DIR "@PROJECT_BINARY_DIR@"
+#define EVMVC_PROJECT_SOURCE_DIR "@PROJECT_SOURCE_DIR@"
+#define EVMVC_PROJECT_BINARY_DIR "@PROJECT_BINARY_DIR@"
 #endif
 
 // defines the type of build
-#cmakedefine EVENT_MVC_BUILD_DEBUG 1
-#cmakedefine EVENT_MVC_BUILD_TEST 1
-#cmakedefine EVENT_MVC_BUILD_SHIPPING 1
+#cmakedefine EVMVC_BUILD_DEBUG 1
+#cmakedefine EVMVC_BUILD_TEST 1
+#cmakedefine EVMVC_BUILD_SHIPPING 1
 
-#if !(defined(EVENT_MVC_BUILD_DEBUG) || defined(EVENT_MVC_BUILD_TEST) || defined(EVENT_MVC_BUILD_SHIPPING))
-    #define EVENT_MVC_BUILD_DEBUG 1
+#if !(defined(EVMVC_BUILD_DEBUG) || defined(EVMVC_BUILD_TEST) || defined(EVMVC_BUILD_SHIPPING))
+    #define EVMVC_BUILD_DEBUG 1
 #endif
 
-#ifndef EVENT_MVC_BUILD_DEBUG
-    #define EVENT_MVC_BUILD_DEBUG 0
+#ifndef EVMVC_BUILD_DEBUG
+    #define EVMVC_BUILD_DEBUG 0
 #endif
-#ifndef EVENT_MVC_BUILD_TEST
-    #define EVENT_MVC_BUILD_TEST 0
+#ifndef EVMVC_BUILD_TEST
+    #define EVMVC_BUILD_TEST 0
 #endif
-#ifndef EVENT_MVC_BUILD_SHIPPING
-    #define EVENT_MVC_BUILD_SHIPPING 0
+#ifndef EVMVC_BUILD_SHIPPING
+    #define EVMVC_BUILD_SHIPPING 0
 #endif
 
 
@@ -81,12 +83,11 @@ SOFTWARE.
 #endif
 
 #if WIN32
-    #define EVENT_MVC_FORCEINLINE __forceinline
+    #define EVMVC_FORCEINLINE __forceinline
 #elif _GCC || __GNUC__
-    #define EVENT_MVC_FORCEINLINE inline __attribute((always_inline))
+    #define EVMVC_FORCEINLINE inline __attribute((always_inline))
 #endif
 
+#cmakedefine EVMVC_THREAD_SAFE 1
 
-#cmakedefine EVENT_MVC_THREAD_SAFE 1
-
-#endif //_EVENT_MVC_CONFIGURATION_HEADER_GUARD_H_
+#endif //_EVMVC_CONFIG_H_

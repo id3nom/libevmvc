@@ -29,10 +29,13 @@ SOFTWARE.
 
 extern "C" {
 #include <pcre.h>
+#define EVHTP_DISABLE_REGEX
+#include <event2/http.h>
+#include <evhtp/evhtp.h>
 }
 
 #include "cb_def.h"
-#include "verbs.h"
+#include "methods.h"
 #include "request.h"
 #include "response.h"
 
@@ -100,7 +103,7 @@ public:
     }
     
     void execute(
-        const struct evhttp_request* req,
+        evhtp_request_t* req,
         evmvc::response& res, async_cb cb
     );
     
@@ -204,7 +207,7 @@ public:
             );
             
             rr->params.emplace(
-                std::make_pair(pname, std::make_shared<query_param>(pval))
+                std::make_pair(pname, std::make_shared<http_param>(pval))
             );
             
             tabptr += name_entry_size;
@@ -216,7 +219,7 @@ private:
     
     void execute(
         const evmvc::request::param_map params,
-        const struct evhttp_request* ev_req,
+        evhtp_request_t* ev_req,
         evmvc::response& res,
         async_cb cb)
     {
@@ -226,7 +229,7 @@ private:
     }
     
     void _exec(
-        const evmvc::request& req, evmvc::response& res,
+        evmvc::request& req, evmvc::response& res,
         size_t hidx, async_cb cb)
     {
         _handlers[hidx](
@@ -391,7 +394,7 @@ private:
 };
 
 void route_result::execute(
-    const struct evhttp_request* req,
+    evhtp_request_t* req,
     evmvc::response& res, async_cb cb)
 {
     route->execute(params, req, res, cb);
@@ -428,18 +431,18 @@ public:
     }
     
     sp_route resolve_route(
-        evmvc::verb verb,
+        evmvc::method method,
         const evmvc::string_view& url)
     {
-        evmvc::string_view vs = evmvc::verb_to_string(verb);
+        evmvc::string_view vs = evmvc::method_to_string(method);
         return resolve_route(vs, url);
     }
     
     sp_route resolve_route(
-        const evmvc::string_view& verb,
+        const evmvc::string_view& method,
         const evmvc::string_view& url)
     {
-        auto rm = _verbs.find(std::string(verb));
+        auto rm = _verbs.find(std::string(method));
         if(rm == _verbs.end())
             return nullptr;
         
@@ -451,15 +454,15 @@ public:
     }
     
     sp_route_result resolve_url(
-        evmvc::verb verb,
+        evmvc::method method,
         const evmvc::string_view& url)
     {
-        evmvc::string_view vs = evmvc::verb_to_string(verb);
+        evmvc::string_view vs = evmvc::method_to_string(method);
         return resolve_url(vs, url);
     }
     
     sp_route_result resolve_url(
-        const evmvc::string_view& verb,
+        const evmvc::string_view& method,
         const evmvc::string_view& url)
     {
         std::string local_url = std::string(url).substr(_path.size());
@@ -472,11 +475,11 @@ public:
                 )
             )
                 return it->second->resolve_url(
-                    verb,
+                    method,
                     local_url
                 );
         
-        auto rm = _verbs.find(std::string(verb));
+        auto rm = _verbs.find(std::string(method));
         if(rm != _verbs.end())
             for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
                 sp_route_result rr = it->second->match(local_url);
@@ -484,7 +487,7 @@ public:
                     return rr;
             }
         
-        if(std::string(verb) != "ALL")
+        if(std::string(method) != "ALL")
             return resolve_url("ALL", url);
         
         return nullptr;
@@ -497,61 +500,61 @@ public:
     sp_router options(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::options, route_path, cb);
+        return add_handler(evmvc::method::options, route_path, cb);
     }
     sp_router del(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::del, route_path, cb);
+        return add_handler(evmvc::method::del, route_path, cb);
     }
     sp_router head(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::head, route_path, cb);
+        return add_handler(evmvc::method::head, route_path, cb);
     }
     sp_router get(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::get, route_path, cb);
+        return add_handler(evmvc::method::get, route_path, cb);
     }
     sp_router post(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::post, route_path, cb);
+        return add_handler(evmvc::method::post, route_path, cb);
     }
     sp_router put(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::put, route_path, cb);
+        return add_handler(evmvc::method::put, route_path, cb);
     }
     sp_router connect(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::connect, route_path, cb);
+        return add_handler(evmvc::method::connect, route_path, cb);
     }
     sp_router trace(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::trace, route_path, cb);
+        return add_handler(evmvc::method::trace, route_path, cb);
     }
     sp_router patch(const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::verb::patch, route_path, cb);
+        return add_handler(evmvc::method::patch, route_path, cb);
     }
     // sp_router purge(const evmvc::string_view& route_path, route_handler_cb cb)
     // {
-    //     return add_handler(evmvc::verb::purge, route_path, cb);
+    //     return add_handler(evmvc::method::purge, route_path, cb);
     // }
     // sp_router link(const evmvc::string_view& route_path, route_handler_cb cb)
     // {
-    //     return add_handler(evmvc::verb::link, route_path, cb);
+    //     return add_handler(evmvc::method::link, route_path, cb);
     // }
     // sp_router unlink(
     //     const evmvc::string_view& route_path, route_handler_cb cb)
     // {
-    //     return add_handler(evmvc::verb::unlink, route_path, cb);
+    //     return add_handler(evmvc::method::unlink, route_path, cb);
     // }
     
     sp_router add_route_handler(
-        const evmvc::string_view& verb,
+        const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        return add_handler(verb, route_path, cb);
+        return add_handler(method, route_path, cb);
     }
     
     sp_router add_router(sp_router router)
@@ -575,43 +578,43 @@ protected:
     }
     
     sp_router add_handler(
-        evmvc::verb verb,
+        evmvc::method method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        evmvc::string_view vs = evmvc::verb_to_string(verb);
+        evmvc::string_view vs = evmvc::method_to_string(method);
         return add_handler(vs, route_path, cb);
     }
     
     sp_router add_handler(
-        const evmvc::string_view& verb,
+        const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        auto rp = resolve_route(verb, route_path);
+        auto rp = resolve_route(method, route_path);
         if(!rp)
-            rp = add_route(verb, route_path);
+            rp = add_route(method, route_path);
         
         rp->add_handler(cb);
         return this->shared_from_this();
     }
 
     sp_route add_route(
-        evmvc::verb verb,
+        evmvc::method method,
         const evmvc::string_view& route_path)
     {
-        evmvc::string_view vs = evmvc::verb_to_string(verb);
+        evmvc::string_view vs = evmvc::method_to_string(method);
         return add_route(vs, route_path);
     }
     
     sp_route add_route(
-        const evmvc::string_view& verb,
+        const evmvc::string_view& method,
         const evmvc::string_view& route_path)
     {
-        auto rm = _verbs.find(std::string(verb));
+        auto rm = _verbs.find(std::string(method));
         if(rm == _verbs.end()){
-            _verbs.emplace(std::make_pair(verb, route_map()));
-            rm = _verbs.find(std::string(verb));
+            _verbs.emplace(std::make_pair(method, route_map()));
+            rm = _verbs.find(std::string(method));
         }
         
         sp_route r = std::make_shared<evmvc::route>(route_path);

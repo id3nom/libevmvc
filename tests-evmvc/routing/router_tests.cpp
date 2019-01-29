@@ -27,20 +27,6 @@ SOFTWARE.
 
 namespace evmvc { namespace tests {
 
-class response_mock
-    : public evmvc::response
-{
-public:
-    response_mock()
-        : response()
-    {
-    }
-    
-    void send_bad_request(evmvc::string_view /*why*/)
-    {
-        // do nothing
-    }
-};
 
 class router_test: public testing::Test
 {
@@ -129,17 +115,17 @@ TEST_F(router_test, routes)
         ){
             rt_val = "abc-g";
             
-            const auto& p1 = req.query_param("p1");
+            const auto& p1 = req.route_param("p1");
             auto p1val = p1->as<int32_t>();
             ASSERT_EQ(p1val, 4);
             
-            if(req.query_param("p2")->is_valid()){
-                auto p2val = req.query_param_as<std::string>("p2");
+            if(req.route_param("p2")->is_valid()){
+                auto p2val = req.route_param_as<std::string>("p2");
                 ASSERT_STREQ(p2val.c_str(), "arg2");
                 
-                if(req.query_param("p3")->is_valid()){
+                if(req.route_param("p3")->is_valid()){
                     ASSERT_STREQ(
-                        req.query_param("p3")->as<std::string>().c_str(),
+                        req.route_param("p3")->as<std::string>().c_str(),
                         "arg3"
                     );
                 }
@@ -148,13 +134,10 @@ TEST_F(router_test, routes)
             next(nullptr);
         });
         
-        //http::request<http::string_body> hreq;
-        //evmvc::request req;
-        struct evhttp_request* ev_req = nullptr;
-        evmvc::response res;
-        //evmvc::tests::response_mock res;
+        evhtp_request_t* ev_req = nullptr;
+        evmvc::response res(ev_req);
         
-        auto rr = r->resolve_url(evmvc::verb::get, "/abc-c/123/asdflkj/asdf");
+        auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)
             FAIL();
         
@@ -164,10 +147,10 @@ TEST_F(router_test, routes)
             ASSERT_EQ(rt_val, "abc-c");
             
             rt_val.clear();
-            rr = r->resolve_url(evmvc::verb::get, "/abc-g/123/a4/arg2/arg3");
+            rr = r->resolve_url(evmvc::method::get, "/abc-g/123/a4/arg2/arg3");
             if(rr)
                 FAIL();
-            rr = r->resolve_url(evmvc::verb::get, "/abc-g/123/4/arg2/arg3");
+            rr = r->resolve_url(evmvc::method::get, "/abc-g/123/4/arg2/arg3");
             if(!rr)
                 FAIL();
             rr->execute(ev_req, res,

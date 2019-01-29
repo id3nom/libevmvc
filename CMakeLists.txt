@@ -14,6 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 option(EVMVC_BUILD_TESTS "Build tests" OFF)
+option(EVMVC_BUILD_EXAMPLES "Build examples" OFF)
 option(EVMVC_BUILD_DOC "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
 # not using unicode at all, better using UTF-8
@@ -136,6 +137,12 @@ if(EVMVC_BUILD_TESTS)
     add_test(alltests ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/libevmvc_tests)
     enable_testing()
 endif()
+
+# examples
+if(EVMVC_BUILD_EXAMPLES)
+    subdirs(examples-evmvc)
+endif()
+
 # doc
 if(EVMVC_BUILD_DOC)
     subdirs(doc-evmvc)
@@ -248,6 +255,10 @@ target_link_libraries(evmvc
     #${LIBEVENT_LIBRARIES}
     #${LIBEVHTP_LIBRARIES}
     event
+    event_core
+    event_extra
+    event_pthreads
+    event_openssl
     evhtp
 )
 

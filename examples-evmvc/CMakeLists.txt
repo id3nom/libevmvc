@@ -14,13 +14,7 @@ include_directories("${PROJECT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/../deps/googletest/googlemock/include/"
 )
 
-set(test_sources
-    main.cpp
-    routing/router_tests.cpp
-)
-add_executable(libevmvc_tests ${test_sources})
-
-target_link_libraries(libevmvc_tests
+set (EVMVC_EXAMPLES_LIBRARIES
     evmvc
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
@@ -36,6 +30,8 @@ target_link_libraries(libevmvc_tests
     event_pthreads
     event_openssl
     evhtp
-    gmock
-#    gtest
 )
+
+add_executable(evmvc_web_server web-server.cpp)
+target_link_libraries(evmvc_web_server ${EVMVC_EXAMPLES_LIBRARIES})
+
