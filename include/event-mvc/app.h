@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_app_h
 
 #include "stable_headers.h"
-#include "stable_headers.h"
 #include "router.h"
 
 extern "C" {
@@ -37,20 +36,30 @@ extern "C" {
 
 namespace evmvc {
 
+enum class app_state
+{
+    stopped,
+    starting,
+    running,
+    stopping,
+};
+
+void _on_app_request(evhtp_request_t* req, void* arg)
+{
+    
+}
+
 class app
     : public std::enable_shared_from_this<app>
 {
-    template<class SesDerived, class ParserType, class ReqType>
-    friend class http_session_reader;
-    
-    template<class Derived>
-    friend class http_session;
+    friend void _on_app_request(evhtp_request_t* req, void* arg);
     
 public:
     app(
         const evmvc::string_view& root_dir)
-        : _root_dir(root_dir), _router(std::make_shared<router>("/"))//,
-        //_ssl_ctx(boost::asio::ssl::context::sslv23)
+        : _status(app_state::stopped), _root_dir(root_dir),
+        _router(std::make_shared<router>("/")),
+        _evbase(nullptr), _evhtp(nullptr)
     {
     }
     
@@ -58,23 +67,49 @@ public:
     {
     }
     
-    void listen(
-        //boost::asio::io_context& ioc,
-        uint16_t port = 8080, const evmvc::string_view& address = "0.0.0.0")
+    app_state status()
     {
-        evhtp_t* htp;
-        evhtp_request_t* req;
-        // auto const _address = boost::asio::ip::make_address(address.data());
+        return _status;
+    }
+    
+    bool stopped(){ return _status == app_state::stopped;}
+    bool starting(){ return _status == app_state::starting;}
+    bool running(){ return _status == app_state::running;}
+    bool stopping(){ return _status == app_state::stopping;}
+    
+    void listen(
+        event_base* evbase,
+        uint16_t port = 8080,
+        const evmvc::string_view& address = "0.0.0.0",
+        int backlog = -1)
+    {
+        if(!stopped())
+            throw std::runtime_error(
+                "app must be in stopped state to start listening again"
+            );
         
-        // // Create and launch a listening port
-        // _listener = std::make_shared<listener>(
-        //     this->shared_from_this(),
-        //     ioc,
-        //     _ssl_ctx,
-        //     boost::asio::ip::tcp::endpoint{_address, port}
-        // );
+        _evbase = evbase;
+        listen(port, address);
+    }
+    
+    void listen(
+        uint16_t port = 8080,
+        const evmvc::string_view& address = "0.0.0.0",
+        int backlog = -1)
+    {
+        if(!stopped())
+            throw std::runtime_error(
+                "app must be in stopped state to start listening again"
+            );
+        _status = app_state::starting;
         
-        // _listener->run();
+        _evhtp = evhtp_new(_evbase, NULL);
+        evhtp_set_gencb(_evhtp, _on_app_request, this);
+        evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
+        
+        evhtp_bind_socket(_evhtp, address.data(), port, backlog);
+        
+        _status = app_state::running;
     }
     
     void stop()
@@ -200,10 +235,12 @@ private:
     }
      */
     
+    app_state _status;
     std::string _root_dir;
     sp_router _router;
-    //sp_listener _listener;
-    //boost::asio::ssl::context _ssl_ctx;
+    struct event_base* _evbase;
+    struct evhtp* _evhtp;
+    
 };
 
 
