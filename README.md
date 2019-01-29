@@ -1,4 +1,4 @@
-# libevent-mvc
+# libevmvc
 
 c++ Model View Controller library for libevent
 

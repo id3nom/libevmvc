@@ -1,11 +1,11 @@
 #########################
-## libevent-mvc ignore ##
+## libevmvc ignore ##
 #########################
 
 # ignore the cmake build dir
 build
-include/event-mvc/event_mvc_export.h
-include/event-mvc/mvc_config.h
+include/evmvc/evmvc_export.h
+include/evmvc/evmvc_config.h
 
 ##################
 ## CMake ignore ##

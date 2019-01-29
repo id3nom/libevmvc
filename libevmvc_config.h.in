@@ -23,7 +23,7 @@ SOFTWARE.
 */
 
 
-// the configured options and settings for libevent-mvc
+// the configured options and settings for libevmvc
 
 #ifndef _EVENT_MVC_CONFIGURATION_HEADER_GUARD_H_
 #define _EVENT_MVC_CONFIGURATION_HEADER_GUARD_H_

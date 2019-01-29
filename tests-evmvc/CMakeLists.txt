@@ -1,6 +1,6 @@
 configure_file (
-    "${CMAKE_CURRENT_SOURCE_DIR}/../libevent_mvc_config.h.in"
-    "${CMAKE_CURRENT_SOURCE_DIR}/../include/event-mvc/mvc_config.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../libevmvc_config.h.in"
+    "${CMAKE_CURRENT_SOURCE_DIR}/../include/evmvc/evmvc_config.h"
 )
 
 include_directories("${PROJECT_BINARY_DIR}"
@@ -18,10 +18,10 @@ set(test_sources
     main.cpp
     routing/router_tests.cpp
 )
-add_executable(libevent-mvc_tests ${test_sources})
+add_executable(libevmvc_tests ${test_sources})
 
-target_link_libraries(libevent-mvc_tests
-    event-mvc
+target_link_libraries(libevmvc_tests
+    evmvc
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     pthread

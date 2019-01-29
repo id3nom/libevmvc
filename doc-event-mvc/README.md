@@ -1,4 +1,0 @@
-[TOC]
-
-# About libevent-mvc
-

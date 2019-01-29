@@ -8,7 +8,7 @@
             "name": "(gdb) Launch",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/../../build/bin/libevent-mvc_tests",
+            "program": "${workspaceFolder}/../../build/bin/libevmvc_tests",
             "args": [
             ],
             "stopAtEntry": false,

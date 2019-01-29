@@ -23,7 +23,7 @@ SOFTWARE.
 */
 
 #include <gmock/gmock.h>
-#include "event-mvc/evmvc.h"
+#include "evmvc/evmvc.h"
 
 namespace evmvc { namespace tests {
 
