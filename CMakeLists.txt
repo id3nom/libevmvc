@@ -109,9 +109,9 @@ endif()
 if(NOT TARGET fmt)
     subdirs(deps/fmt)
 endif()
-if(NOT TARGET json)
-    subdirs(deps/json)
-endif()
+# if(NOT TARGET json) # not working with debian stretch
+#     subdirs(deps/json)
+# endif()
 
 if(NOT TARGET gmock)
     subdirs(deps/googletest)
