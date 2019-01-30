@@ -35,7 +35,9 @@ int main(int argc, char** argv)
     
     srv->get("/test",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.status(evmvc::status::ok).send("testing one two, testing...");
+        res.status(evmvc::status::ok).send(
+            req.query_param_as<std::string>("val", "testing 1, 2...")
+        );
         nxt(nullptr);
     });
     

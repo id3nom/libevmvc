@@ -140,6 +140,38 @@ public:
         return p->second->as<ParamType>();
     }
     
+    std::shared_ptr<evmvc::http_param> query_param(
+        evmvc::string_view pname) const noexcept
+    {
+        auto p = _ev_req->uri->query->tqh_first;
+        if(p == nullptr)
+            return std::shared_ptr<evmvc::http_param>();
+        
+        while(p != nullptr){
+            if(strcmp(p->key, pname.data()) == 0){
+                char* pval = evhttp_decode_uri(p->val);
+                std::string sval(pval);
+                free(pval);
+                return std::make_shared<evmvc::http_param>(sval);
+            }
+            if(p == *_ev_req->uri->query->tqh_last)
+                break;
+            ++p;
+        }
+        
+        return std::shared_ptr<evmvc::http_param>();
+    }
+
+    template<typename ParamType>
+    ParamType query_param_as(
+        const evmvc::string_view& pname,
+        ParamType default_val = ParamType()) const
+    {
+        auto p = query_param(pname);
+        if(p)
+            return p->as<ParamType>();
+        return default_val;
+    }
     
     evmvc::string_view get(evmvc::field header_name)
     {
