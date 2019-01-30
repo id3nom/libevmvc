@@ -141,7 +141,7 @@ public:
      */
     static evmvc::string_view get_type(evmvc::string_view path)
     {
-        auto tp = evmvc::str_to_lower(evmvc::trim_copy(path.data()));
+        auto tp = evmvc::lower_case_copy(evmvc::trim_copy(path.data()));
         if(tp.size() == 0 || (*tp.rbegin()) == '/')
             return "";
         
@@ -164,7 +164,7 @@ public:
     static evmvc::string_view get_extension(evmvc::string_view mime_type)
     {
         auto ext = _extensions().find(
-            evmvc::trim_copy(evmvc::str_to_lower(mime_type.data()))
+            evmvc::trim_copy(evmvc::lower_case_copy(mime_type.data()))
         );
         if(ext == _extensions().end())
             return "";

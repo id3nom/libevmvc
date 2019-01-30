@@ -46,7 +46,7 @@ public:
     response(evhtp_request_t* ev_req)
         : _ev_req(ev_req),
         _started(false), _ended(false),
-        _status(-1), _type("")
+        _status(-1), _type(""), _enc("")
     {
     }
 
@@ -57,8 +57,6 @@ public:
         evhtp_send_reply_end(_ev_req);
         _ended = true;
     }
-    
-    
     
     template<class K, class V,
         typename std::enable_if<
@@ -94,7 +92,7 @@ public:
         )) != nullptr)
             evhtp_header_rm_and_free(_ev_req->headers_out, header);
         
-        header = evhtp_header_new(header_name.data(), header_val.data(), 0, 0);
+        header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
         evhtp_headers_add_header(_ev_req->headers_out, header);
         
         return *this;
@@ -148,17 +146,30 @@ public:
         return *this;
     }
     
+    evmvc::string_view encoding(){ return _enc;}
+    response& encoding(evmvc::string_view enc)
+    {
+        _enc = enc.to_string();
+        return *this;
+    }
+    
     evmvc::string_view get_type()
     {
         return _type.empty() ? "" : _type;
     }
     
-    response& type(evmvc::string_view type)
+    response& type(evmvc::string_view type, evmvc::string_view enc = "")
     {
         _type = evmvc::mime::get_type(type).to_string();
         if(_type.empty())
             _type = type.data();
-        this->set(evmvc::field::content_type, _type);
+        if(enc.size() > 0)
+            _enc = enc.to_string();
+        
+        std::string ct = _type;
+        if(!_enc.empty())
+            ct += "; charset=" + _enc;
+        this->set(evmvc::field::content_type, ct);
         
         return *this;
     }
@@ -178,7 +189,7 @@ public:
     void send(evmvc::string_view body)
     {
         if(_type.empty())
-            this->type("txt");
+            this->type("txt", "utf-8");
         
         if(evhtp_request_get_proto(_ev_req) == EVHTP_PROTO_10)
             evhtp_request_set_keepalive(_ev_req, 0);
@@ -189,6 +200,7 @@ public:
         
         int len = evbuffer_add_printf(b, "%s", body.data());
         this->set(evmvc::field::content_length, evmvc::num_to_str(len));
+        //this->set(evmvc::field::encoding, "utf-8");
         
         _start_reply();
         evhtp_send_reply_body(_ev_req, b);
@@ -204,14 +216,33 @@ public:
         this->send(path);
     }
     
-    void send_bad_request(evmvc::string_view /*body*/)
+    
+    void send_bad_request(evmvc::string_view body)
     {
+        this->status(evmvc::status::bad_request).send(body);
     }
+    
+    void send_not_found(evmvc::string_view body)
+    {
+        this->status(evmvc::status::not_found).send(body);
+    }
+    
     
 private:
     void _start_reply()
     {
         _started = true;
+        // look for keepalive
+        evhtp_kv_t* header = nullptr;
+        if((header = evhtp_headers_find_header(
+            _ev_req->headers_in, "Connection"
+        )) != nullptr){
+            std::string con_val(header->val);
+            evmvc::trim(con_val);
+            evmvc::lower_case(con_val);
+            if(con_val == "keep-alive")
+                this->set(evmvc::field::connection, "keep-alive");
+        }
         evhtp_send_reply_start(_ev_req, _status);
     }
     
@@ -220,65 +251,10 @@ private:
     bool _ended;
     int16_t _status;
     std::string _type;
+    std::string _enc;
     
 };
 
-// class response_base
-//     : public std::enable_shared_from_this<response_base>
-// {
-// public:
-//     response_base()
-//         : _ended(false)
-//     {
-//     }
-    
-//     bool ended() const noexcept { return _ended;}
-//     void end() noexcept
-//     {
-//         _ended = true;
-//     }
-    
-//     virtual void send_bad_request(evmvc::string_view why) = 0;
-    
-// protected:
-//     bool _ended;
-// };
-
-// template<class ReqBody, class ReqAllocator, class Send>
-// class response
-//     : public response_base
-// {
-// public:
-//     response(
-//         const http::request<ReqBody, http::basic_fields<ReqAllocator>>& req,
-//         Send& send)
-//         : response_base(),
-//         _req(req), _send(send)
-//     {
-//     }
-    
-//     void send_bad_request(evmvc::string_view why)
-//     {
-//         http::response<http::string_body> res{
-//             http::status::bad_request,
-//             _req.version()
-//         };
-//         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-//         res.set(http::field::content_type, "text/html");
-//         res.keep_alive(_req.keep_alive());
-//         res.body() = why.to_string();
-//         res.prepare_payload();
-        
-//         _send(std::move(res));
-//     }
-    
-    
-    
-// private:
-//     //http::request<http::string_body> _req;
-//     http::request<ReqBody, http::basic_fields<ReqAllocator>> _req;
-//     Send& _send;
-// };
 
 } //ns evmvc
 #endif //_libevmvc_response_h

@@ -195,43 +195,6 @@ public:
     
 private:
     
-    /*
-    template<class Body, class Allocator, class Send>
-    void _handle_request(
-        // http::request<Body, http::basic_fields<Allocator>>&& req,
-        // Send&& send
-    )
-    {
-        http::verb v = req.method();
-        evmvc::string_view sv;
-        
-        if(v == http::method::unknown)
-            sv = req.method_string();
-        else
-            sv = http::to_string(v);
-        
-        auto rr = _router->resolve_url(v, req.target());
-        
-        if(!rr && v == http::method::head)
-            rr = _router->resolve_url(http::method::get, req.target());
-        
-        evmvc::response<Body, Allocator, Send> res(req, send);
-        
-        if(!rr){
-            res.send_bad_request("Invalid route");
-            return;
-        }
-        
-        rr->execute(req, res,
-        [&rr, &req, &res](auto error){
-            if(error){
-                res.send_bad_request(error.message());
-                return;
-            }
-        });
-    }
-     */
-    
     app_state _status;
     std::string _root_dir;
     sp_router _router;
@@ -261,14 +224,16 @@ void _on_app_request(evhtp_request_t* req, void* arg)
     
     evmvc::response res(req);
     if(!rr){
-        res.send_bad_request("Invalid route");
+        res.send_status(evmvc::status::not_found);
+        //res.send_bad_request("Invalid route");
         return;
     }
     
     rr->execute(req, res,
     [&rr, &req, &res](auto error){
         if(error){
-            res.send_bad_request(error.c_str());
+            res.send_status(evmvc::status::internal_server_error);
+            //res.send_bad_request(error.c_str());
             return;
         }
     });

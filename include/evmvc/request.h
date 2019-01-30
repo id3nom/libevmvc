@@ -27,6 +27,8 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "utils.h"
+#include "fields.h"
+#include "methods.h"
 
 #include <unordered_map>
 
@@ -90,6 +92,8 @@ public:
         return str_to_num<ParamType>(_param_value);
     }
     
+    
+    
 private:
     bool _is_valid;
     std::string _param_value;
@@ -135,6 +139,29 @@ public:
             return default_val;
         return p->second->as<ParamType>();
     }
+    
+    
+    evmvc::string_view get(evmvc::field header_name)
+    {
+        return get(to_string(header_name));
+    }
+    
+    evmvc::string_view get(evmvc::string_view header_name) const
+    {
+        evhtp_kv_t* header = nullptr;
+        if((header = evhtp_headers_find_header(
+            _ev_req->headers_in, header_name.data()
+        )) != nullptr)
+            return header->val;
+        return nullptr;
+    }
+    
+    evmvc::method method()
+    {
+        return (evmvc::method)_ev_req->method;
+    }
+    
+    
     
 protected:
     evhtp_request_t* _ev_req;

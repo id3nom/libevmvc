@@ -38,15 +38,20 @@ SOFTWARE.
 
 namespace evmvc {
 
-inline std::string str_to_lower(const std::string& str)
+inline void lower_case(std::string& str)
 {
-    std::string lstr(str);
     std::transform(
-        lstr.begin(), lstr.end(), lstr.begin(),
+        str.begin(), str.end(), str.begin(),
         [](unsigned char c){ return std::tolower(c); }
     );
-    return lstr;
 }
+
+inline std::string lower_case_copy(std::string str)
+{
+    lower_case(str);
+    return str;
+}
+
 
 inline bool iequals(const std::string& a, const std::string& b)
 {
