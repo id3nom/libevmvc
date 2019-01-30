@@ -56,6 +56,48 @@ int main(int argc, char** argv)
         );
         nxt(nullptr);
     });
+
+    srv->get("/send-json",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        evmvc::json json_val = evmvc::json::parse(
+            "{\"menu\": {"
+            "\"id\": \"file\","
+            "\"value\": \"File\","
+            "\"popup\": {"
+            "    \"menuitem\": ["
+            "    {\"value\": \"New\", \"onclick\": \"CreateNewDoc()\"},"
+            "    {\"value\": \"Open\", \"onclick\": \"OpenDoc()\"},"
+            "    {\"value\": \"Close\", \"onclick\": \"CloseDoc()\"}"
+            "    ]"
+            "}"
+            "}}"
+        );
+        res.status(evmvc::status::ok).send(json_val);
+        nxt(nullptr);
+    });
+
+    srv->get("/send-file",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        auto path = req.query_param_as<std::string>("path");
+        
+        std::clog << fmt::format("sending file: '{0}'\n", path);
+        
+        res.send_file(path, [path](evmvc::cb_error err){
+            if(err)
+                std::cerr << fmt::format(
+                    "send-file for file '{0}', failed!\n{1}\n",
+                    path, err.c_str()
+                );
+        });
+    });
+
+    srv->get("/cookies",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        res.set(evmvc::field::set_cookie, "cookie-A=123", false);
+        res.set(evmvc::field::set_cookie, "cookie-B=123", false);
+        
+        res.status(evmvc::status::ok).end();
+    });
     
     srv->listen(_ev_base);
     

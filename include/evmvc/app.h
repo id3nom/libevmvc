@@ -225,15 +225,14 @@ void _on_app_request(evhtp_request_t* req, void* arg)
     evmvc::response res(req);
     if(!rr){
         res.send_status(evmvc::status::not_found);
-        //res.send_bad_request("Invalid route");
         return;
     }
     
     rr->execute(req, res,
     [&rr, &req, &res](auto error){
         if(error){
-            res.send_status(evmvc::status::internal_server_error);
-            //res.send_bad_request(error.c_str());
+            res.status(evmvc::status::internal_server_error)
+                .send(error.c_str());
             return;
         }
     });

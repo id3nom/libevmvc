@@ -36,7 +36,26 @@ SOFTWARE.
 #include <functional>
 #include <chrono>
 
+
+
+// #define mm__alloc_(type, ...)
+//     (type*)evmvc::_miscs::mm__dup_((type[]) {__VA_ARGS__ }, sizeof(type))
+
+#define mm__alloc_(dst, type, ...) \
+{ \
+    type _tmp_types_[] = {__VA_ARGS__ }; \
+    dst = (type*)evmvc::_miscs::mm__dup_(_tmp_types_, sizeof(type)); \
+}
+
 namespace evmvc {
+namespace _miscs {
+    static void* mm__dup_(const void* src, size_t size)
+    {
+        void* mem = malloc(size);
+        return mem ? memcpy(mem, src, size) : NULL;
+    }
+   
+}
 
 inline void lower_case(std::string& str)
 {
