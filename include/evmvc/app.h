@@ -256,7 +256,7 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
         );
         
         try{
-            auto se = dynamic_cast<evmvc::stacked_error>(err);
+            auto se = dynamic_cast<const evmvc::stacked_error&>(err);
             err_msg += "\n\n" + se.stack();
         }catch(...){}
         

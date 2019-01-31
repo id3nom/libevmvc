@@ -59,6 +59,10 @@ inline std::string get_stacktrace(
     // this array must be free()-ed
     char** symbollist = backtrace_symbols(addrlist, addrlen);
     
+    for(int i = 0; i < addrlen; ++i){
+        printf("[%d] %p, %s\n\n", i, addrlist[i], symbollist[i]);
+    }
+    
     // allocate string which will be filled with the demangled function name
     size_t funcnamesize = 256;
     char* funcname = (char*)malloc(funcnamesize);
@@ -100,7 +104,7 @@ inline std::string get_stacktrace(
             if(status == 0){
                 funcname = ret; // use possibly realloc()-ed string
                 out += fmt::format(
-                    "  {} : {}+{}\n",
+                    "  {} :\n    {}+{}\n",
                     symbollist[i], funcname, begin_offset
                 );
                 // fprintf(
@@ -112,7 +116,7 @@ inline std::string get_stacktrace(
                 // demangling failed. Output function name as a C function with
                 // no arguments.
                 out += fmt::format(
-                    "  {} : {}()+{}\n",
+                    "  {} :\n    {}()+{}\n",
                     symbollist[i], begin_name, begin_offset
                 );
                 // fprintf(
@@ -126,6 +130,25 @@ inline std::string get_stacktrace(
             out += fmt::format("  {}\n", symbollist[i]);
             //fprintf(out, "  %s\n", symbollist[i]);
         }
+        
+        /* find first occurence of '(' or ' ' in message[i] and assume
+        * everything before that is the file name. (Don't go beyond 0 though
+        * (string terminator)*/
+        size_t p = 0;
+        while(symbollist[i][p] != '(' && symbollist[i][p] != ' '
+                && symbollist[i][p] != 0)
+            ++p;
+        
+        char syscom[256];
+        //last parameter is the file name of the symbol
+        sprintf(
+            syscom,
+            "addr2line -Cf -e %.*s %p",
+            (int)p,
+            symbollist[i],
+            addrlist[i]
+        );
+        system(syscom);
     }
     
     free(funcname);

@@ -53,10 +53,10 @@ public:
         _msg = std::string(err.what());
     }
 
-    cb_error(const std::exception& err): _err(err), _has_err(true)
-    {
-        _msg = std::string(err.what());
-    }
+    // cb_error(const std::exception& err): _err(err), _has_err(true)
+    // {
+    //     _msg = std::string(err.what());
+    // }
     
     virtual ~cb_error()
     {
