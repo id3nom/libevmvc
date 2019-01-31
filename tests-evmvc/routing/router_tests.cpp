@@ -119,11 +119,11 @@ TEST_F(router_test, routes)
             auto p1val = p1->as<int32_t>();
             ASSERT_EQ(p1val, 4);
             
-            if(req.route_param("p2")->is_valid()){
+            if(req.route_param("p2")){
                 auto p2val = req.route_param_as<std::string>("p2");
                 ASSERT_STREQ(p2val.c_str(), "arg2");
                 
-                if(req.route_param("p3")->is_valid()){
+                if(req.route_param("p3")){
                     ASSERT_STREQ(
                         req.route_param("p3")->as<std::string>().c_str(),
                         "arg3"
@@ -135,7 +135,9 @@ TEST_F(router_test, routes)
         });
         
         evhtp_request_t* ev_req = nullptr;
-        evmvc::response res(ev_req);
+        evmvc::sp_http_cookies c =
+            std::make_shared<evmvc::http_cookies>(ev_req);
+        evmvc::response res(ev_req, c);
         
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)

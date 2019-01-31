@@ -33,16 +33,25 @@
 
 #include "fmt/format.h"
 
-#ifndef _libevmvc_stable_headers_h
-#define _libevmvc_stable_headers_h
+extern "C" {
+#ifndef EVHTP_DISABLE_REGEX
+    #define EVHTP_DISABLE_REGEX
+#endif
+#include <event2/http.h>
+#include <evhtp/evhtp.h>
+}
 
 #include <boost/logic/tribool.hpp>
 
-#if defined(EVENT_MVC_USE_STD_STRING_VIEW)
+#ifdef EVENT_MVC_USE_STD_STRING_VIEW
     #include <string_view>
 #else
     #include <boost/utility/string_view.hpp>
 #endif
+
+#ifndef _libevmvc_stable_headers_h
+#define _libevmvc_stable_headers_h
+
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -75,6 +84,9 @@ typedef nlohmann::json json;
 class app;
 typedef std::shared_ptr<app> sp_app;
 
+namespace _miscs{
+    void on_app_request(evhtp_request_t* req, void* arg);
+}//ns evmvc::_miscs
 
 
 } //ns evmvc

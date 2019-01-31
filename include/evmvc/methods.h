@@ -27,12 +27,6 @@ SOFTWARE.
 
 #include "stable_headers.h"
 
-extern "C" {
-#define EVHTP_DISABLE_REGEX
-#include <event2/http.h>
-#include <evhtp/evhtp.h>
-}
-
 namespace evmvc {
 
 enum class method

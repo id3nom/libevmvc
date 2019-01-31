@@ -29,12 +29,7 @@ SOFTWARE.
 #include "statuses.h"
 #include "fields.h"
 #include "mime.h"
-
-extern "C" {
-#define EVHTP_DISABLE_REGEX
-#include <event2/http.h>
-#include <evhtp/evhtp.h>
-}
+#include "cookies.h"
 
 namespace evmvc {
 namespace _miscs {
@@ -115,13 +110,17 @@ class response
 {
 public:
     
-    response(evhtp_request_t* ev_req)
-        : _ev_req(ev_req),
+    response(evhtp_request_t* ev_req, const sp_http_cookies& http_cookies)
+        : _ev_req(ev_req), _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc("")
     {
     }
-
+    
+    evhtp_request_t* evhtp_request(){ return _ev_req;}
+    http_cookies& cookies() const { return *(_cookies.get());}
+    sp_http_cookies shared_cookies() const { return _cookies;}
+    
     bool started(){ return _started;};
     bool ended(){ return _ended;}
     void end()
@@ -422,6 +421,7 @@ private:
     }
     
     evhtp_request_t* _ev_req;
+    sp_http_cookies _cookies;
     bool _started;
     bool _ended;
     int16_t _status;

@@ -24,9 +24,6 @@ SOFTWARE.
 
 #include "evmvc/evmvc.h"
 
-
-
-
 int main(int argc, char** argv)
 {
     struct event_base* _ev_base = event_base_new();
@@ -91,13 +88,31 @@ int main(int argc, char** argv)
         });
     });
 
-    srv->get("/cookies",
+    srv->get("/cookies/set",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.set(evmvc::field::set_cookie, "cookie-A=123", false);
-        res.set(evmvc::field::set_cookie, "cookie-B=123", false);
+        evmvc::http_cookies::options opts;
+        opts.expires = 
+                date::sys_days{date::year(2021)/01/01} +
+                std::chrono::hours{23} + std::chrono::minutes{59} +
+                std::chrono::seconds{59};
+        opts.path = "/cookies";
+        
+        res.cookies().set("cookie-a", "abc", opts);
+        res.cookies().set("cookie-b", "def");
         
         res.status(evmvc::status::ok).end();
     });
+    
+    srv->get("/cookies/get",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        res.status(evmvc::status::ok).send(
+            fmt::format("cookie-a: {0}, cookie-b: {1}", 
+                res.cookies().get<std::string>("cookie-a"),
+                res.cookies().get<std::string>("cookie-b")
+            )
+        );
+    });
+
     
     srv->listen(_ev_base);
     

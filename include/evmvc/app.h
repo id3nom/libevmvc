@@ -28,11 +28,6 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "router.h"
 
-extern "C" {
-#define EVHTP_DISABLE_REGEX
-#include <event2/http.h>
-#include <evhtp/evhtp.h>
-}
 
 namespace evmvc {
 
@@ -44,12 +39,10 @@ enum class app_state
     stopping,
 };
 
-void _on_app_request(evhtp_request_t* req, void* arg);
-
 class app
     : public std::enable_shared_from_this<app>
 {
-    friend void _on_app_request(evhtp_request_t* req, void* arg);
+    friend void _miscs::on_app_request(evhtp_request_t* req, void* arg);
     
 public:
     app(
@@ -101,7 +94,7 @@ public:
         _status = app_state::starting;
         
         _evhtp = evhtp_new(_evbase, NULL);
-        evhtp_set_gencb(_evhtp, _on_app_request, this);
+        evhtp_set_gencb(_evhtp, _miscs::on_app_request, this);
         evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
         
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
@@ -203,7 +196,7 @@ private:
     
 };
 
-void _on_app_request(evhtp_request_t* req, void* arg)
+void _miscs::on_app_request(evhtp_request_t* req, void* arg)
 {
     app* a = (app*)arg;
     
@@ -222,7 +215,8 @@ void _on_app_request(evhtp_request_t* req, void* arg)
         rr = a->_router->resolve_url(evmvc::method::get, dp);
     free(dp);
     
-    evmvc::response res(req);
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
+    evmvc::response res(req, c);
     if(!rr){
         res.send_status(evmvc::status::not_found);
         return;
@@ -237,7 +231,6 @@ void _on_app_request(evhtp_request_t* req, void* arg)
         }
     });
 }
-
 
 } // ns evmvc
 #endif //_libevmvc_app_h

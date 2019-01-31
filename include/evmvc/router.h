@@ -29,9 +29,6 @@ SOFTWARE.
 
 extern "C" {
 #include <pcre.h>
-#define EVHTP_DISABLE_REGEX
-#include <event2/http.h>
-#include <evhtp/evhtp.h>
 }
 
 #include "cb_def.h"
@@ -223,8 +220,7 @@ private:
         evmvc::response& res,
         async_cb cb)
     {
-        evmvc::request req(ev_req, params);
-        //evmvc::request<ReqBody, ReqAllocator> rreq(req, params);
+        evmvc::request req(ev_req, res.shared_cookies(), params);
         _exec(req, res, 0, cb);
     }
     
