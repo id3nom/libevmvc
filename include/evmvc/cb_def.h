@@ -34,7 +34,6 @@ SOFTWARE.
 #include "traits.h"
 #include "utils.h"
 
-
 namespace evmvc {
 
 class cb_error
@@ -52,17 +51,15 @@ public:
     cb_error(const std::exception& err): _err(err), _has_err(true)
     {
         _msg = std::string(err.what());
-        // std::stringstream ss;
-        // ss << "Error:\n" << err.what() << std::endl;
-        // msg = new char[ss.str().length() +1];
-        // std::strncpy(msg, ss.str().c_str(), ss.str().length() +1);
-        // msg[ss.str().length()] = 0;
+    }
+
+    cb_error(const std::exception& err): _err(err), _has_err(true)
+    {
+        _msg = std::string(err.what());
     }
     
     virtual ~cb_error()
     {
-        // if(msg)
-        // 	delete[] msg;
     }
     
     const std::exception& error() const { return _err;}

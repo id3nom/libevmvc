@@ -203,9 +203,14 @@ public:
                 ovector[2*n+1] - ovector[2*n]
             );
             
+            char* dp = evhttp_uridecode(pval.c_str(), false, nullptr);
             rr->params.emplace(
-                std::make_pair(pname, std::make_shared<http_param>(pval))
+                std::make_pair(
+                    pname,
+                    std::make_shared<http_param>(std::string(dp))
+                )
             );
+            free(dp);
             
             tabptr += name_entry_size;
         }

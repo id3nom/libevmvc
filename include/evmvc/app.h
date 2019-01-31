@@ -28,6 +28,13 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "router.h"
 
+#include "stack_debug.h"
+
+// #include <execinfo.h>
+// #include <stdio.h>
+// #include <stdlib.h>
+// #include <unistd.h>
+// #include <cxxabi.h>
 
 namespace evmvc {
 
@@ -45,6 +52,14 @@ class app
     friend void _miscs::on_app_request(evhtp_request_t* req, void* arg);
     
 public:
+    class options
+    {
+    public:
+        
+        
+        
+    };
+
     app(
         const evmvc::string_view& root_dir)
         : _status(app_state::stopped), _root_dir(root_dir),
@@ -208,12 +223,11 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
     else
         sv = evmvc::method_to_string(v);
     
-    char* dp = evhttp_decode_uri(req->uri->path->full);
-    
-    auto rr = a->_router->resolve_url(v, dp);
+    //char* dp = evhttp_decode_uri(req->uri->path->full);
+    auto rr = a->_router->resolve_url(v, req->uri->path->full);
     if(!rr && v == evmvc::method::head)
-        rr = a->_router->resolve_url(evmvc::method::get, dp);
-    free(dp);
+        rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
+    //free(dp);
     
     evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
     evmvc::response res(req, c);
@@ -222,14 +236,70 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
         return;
     }
     
-    rr->execute(req, res,
-    [&rr, &req, &res](auto error){
-        if(error){
-            res.status(evmvc::status::internal_server_error)
-                .send(error.c_str());
-            return;
-        }
-    });
+    try{
+        rr->execute(req, res,
+        [&rr, &req, &res](auto error){
+            if(error){
+                res.status(evmvc::status::internal_server_error)
+                    .send(error.c_str());
+                return;
+            }
+        });
+    }catch(const std::exception& err){
+        std::string err_msg = fmt::format(
+            "Error {}, {}\n{}",
+            (int16_t)evmvc::status::internal_server_error,
+            evmvc::statuses::status(
+                (int16_t)evmvc::status::internal_server_error
+            ).data(),
+            err.what()
+        );
+        
+        try{
+            auto se = dynamic_cast<evmvc::stacked_error>(err);
+            err_msg += "\n\n" + se.stack();
+        }catch(...){}
+        
+        res.status(evmvc::status::internal_server_error)
+            .send(err_msg);
+
+        // int j, nptrs;
+        // void* buffer[100];
+        // char** strings;
+        // nptrs = backtrace(buffer, 100);
+        // std::cerr << 
+        //     fmt::format("backtrace() returned {} addresses\n", nptrs);
+        
+        // strings = backtrace_symbols(buffer, nptrs);
+        // if (strings == NULL) {
+        //     std::cerr << "failed to retrieve backtrace_symbols";
+        //     res.status(evmvc::status::internal_server_error)
+        //         .send(err.what());
+        //     return;
+        // }
+        
+        // std::string err_msg = fmt::format(
+        //     "Error {}, {}\n{}",
+        //     (int16_t)evmvc::status::internal_server_error,
+        //     evmvc::statuses::status(
+        //         (int16_t)evmvc::status::internal_server_error
+        //     ).data(),
+        //     err.what()
+        // );
+        
+        // for(j = 0; j < nptrs; j++){
+        //     int status;
+        //     char* realname;
+            
+        //     err_msg += strings[j];
+        //     err_msg += "\n";
+        // }
+        
+        // free(strings);
+        
+        // res.status(evmvc::status::internal_server_error)
+        //     .send(err_msg);
+    }
 }
 
 } // ns evmvc

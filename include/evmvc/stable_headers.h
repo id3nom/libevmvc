@@ -90,4 +90,26 @@ namespace _miscs{
 
 
 } //ns evmvc
+
+#include "stack_debug.h"
+
+namespace evmvc {
+class stacked_error : public std::runtime_error 
+{
+public:
+    stacked_error(evmvc::string_view message)
+        : std::runtime_error(message.data()),
+        _stack(evmvc::_miscs::get_stacktrace())
+    {
+    }
+    
+    ~stacked_error(){}
+    
+    std::string stack() const { return _stack;}
+    
+private:
+    std::string _stack;
+};
+} //ns evmvc
+
 #endif //_libevmvc_stable_headers_h

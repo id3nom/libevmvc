@@ -69,21 +69,32 @@ public:
     class options
     {
     public:
-        options() = default;
+        options()
+            : expires(), max_age(-1),
+            domain(""), path(""),
+            secure(false), http_only(true),
+            site(same_site::none), enc(encoding::base64)
+        {
+        }
         
-        // date::sys_seconds expires =
-        //     date::sys_days{date::year(1969)/31/12} +
-        //     std::chrono::hours{23} + std::chrono::minutes{59} +
-        //     std::chrono::seconds{59};
-        boost::optional<date::sys_seconds> expires = {};
+        options(const options& o)
+            : expires(o.expires), max_age(o.max_age),
+            domain(o.domain), path(o.path),
+            secure(o.secure), http_only(o.http_only),
+            site(o.site), enc(o.enc)
+        {
+        }
+        //options(options&&) = default;
         
-        int max_age = -1;
-        evmvc::string_view domain = "";
-        evmvc::string_view path = "";
-        bool secure = false;
-        bool http_only = true;
-        same_site site = same_site::none;
-        encoding enc = encoding::base64;
+        boost::optional<date::sys_seconds> expires;
+        
+        int max_age;
+        evmvc::string_view domain;
+        evmvc::string_view path;
+        bool secure;
+        bool http_only;
+        same_site site;
+        encoding enc;
     };
     
     
@@ -189,15 +200,14 @@ public:
     template<
         typename CookieType,
         typename std::enable_if<
-            std::is_same<std::string, CookieType>::value ||
-            std::is_same<evmvc::string_view, CookieType>::value
+            std::is_convertible<CookieType, evmvc::string_view>::value
         , int32_t>::type = -1
     >
     inline CookieType get(
         evmvc::string_view name,
         http_cookies::encoding enc = http_cookies::encoding::base64) const
     {
-        return _get_raw(name, enc).to_string();
+        return _get_raw(name, enc);
     }
     
     template<
@@ -211,7 +221,7 @@ public:
         const CookieType& def_val,
         http_cookies::encoding enc = http_cookies::encoding::base64) const
     {
-        return exists(name) ? _get_raw(name, enc).to_string() : def_val;
+        return exists(name) ? _get_raw(name, enc) : def_val;
     }
     
     
@@ -240,6 +250,33 @@ public:
         http_cookies::encoding enc = http_cookies::encoding::base64) const
     {
         return exists(name) ? to_bool(_get_raw(name, enc)) : def_val;
+    }
+    
+    template<
+        typename CookieType,
+        typename std::enable_if<
+            std::is_same<CookieType, evmvc::json>::value
+        , int32_t>::type = -1
+    >
+    inline CookieType get(
+        evmvc::string_view name,
+        http_cookies::encoding enc = http_cookies::encoding::base64) const
+    {
+        return evmvc::json::parse(_get_raw(name, enc));
+    }
+    
+    template<
+        typename CookieType,
+        typename std::enable_if<
+            std::is_same<CookieType, evmvc::json>::value
+        , int32_t>::type = -1
+    >
+    inline CookieType get(
+        evmvc::string_view name,
+        const CookieType& def_val,
+        http_cookies::encoding enc = http_cookies::encoding::base64) const
+    {
+        return exists(name) ? evmvc::json::parse(_get_raw(name, enc)) : def_val;
     }
     
     template<
@@ -289,6 +326,29 @@ public:
         _set(name, evmvc::to_string(val), opts);
     }
     
+    template<
+        typename CookieType,
+        typename std::enable_if<
+            std::is_same<CookieType, evmvc::json>::value
+        , int32_t>::type = -1
+    >
+    inline void set(
+        evmvc::string_view name,
+        const CookieType& val,
+        const http_cookies::options& opts = {})
+    {
+        _set(name, val.dump(), opts);
+    }
+    
+    inline void clear(
+        evmvc::string_view name,
+        const http_cookies::options& opts = {})
+    {
+        http_cookies::options clear_opts = opts;
+        clear_opts.max_age = 0;
+        _set(name, "", clear_opts);
+    }
+    
 private:
     
     inline void _set(
@@ -303,7 +363,7 @@ private:
                 val);
         cv += std::string(enc_v.data(), enc_v.size()) + "; ";
         
-        if(opts.expires){
+        if(opts.max_age < 0 && opts.expires){
             auto daypoint = date::floor<date::days>(*opts.expires);
             auto ymd = date::year_month_day(daypoint);
             auto tod = date::make_time(*opts.expires - daypoint);
@@ -364,37 +424,63 @@ private:
         evmvc::string_view svk;
         evmvc::string_view svv;
         
-        size_t ks = 0;
-        size_t vs = 0;
+        ssize_t ks = 0;
+        ssize_t vs = 0;
         for(size_t i = 0; i < header->vlen; ++i)
             if(header->val[i] == '='){
                 if(svk.size() > 0)
                     _cookies.emplace(svk, svv);
                 
+                // trim key start space
+                while((size_t)ks <= i && header->val[ks] == ' ')
+                    ++ks;
+                if((size_t)ks == i){
+                    std::clog << fmt::format(
+                        "Invalid cookie value: '{0}'", header->val
+                    );
+                    return;
+                }
+                
                 svk = evmvc::string_view(header->val + ks, i - ks);
+                if(i == header->vlen -1){
+                    std::clog << fmt::format(
+                        "Invalid cookie value: '{0}'", header->val
+                    );
+                    return;
+                }
+                
                 vs = i + 1;
             }else if(header->val[i] == ';'){
                 svv = evmvc::string_view(header->val + vs, i - vs);
+                if(i == header->vlen -1){
+                    ks = -1;
+                    break;
+                }
+                ks = i + 1;
             }
         
-        if(svk.size() > 0){
+        if(ks > -1 && svk.size() > 0){
             svv = evmvc::string_view(header->val + vs, header->vlen - vs);
             _cookies.emplace(svk, svv);
         }
     }
     
-    inline evmvc::string_view _get_raw(
+    inline std::string _get_raw(
         evmvc::string_view name, http_cookies::encoding enc) const
     {
         _init_get();
         const auto it = _cookies.find(name);
         if(it == _cookies.end())
-            throw std::runtime_error(
+            throw evmvc::stacked_error(
                 fmt::format("Cookie '{0}' was not found!", name.data())
             );
         
-        return enc == http_cookies::encoding::base64 ?
-            evmvc::base64_decode(it->second) : it->second;
+        return
+            enc == http_cookies::encoding::base64 ?
+                evmvc::base64_decode(
+                    std::string(it->second.data(), it->second.size())
+                ) :
+                std::string(it->second.data(), it->second.size());
     }
     
     inline void _lock()
@@ -407,43 +493,6 @@ private:
     mutable cookie_map _cookies;
     bool _locked;
 };
-
-
-
-// template<>
-// inline std::string evmvc::http_cookies::get<std::string, -1>(
-//     evmvc::string_view name,
-//     http_cookies::encoding enc) const
-// {
-//     return _get_raw(name, enc).to_string();
-// }
-//
-// template<>
-// inline std::string evmvc::http_cookies::get<std::string, -1>(
-//     evmvc::string_view name,
-//     const std::string& def_val,
-//     http_cookies::encoding enc) const
-// {
-//     return exists(name) ? _get_raw(name, enc).to_string() : def_val;
-// }
-//
-// template<>
-// inline bool evmvc::http_cookies::get<bool, -1>(
-//     evmvc::string_view name,
-//     http_cookies::encoding enc) const
-// {
-//     return to_bool(_get_raw(name, enc));
-// }
-//
-// template<>
-// inline bool evmvc::http_cookies::get<bool, -1>(
-//     evmvc::string_view name,
-//     const bool& def_val,
-//     http_cookies::encoding enc) const
-// {
-//     return exists(name) ? to_bool(_get_raw(name, enc)) : def_val;
-// }
-
 
 } //ns evmvc
 #endif //_libevmvc_cookies_h

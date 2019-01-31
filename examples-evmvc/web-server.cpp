@@ -98,7 +98,10 @@ int main(int argc, char** argv)
         opts.path = "/cookies";
         
         res.cookies().set("cookie-a", "abc", opts);
-        res.cookies().set("cookie-b", "def");
+        
+        opts = {};
+        opts.path = "/";
+        res.cookies().set("cookie-b", "def", opts);
         
         res.status(evmvc::status::ok).end();
     });
@@ -108,11 +111,22 @@ int main(int argc, char** argv)
         res.status(evmvc::status::ok).send(
             fmt::format("cookie-a: {0}, cookie-b: {1}", 
                 res.cookies().get<std::string>("cookie-a"),
-                res.cookies().get<std::string>("cookie-b")
+                res.cookies().get<std::string>("cookie-b", "do not exists!")
             )
         );
     });
-
+    
+    srv->get("/cookies/clear/:[name]/:[path]",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        evmvc::http_cookies::options opts;
+        opts.path = req.route_param_as<std::string>("path", "");
+        
+        res.cookies().clear(
+            req.route_param_as<std::string>("name", "cookie-b"),
+            opts
+        );
+        res.status(evmvc::status::ok).end();
+    });
     
     srv->listen(_ev_base);
     

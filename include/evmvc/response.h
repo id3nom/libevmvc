@@ -126,7 +126,7 @@ public:
     void end()
     {
         if(!_started)
-            this->_start_reply();
+            this->encoding("utf-8").type("txt")._start_reply();
         
         evhtp_send_reply_end(_ev_req);
         _ended = true;
@@ -189,7 +189,7 @@ public:
         return *this;
     }
     
-    evmvc::string_view get(evmvc::field header_name)
+    evmvc::string_view get(evmvc::field header_name) const
     {
         return get(to_string(header_name));
     }
@@ -204,6 +204,24 @@ public:
         return nullptr;
     }
     
+    std::vector<evmvc::string_view> list(evmvc::field header_name) const
+    {
+        return list(to_string(header_name));
+    }
+    
+    std::vector<evmvc::string_view> list(evmvc::string_view header_name) const
+    {
+        std::vector<evmvc::string_view> vals;
+        
+        evhtp_kv_t* kv;
+        TAILQ_FOREACH(kv, _ev_req->headers_out, next){
+            if(strcmp(kv->key, header_name.data()) == 0)
+                vals.emplace_back(kv->val);
+        }
+        
+        return vals;
+    }
+    
     response& remove_header(evmvc::field header_name)
     {
         return remove_header(to_string(header_name));
@@ -212,7 +230,7 @@ public:
     response& remove_header(evmvc::string_view header_name)
     {
         evhtp_kv_t* header = nullptr;
-        if((header = evhtp_headers_find_header(
+        while((header = evhtp_headers_find_header(
             _ev_req->headers_out, header_name.data()
         )) != nullptr)
             evhtp_header_rm_and_free(_ev_req->headers_out, header);
@@ -222,9 +240,9 @@ public:
     
     int16_t get_status()
     {
-        return _status == -1 ? 200 : _status;
+        return _status == -1 ? (int16_t)evmvc::status::ok : _status;
     }
-
+    
     response& status(evmvc::status code)
     {
         _status = (uint16_t)code;
@@ -266,11 +284,11 @@ public:
         
         return *this;
     }
-
+    
     void send_status(evmvc::status code)
     {
-        this->status((uint16_t)code);
-        this->send(evmvc::statuses::status((uint16_t)code));
+        this->status((uint16_t)code)
+            .send(evmvc::statuses::status((uint16_t)code));
     }
     
     void send_status(uint16_t code)

@@ -164,6 +164,13 @@ public:
         return default_val;
     }
     
+    evmvc::method method()
+    {
+        return (evmvc::method)_ev_req->method;
+    }
+    
+    
+    
     evmvc::string_view get(evmvc::field header_name)
     {
         return get(to_string(header_name));
@@ -179,9 +186,22 @@ public:
         return nullptr;
     }
     
-    evmvc::method method()
+    std::vector<evmvc::string_view> list(evmvc::field header_name) const
     {
-        return (evmvc::method)_ev_req->method;
+        return list(to_string(header_name));
+    }
+    
+    std::vector<evmvc::string_view> list(evmvc::string_view header_name) const
+    {
+        std::vector<evmvc::string_view> vals;
+        
+        evhtp_kv_t* kv;
+        TAILQ_FOREACH(kv, _ev_req->headers_out, next){
+            if(strcmp(kv->key, header_name.data()) == 0)
+                vals.emplace_back(kv->val);
+        }
+        
+        return vals;
     }
     
     
