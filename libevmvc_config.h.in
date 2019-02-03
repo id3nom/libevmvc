@@ -28,7 +28,8 @@ SOFTWARE.
 #ifndef _EVMVC_CONFIG_H_
 #define _EVMVC_CONFIG_H_
 
-#define EVMVC_VERSION @libevmvc_VERSION@
+#define EVMVC_VERSION_NAME "libevmvc/@libevmvc_VERSION@"
+#define EVMVC_VERSION "@libevmvc_VERSION@"
 #define EVMVC_VERSION_MAJOR @libevmvc_VERSION_MAJOR@
 #define EVMVC_VERSION_MINOR @libevmvc_VERSION_MINOR@
 #define EVMVC_VERSION_PATCH @libevmvc_VERSION_PATCH@

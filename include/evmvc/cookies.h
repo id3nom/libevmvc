@@ -471,8 +471,8 @@ private:
         _init_get();
         const auto it = _cookies.find(name);
         if(it == _cookies.end())
-            throw evmvc::stacked_error(
-                fmt::format("Cookie '{0}' was not found!", name.data())
+            throw EVMVC_ERR(
+                "Cookie '{0}' was not found!", name.data()
             );
         
         return

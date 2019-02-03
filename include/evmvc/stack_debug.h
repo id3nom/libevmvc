@@ -59,9 +59,9 @@ inline std::string get_stacktrace(
     // this array must be free()-ed
     char** symbollist = backtrace_symbols(addrlist, addrlen);
     
-    for(int i = 0; i < addrlen; ++i){
-        printf("[%d] %p, %s\n\n", i, addrlist[i], symbollist[i]);
-    }
+    // for(int i = 0; i < addrlen; ++i){
+    //     printf("[%d] %p, %s\n\n", i, addrlist[i], symbollist[i]);
+    // }
     
     // allocate string which will be filled with the demangled function name
     size_t funcnamesize = 256;
@@ -69,7 +69,7 @@ inline std::string get_stacktrace(
     
     // iterate over the returned symbol lines. skip the first, it is the
     // address of this function.
-    for(int i = 1; i < addrlen; ++i){
+    for(int i = 2; i < addrlen; ++i){
         char *begin_name = 0, *begin_offset = 0, *end_offset = 0;
         
         // find parentheses and +address offset surrounding the mangled name:
@@ -131,24 +131,24 @@ inline std::string get_stacktrace(
             //fprintf(out, "  %s\n", symbollist[i]);
         }
         
-        /* find first occurence of '(' or ' ' in message[i] and assume
-        * everything before that is the file name. (Don't go beyond 0 though
-        * (string terminator)*/
-        size_t p = 0;
-        while(symbollist[i][p] != '(' && symbollist[i][p] != ' '
-                && symbollist[i][p] != 0)
-            ++p;
+        // /* find first occurence of '(' or ' ' in message[i] and assume
+        // * everything before that is the file name. (Don't go beyond 0 though
+        // * (string terminator)*/
+        // size_t p = 0;
+        // while(symbollist[i][p] != '(' && symbollist[i][p] != ' '
+        //         && symbollist[i][p] != 0)
+        //     ++p;
         
-        char syscom[256];
-        //last parameter is the file name of the symbol
-        sprintf(
-            syscom,
-            "addr2line -Cf -e %.*s %p",
-            (int)p,
-            symbollist[i],
-            addrlist[i]
-        );
-        system(syscom);
+        // char syscom[256];
+        // //last parameter is the file name of the symbol
+        // sprintf(
+        //     syscom,
+        //     "addr2line -Cf -e %.*s %p",
+        //     (int)p,
+        //     symbollist[i],
+        //     addrlist[i]
+        // );
+        // system(syscom);
     }
     
     free(funcname);

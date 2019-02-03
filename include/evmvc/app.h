@@ -27,14 +27,9 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "router.h"
-
 #include "stack_debug.h"
 
-// #include <execinfo.h>
-// #include <stdio.h>
-// #include <stdlib.h>
-// #include <unistd.h>
-// #include <cxxabi.h>
+#include <sys/utsname.h>
 
 namespace evmvc {
 
@@ -46,31 +41,40 @@ enum class app_state
     stopping,
 };
 
+class app_options
+{
+public:
+    app_options()
+    {
+    }
+    
+    app_options(evmvc::app_options&& other) = default;
+    
+    std::string root_dir = "/";
+};
+
 class app
     : public std::enable_shared_from_this<app>
 {
     friend void _miscs::on_app_request(evhtp_request_t* req, void* arg);
     
 public:
-    class options
-    {
-    public:
-        
-        
-        
-    };
-
+    
     app(
-        const evmvc::string_view& root_dir)
-        : _status(app_state::stopped), _root_dir(root_dir),
+        evmvc::app_options&& opts)
+        : _status(app_state::stopped),
+        _options(std::move(opts)),
         _router(std::make_shared<router>("/")),
         _evbase(nullptr), _evhtp(nullptr)
     {
+        std::clog << "Starting app\n" << app::version() << std::endl;
     }
     
     ~app()
     {
     }
+    
+    app_options& options(){ return _options;}
     
     app_state status()
     {
@@ -81,6 +85,28 @@ public:
     bool starting(){ return _status == app_state::starting;}
     bool running(){ return _status == app_state::running;}
     bool stopping(){ return _status == app_state::stopping;}
+    
+    static std::string version()
+    {
+        static std::string ver;
+        static bool version_init = false;
+        if(!version_init){
+            version_init = true;
+            
+            struct utsname uts;
+            uname(&uts);
+            
+            ver = fmt::format(
+                "{}\n  built with gcc {}.{}.{} ({} {} {} {}) {}",
+                EVMVC_VERSION_NAME,
+                __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
+                uts.sysname, uts.release, uts.version, uts.machine,
+                __DATE__
+            );
+        }
+        
+        return ver;
+    }
     
     void listen(
         event_base* evbase,
@@ -204,6 +230,7 @@ public:
 private:
     
     app_state _status;
+    app_options _options;
     std::string _root_dir;
     sp_router _router;
     struct event_base* _evbase;
@@ -219,24 +246,24 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
     evmvc::string_view sv;
     
     if(v == evmvc::method::unknown)
-        sv = "";// req-> req.method_string();
+        throw EVMVC_ERR("Unknown method are not implemented!");
+        //sv = "";// req-> req.method_string();
     else
         sv = evmvc::method_to_string(v);
     
-    //char* dp = evhttp_decode_uri(req->uri->path->full);
     auto rr = a->_router->resolve_url(v, req->uri->path->full);
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
-    //free(dp);
     
     evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
     evmvc::response res(req, c);
-    if(!rr){
-        res.send_status(evmvc::status::not_found);
-        return;
-    }
     
     try{
+        if(!rr){
+            res.send_status(evmvc::status::not_found);
+            return;
+        }
+        
         rr->execute(req, res,
         [&rr, &req, &res](auto error){
             if(error){
@@ -246,59 +273,64 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
             }
         });
     }catch(const std::exception& err){
+
+        char* what = evhttp_htmlescape(err.what());
+
         std::string err_msg = fmt::format(
-            "Error {}, {}\n{}",
+            "<!DOCTYPE html><html><head><title>"
+            "LIBEVMVC Error</title></head><body>"
+            "<table>\n<tr><td style='background-color:red;font-size:1.1em;'>"
+                "<b>Error summary</b>"
+            "</td></tr>\n"
+            "<tr><td style='color:red;'><b>Error {}, {}</b></td></tr>\n"
+            "<tr><td style='color:red;'>{}</td></tr>\n",
             (int16_t)evmvc::status::internal_server_error,
             evmvc::statuses::status(
                 (int16_t)evmvc::status::internal_server_error
             ).data(),
-            err.what()
+            what
         );
+        free(what);
         
         try{
             auto se = dynamic_cast<const evmvc::stacked_error&>(err);
-            err_msg += "\n\n" + se.stack();
+            
+            char* file = evhttp_htmlescape(se.file().data());
+            char* func = evhttp_htmlescape(se.func().data());
+            char* stack = evhttp_htmlescape(se.stack().c_str());
+            
+            err_msg += fmt::format(
+                "<tr><td>&nbsp;</td></tr>\n"
+                "<tr><td style='"
+                    "border-bottom: 1px solid black;"
+                    "font-size:1.1em;"
+                    "'>"
+                    "<b>Additional info</b>"
+                "</td></tr>\n"
+                "<tr><td><pre>"
+                "\n\n{}:{}\n{}\n\n{}"
+                "</pre></td></tr>\n",
+                file, se.line(), func, stack
+            );
+            
+            free(file);
+            free(func);
+            free(stack);
+            
         }catch(...){}
         
-        res.status(evmvc::status::internal_server_error)
+        err_msg += fmt::format(
+            "<tr><td style='"
+            "border-top: 1px solid black; font-size:0.9em'>{}"
+            "</td></tr>\n",
+            app::version()
+        );
+        
+        err_msg += "</table></body></html>";
+        
+        res.encoding("utf-8").type("html")
+            .status(evmvc::status::internal_server_error)
             .send(err_msg);
-
-        // int j, nptrs;
-        // void* buffer[100];
-        // char** strings;
-        // nptrs = backtrace(buffer, 100);
-        // std::cerr << 
-        //     fmt::format("backtrace() returned {} addresses\n", nptrs);
-        
-        // strings = backtrace_symbols(buffer, nptrs);
-        // if (strings == NULL) {
-        //     std::cerr << "failed to retrieve backtrace_symbols";
-        //     res.status(evmvc::status::internal_server_error)
-        //         .send(err.what());
-        //     return;
-        // }
-        
-        // std::string err_msg = fmt::format(
-        //     "Error {}, {}\n{}",
-        //     (int16_t)evmvc::status::internal_server_error,
-        //     evmvc::statuses::status(
-        //         (int16_t)evmvc::status::internal_server_error
-        //     ).data(),
-        //     err.what()
-        // );
-        
-        // for(j = 0; j < nptrs; j++){
-        //     int status;
-        //     char* realname;
-            
-        //     err_msg += strings[j];
-        //     err_msg += "\n";
-        // }
-        
-        // free(strings);
-        
-        // res.status(evmvc::status::internal_server_error)
-        //     .send(err_msg);
     }
 }
 

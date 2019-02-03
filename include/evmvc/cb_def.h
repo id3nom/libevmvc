@@ -48,11 +48,21 @@ public:
     cb_error(nullptr_t /*np*/): _has_err(false), _msg("")
     {}
     
-    cb_error(const std::exception& err): _err(err), _has_err(true)
+    cb_error(const std::exception& err):
+        _err(err), _has_err(true),
+        _stack()
     {
         _msg = std::string(err.what());
+        
+        try{
+            auto se = dynamic_cast<const evmvc::stacked_error&>(err);
+            _stack = se.stack();
+            _file = se.file().data();
+            _line = se.line();
+            _func = se.func().data();
+        }catch(...){}
     }
-
+    
     // cb_error(const std::exception& err): _err(err), _has_err(true)
     // {
     //     _msg = std::string(err.what());
@@ -82,11 +92,15 @@ public:
             return "No error assigned!";
         return _msg.c_str();
     }
-
+    
 private:
     std::exception _err;
     bool _has_err;
     std::string _msg;
+    std::string _stack;
+    std::string _file;
+    int _line;
+    std::string _func;
 };
 
 std::ostream& operator<<(std::ostream& s, const cb_error& v)

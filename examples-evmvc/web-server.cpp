@@ -28,7 +28,8 @@ int main(int argc, char** argv)
 {
     struct event_base* _ev_base = event_base_new();
     
-    evmvc::sp_app srv = std::make_shared<evmvc::app>("./");
+    evmvc::app_options opts;
+    evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
     
     srv->get("/test",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){

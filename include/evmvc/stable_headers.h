@@ -86,29 +86,51 @@ typedef std::shared_ptr<app> sp_app;
 
 namespace _miscs{
     void on_app_request(evhtp_request_t* req, void* arg);
-}//ns evmvc::_miscs
-
-
-} //ns evmvc
+}}//ns evmvc::_miscs
 
 #include "stack_debug.h"
 
+#define EVMVC_ERR(msg, ...) \
+    evmvc::stacked_error( \
+        fmt::format(msg, ##__VA_ARGS__), \
+        __FILE__, __LINE__, __PRETTY_FUNCTION__ \
+    )
+
 namespace evmvc {
+    
 class stacked_error : public std::runtime_error 
 {
 public:
-    stacked_error(evmvc::string_view message)
-        : std::runtime_error(message.data()),
-        _stack(evmvc::_miscs::get_stacktrace())
+    stacked_error(evmvc::string_view msg)
+        : std::runtime_error(msg.data()),
+        _stack(evmvc::_miscs::get_stacktrace()),
+        _file(), _line(), _func()
+    {
+    }
+    
+    stacked_error(
+        evmvc::string_view msg,
+        evmvc::string_view filename,
+        int line,
+        evmvc::string_view func)
+        : std::runtime_error(msg.data()),
+        _stack(evmvc::_miscs::get_stacktrace()),
+        _file(filename), _line(line), _func(func)
     {
     }
     
     ~stacked_error(){}
     
     std::string stack() const { return _stack;}
+    evmvc::string_view file(){ return _file;}
+    int line(){ return _line;}
+    evmvc::string_view func(){ return _func;}
     
 private:
     std::string _stack;
+    evmvc::string_view _file;
+    int _line;
+    evmvc::string_view _func;
 };
 } //ns evmvc
 
