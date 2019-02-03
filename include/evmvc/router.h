@@ -202,18 +202,21 @@ public:
                 (char*)(value.data() + ovector[2*n]),
                 ovector[2*n+1] - ovector[2*n]
             );
-            
-            char* dp = evhttp_uridecode(pval.c_str(), false, nullptr);
-            rr->params.emplace(
-                std::make_pair(
-                    pname,
-                    std::make_shared<http_param>(std::string(dp))
-                )
-            );
-            free(dp);
+            if(!pval.empty()){
+                char* dp = evhttp_uridecode(pval.c_str(), false, nullptr);
+                rr->params.emplace(
+                    std::make_pair(
+                        pname,
+                        std::make_shared<http_param>(std::string(dp))
+                    )
+                );
+                free(dp);
+            }
             
             tabptr += name_entry_size;
         }
+        
+        //pcre_free(name_table);
         return rr;
     }
     
@@ -225,7 +228,7 @@ private:
         evmvc::response& res,
         async_cb cb)
     {
-        evmvc::request req(ev_req, res.shared_cookies(), params);
+        evmvc::request req(res.app(), ev_req, res.shared_cookies(), params);
         _exec(req, res, 0, cb);
     }
     
@@ -331,7 +334,7 @@ private:
             }
         }
         
-        _re_pattern = _build_route_re(segs, 0) + "($|\\/$)";
+        _re_pattern = "^" + _build_route_re(segs, 0) + "($|\\/$)";
         
         const char* error = nullptr;
         int erroffset;

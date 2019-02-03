@@ -256,7 +256,7 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
     evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
-    evmvc::response res(req, c);
+    evmvc::response res(a->shared_from_this(), req, c);
     
     try{
         if(!rr){
@@ -267,15 +267,13 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
         rr->execute(req, res,
         [&rr, &req, &res](auto error){
             if(error){
-                res.status(evmvc::status::internal_server_error)
-                    .send(error.c_str());
+                res.error(evmvc::status::internal_server_error, error);
                 return;
             }
         });
     }catch(const std::exception& err){
 
         char* what = evhttp_htmlescape(err.what());
-
         std::string err_msg = fmt::format(
             "<!DOCTYPE html><html><head><title>"
             "LIBEVMVC Error</title></head><body>"
@@ -328,10 +326,63 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
         
         err_msg += "</table></body></html>";
         
-        res.encoding("utf-8").type("html")
-            .status(evmvc::status::internal_server_error)
-            .send(err_msg);
+        res.status(evmvc::status::internal_server_error).html(err_msg);
     }
+}
+
+void response::error(evmvc::status err_status, const cb_error& err)
+{
+    char* what = evhttp_htmlescape(err.c_str());
+    std::string err_msg = fmt::format(
+        "<!DOCTYPE html><html><head><title>"
+        "LIBEVMVC Error</title></head><body>"
+        "<table>\n<tr><td style='background-color:red;font-size:1.1em;'>"
+            "<b>Error summary</b>"
+        "</td></tr>\n"
+        "<tr><td style='color:red;'><b>Error {}, {}</b></td></tr>\n"
+        "<tr><td style='color:red;'>{}</td></tr>\n",
+        (int16_t)evmvc::status::internal_server_error,
+        evmvc::statuses::status(
+            (int16_t)evmvc::status::internal_server_error
+        ).data(),
+        what
+    );
+    free(what);
+    
+    if(err.has_stack()){
+        char* file = evhttp_htmlescape(err.file().c_str());
+        char* func = evhttp_htmlescape(err.func().c_str());
+        char* stack = evhttp_htmlescape(err.stack().c_str());
+        
+        err_msg += fmt::format(
+            "<tr><td>&nbsp;</td></tr>\n"
+            "<tr><td style='"
+                "border-bottom: 1px solid black;"
+                "font-size:1.1em;"
+                "'>"
+                "<b>Additional info</b>"
+            "</td></tr>\n"
+            "<tr><td><pre>"
+            "\n\n{}:{}\n{}\n\n{}"
+            "</pre></td></tr>\n",
+            file, err.line(), func, stack
+        );
+        
+        free(file);
+        free(func);
+        free(stack);
+    }
+    
+    err_msg += fmt::format(
+        "<tr><td style='"
+        "border-top: 1px solid black; font-size:0.9em'>{}"
+        "</td></tr>\n",
+        app::version()
+    );
+    
+    err_msg += "</table></body></html>";
+    
+    this->status(err_status).html(err_msg);
 }
 
 } // ns evmvc

@@ -110,13 +110,15 @@ class response
 {
 public:
     
-    response(evhtp_request_t* ev_req, const sp_http_cookies& http_cookies)
-        : _ev_req(ev_req), _cookies(http_cookies),
+    response(const sp_app& app, evhtp_request_t* ev_req,
+        const sp_http_cookies& http_cookies)
+        : _app(app), _ev_req(ev_req), _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc("")
     {
     }
     
+    evmvc::sp_app app()const { return _app;}
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
     sp_http_cookies shared_cookies() const { return _cookies;}
@@ -315,6 +317,11 @@ public:
         this->end();
     }
     
+    void html(evmvc::string_view html_val)
+    {
+        this->encoding("utf-8").type("html").send(html_val);
+    }
+    
     template<
         typename T, 
         typename std::enable_if<
@@ -405,6 +412,11 @@ public:
         evhtp_send_reply_chunk_start(_ev_req, EVHTP_RES_OK);
     }
     
+    void error(const cb_error& err)
+    {
+        this->error(evmvc::status::internal_server_error, err);
+    }
+    void error(evmvc::status err_status, const cb_error& err);
     
 private:
     void _prepare_headers()
@@ -438,6 +450,7 @@ private:
         evhtp_send_reply_start(_ev_req, _status);
     }
     
+    sp_app _app;
     evhtp_request_t* _ev_req;
     sp_http_cookies _cookies;
     bool _started;

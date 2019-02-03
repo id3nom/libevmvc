@@ -134,10 +134,13 @@ TEST_F(router_test, routes)
             next(nullptr);
         });
         
+        evmvc::app_options opts;
+        evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
+        
         evhtp_request_t* ev_req = nullptr;
         evmvc::sp_http_cookies c =
             std::make_shared<evmvc::http_cookies>(ev_req);
-        evmvc::response res(ev_req, c);
+        evmvc::response res(srv, ev_req, c);
         
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)

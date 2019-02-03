@@ -100,13 +100,15 @@ public:
         param_map;
 
     request(
+        const sp_app& app,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies,
         const param_map& p)
-        : _ev_req(ev_req), _cookies(http_cookies), _rt_params(p)
+        : _app(app), _ev_req(ev_req), _cookies(http_cookies), _rt_params(p)
     {
     }
     
+    evmvc::sp_app app() const { return _app;}
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
     sp_http_cookies shared_cookies() const { return _cookies;}
@@ -114,7 +116,7 @@ public:
     std::shared_ptr<evmvc::http_param> route_param(
         evmvc::string_view pname) const noexcept
     {
-        auto p = _rt_params.find(std::string(pname));
+        auto p = _rt_params.find(pname.to_string());
         if(p == _rt_params.end())
             return std::shared_ptr<evmvc::http_param>();
         return p->second;
@@ -125,7 +127,7 @@ public:
         const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
-        auto p = _rt_params.find(std::string(pname));
+        auto p = _rt_params.find(pname.to_string());
         if(p == _rt_params.end())
             return default_val;
         return p->second->as<ParamType>();
@@ -134,6 +136,9 @@ public:
     std::shared_ptr<evmvc::http_param> query_param(
         evmvc::string_view pname) const noexcept
     {
+        if(!_ev_req->uri->query)
+            return std::shared_ptr<evmvc::http_param>();
+        
         auto p = _ev_req->uri->query->tqh_first;
         if(p == nullptr)
             return std::shared_ptr<evmvc::http_param>();
@@ -168,8 +173,6 @@ public:
     {
         return (evmvc::method)_ev_req->method;
     }
-    
-    
     
     evmvc::string_view get(evmvc::field header_name)
     {
@@ -207,6 +210,8 @@ public:
     
     
 protected:
+
+    evmvc::sp_app _app;
     evhtp_request_t* _ev_req;
     sp_http_cookies _cookies;
     param_map _rt_params;

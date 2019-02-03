@@ -24,6 +24,20 @@ SOFTWARE.
 
 #include "evmvc/evmvc.h"
 
+#include <sys/time.h>
+extern "C" {
+#include <event2/event.h>
+}
+
+void exit_app(int, short, void* arg)
+{
+    //struct event* tev = (struct event*)arg;
+    struct event_base* ev_base = (struct event_base*)arg;// event_get_base(tev);
+    struct timeval tv = {1,0};
+    event_base_loopexit(ev_base, &tv);
+    //event_free(tev);
+}
+
 int main(int argc, char** argv)
 {
     struct event_base* _ev_base = event_base_new();
@@ -54,7 +68,7 @@ int main(int argc, char** argv)
         );
         nxt(nullptr);
     });
-
+    
     srv->get("/send-json",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
         evmvc::json json_val = evmvc::json::parse(
@@ -73,7 +87,7 @@ int main(int argc, char** argv)
         res.status(evmvc::status::ok).send(json_val);
         nxt(nullptr);
     });
-
+    
     srv->get("/send-file",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
         auto path = req.query_param_as<std::string>("path");
@@ -88,8 +102,8 @@ int main(int argc, char** argv)
                 );
         });
     });
-
-    srv->get("/cookies/set",
+    
+    srv->get("/cookies/set/:[name]/:[val]/:[path]",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
         evmvc::http_cookies::options opts;
         opts.expires = 
@@ -101,18 +115,29 @@ int main(int argc, char** argv)
         res.cookies().set("cookie-a", "abc", opts);
         
         opts = {};
-        opts.path = "/";
-        res.cookies().set("cookie-b", "def", opts);
+        opts.path = req.route_param_as<std::string>("path", "/");
+        res.cookies().set(
+            req.route_param_as<std::string>("name", "cookie-b"),
+            req.route_param_as<std::string>("val", "def"),
+            opts
+        );
         
-        res.status(evmvc::status::ok).end();
+        res.status(evmvc::status::ok).send(
+            "route: /cookies/set/:[name]/:[val]/:[path]"
+        );
     });
     
-    srv->get("/cookies/get",
+    srv->get("/cookies/get/:[name]",
     [](const evmvc::request& req, evmvc::response& res, auto nxt){
         res.status(evmvc::status::ok).send(
-            fmt::format("cookie-a: {0}, cookie-b: {1}", 
+            fmt::format("route: {}\ncookie-a: {}, {}: {}", 
+                "/cookies/get/:[name]",
                 res.cookies().get<std::string>("cookie-a"),
-                res.cookies().get<std::string>("cookie-b", "do not exists!")
+                req.route_param_as<std::string>("name", "cookie-b"),
+                res.cookies().get<std::string>(
+                    req.route_param_as<std::string>("name", "cookie-b"),
+                    "do not exists!"
+                )
             )
         );
     });
@@ -126,11 +151,30 @@ int main(int argc, char** argv)
             req.route_param_as<std::string>("name", "cookie-b"),
             opts
         );
-        res.status(evmvc::status::ok).end();
+        res.status(evmvc::status::ok).send(
+            "route: /cookies/clear/:[name]/:[path]"
+        );
+    });
+    
+    srv->get("/error",
+    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+        res.error(
+            EVMVC_ERR("testing error sending.")
+        );
+    });
+    
+    srv->get("/exit",
+    [&_ev_base](const evmvc::request& req, evmvc::response& res, auto nxt){
+        res.send_status(evmvc::status::ok);
+        struct timeval tv = {1,0};
+        struct event* tev = event_new(_ev_base, -1, 0, exit_app, _ev_base);
+        event_add(tev, &tv);
     });
     
     srv->listen(_ev_base);
     
     event_base_loop(_ev_base, 0);
+    event_base_free(_ev_base);
+    
     return 0;
 }

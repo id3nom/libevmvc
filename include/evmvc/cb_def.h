@@ -42,15 +42,14 @@ class cb_error
 public:
     static cb_error no_err;
     
-    cb_error(): _has_err(false), _msg("")
+    cb_error(): _has_err(false), _msg(""), _has_stack(false)
     {}
     
-    cb_error(nullptr_t /*np*/): _has_err(false), _msg("")
+    cb_error(nullptr_t /*np*/): _has_err(false), _msg(""), _has_stack(false)
     {}
     
     cb_error(const std::exception& err):
-        _err(err), _has_err(true),
-        _stack()
+        _err(err), _has_err(true)
     {
         _msg = std::string(err.what());
         
@@ -60,7 +59,11 @@ public:
             _file = se.file().data();
             _line = se.line();
             _func = se.func().data();
-        }catch(...){}
+            _has_stack = true;
+            
+        }catch(...){
+            _has_stack = false;
+        }
     }
     
     // cb_error(const std::exception& err): _err(err), _has_err(true)
@@ -93,10 +96,18 @@ public:
         return _msg.c_str();
     }
     
+    bool has_stack() const { return _has_stack;}
+    std::string stack() const { return _stack;}
+    std::string file() const { return _file;}
+    int line() const { return _line;}
+    std::string func() const { return _func;}
+    
 private:
     std::exception _err;
     bool _has_err;
     std::string _msg;
+    
+    bool _has_stack;
     std::string _stack;
     std::string _file;
     int _line;
