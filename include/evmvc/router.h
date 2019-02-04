@@ -99,7 +99,8 @@ public:
     
     sp_route route;
     //std::unordered_map<std::string, std::string> params;
-    evmvc::request::param_map params;
+    //evmvc::request::param_map params;
+    evmvc::http_params params;
 };
 
 class route
@@ -197,12 +198,15 @@ public:
             );
             if(!pval.empty()){
                 char* dp = evhttp_uridecode(pval.c_str(), false, nullptr);
-                rr->params.emplace(
-                    std::make_pair(
-                        pname,
-                        std::make_shared<http_param>(std::string(dp))
-                    )
+                rr->params.emplace_back(
+                    std::make_shared<evmvc::http_param>(pname, std::string(dp))
                 );
+                // rr->params.emplace(
+                //     std::make_pair(
+                //         pname,
+                //         std::make_shared<http_param>(std::string(dp))
+                //     )
+                // );
                 free(dp);
             }
             
@@ -216,7 +220,8 @@ public:
 protected:
     
     void execute(
-        const evmvc::request::param_map params,
+        const evmvc::http_params& params,
+        //const evmvc::request::param_map& params,
         evhtp_request_t* ev_req,
         evmvc::response& res,
         async_cb cb)
@@ -402,6 +407,8 @@ void route_result::execute(
 class router
     : public std::enable_shared_from_this<router>
 {
+    friend class evmvc::app;
+    
     typedef std::unordered_map<std::string, sp_router> router_map;
     typedef std::unordered_map<std::string, sp_route> route_map;
     typedef std::unordered_map<std::string, route_map> verb_map;
@@ -463,11 +470,8 @@ public:
         const evmvc::string_view& url)
     {
         std::string local_url = 
-            std::string(url)
-            .substr(
-                _path.size() + (url.starts_with("/") ? 1 : 0)
-            );
-
+            std::string(url).substr(_path.size());
+        
         // verify if child router match path
         for(auto it = _routers.begin(); it != _routers.end(); ++it)
             if(local_url.size() > it->first.size() &&
@@ -580,12 +584,12 @@ protected:
     static std::string _norm_path(const evmvc::string_view& path)
     {
         if(path.size() == 0)
-            return "";
+            return "/";
         
-        if(path.starts_with("/"))
-            return std::string(path.substr(1));
-        
-        return std::string(path);
+        std::string p(path);
+        if(p[0] == '/')
+            return p;
+        return "/" + p;
     }
     
     virtual sp_router add_handler(
@@ -654,7 +658,6 @@ class file_route_result
 {
 public:
     file_route_result(
-        //evmvc::sp_route rte,
         boost::filesystem::path filepath)
         : route_result(nullptr), _filepath(filepath)
     {
@@ -691,15 +694,12 @@ public:
         const evmvc::string_view& url)
     {
         std::string local_url = 
-            std::string(url)
-            .substr(
-                _path.size() + (url.starts_with("/") ? 1 : 0)
-            );
-        if(local_url[0] == '/')
-            local_url = local_url.substr(1);
+            std::string(url).substr(_path.size());
         
         boost::filesystem::path file_path = 
-            _base_path / boost::filesystem::path(local_url.data());
+            boost::filesystem::canonical(
+                _base_path / boost::filesystem::path(local_url.data())
+            );
         
         return std::static_pointer_cast<route_result>(
             std::make_shared<file_route_result>(file_path)

@@ -33,13 +33,22 @@ extern "C" {
 #include <event2/event.h>
 }
 
+struct exit_app_params
+{
+    event_base* ev_base;
+    event* ev;
+};
+
 void exit_app(int, short, void* arg)
 {
     //struct event* tev = (struct event*)arg;
-    struct event_base* ev_base = (struct event_base*)arg;// event_get_base(tev);
+    //struct event_base* ev_base =
+    //    (struct event_base*)arg;// event_get_base(tev);
+    struct exit_app_params* params = (struct exit_app_params*)arg;
     struct timeval tv = {1,0};
-    event_base_loopexit(ev_base, &tv);
-    //event_free(tev);
+    event_base_loopexit(params->ev_base, &tv);
+    event_free(params->ev);
+    delete(params);
 }
 
 int main(int argc, char** argv)
@@ -168,11 +177,18 @@ int main(int argc, char** argv)
     });
     
     srv->get("/exit",
-    [&_ev_base](const evmvc::request& req, evmvc::response& res, auto nxt){
+    [&_ev_base, &srv](
+        const evmvc::request& req, evmvc::response& res, auto nxt){
+        
         res.send_status(evmvc::status::ok);
         struct timeval tv = {1,0};
-        struct event* tev = event_new(_ev_base, -1, 0, exit_app, _ev_base);
-        event_add(tev, &tv);
+        struct exit_app_params* params = new exit_app_params();
+        params->ev_base = _ev_base;
+        params->ev = event_new(_ev_base, -1, 0, exit_app, params);
+        
+        event_add(params->ev, &tv);
+        
+        srv.reset();
     });
     
     srv->add_router(
@@ -187,6 +203,7 @@ int main(int argc, char** argv)
     srv->listen(_ev_base);
     
     event_base_loop(_ev_base, 0);
+    
     event_base_free(_ev_base);
     
     return 0;

@@ -40,10 +40,14 @@ class route;
 class http_param
 {
 public:
-    http_param(const evmvc::string_view& param_value)
-        : _param_value(param_value)
+    http_param(
+        const evmvc::string_view& param_name,
+        const evmvc::string_view& param_value)
+        : _param_name(param_name), _param_value(param_value)
     {
     }
+    
+    const char* name(){ return _param_name.c_str();}
     
     template<typename ParamType,
         typename std::enable_if<
@@ -80,6 +84,7 @@ public:
     }
     
 private:
+    std::string _param_name;
     std::string _param_value;
 };
 
@@ -95,16 +100,19 @@ class request
 {
 public:
 
-   typedef
-        std::unordered_map<std::string, std::shared_ptr<evmvc::http_param>>
-        param_map;
+   //typedef
+        // std::unordered_map<std::string, std::shared_ptr<evmvc::http_param>>
+        // param_map;
 
     request(
-        const sp_app& app,
+        const evmvc::sp_app& app,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies,
-        const param_map& p)
-        : _app(app), _ev_req(ev_req), _cookies(http_cookies), _rt_params(p)
+        //const param_map& p
+        const std::vector<std::shared_ptr<evmvc::http_param>> p
+        )
+        : _app(app), _ev_req(ev_req), _cookies(http_cookies),
+        _rt_params(p)
     {
     }
     
@@ -113,13 +121,18 @@ public:
     http_cookies& cookies() const { return *(_cookies.get());}
     sp_http_cookies shared_cookies() const { return _cookies;}
     
-    std::shared_ptr<evmvc::http_param> route_param(
+    sp_http_param route_param(
         evmvc::string_view pname) const noexcept
     {
-        auto p = _rt_params.find(pname.to_string());
-        if(p == _rt_params.end())
-            return std::shared_ptr<evmvc::http_param>();
-        return p->second;
+        for(auto& ele : _rt_params)
+            if(strcmp(ele->name(), pname.data()) == 0)
+                return ele;
+        
+        return sp_http_param();
+        // auto p = _rt_params.find(pname.to_string());
+        // if(p == _rt_params.end())
+        //     return std::shared_ptr<evmvc::http_param>();
+        // return p->second;
     }
     
     template<typename ParamType>
@@ -127,17 +140,22 @@ public:
         const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
-        auto p = _rt_params.find(pname.to_string());
-        if(p == _rt_params.end())
-            return default_val;
-        return p->second->as<ParamType>();
+        for(auto& ele : _rt_params)
+            if(strcmp(ele->name(), pname.data()) == 0)
+                return ele->as<ParamType>();
+        
+        return default_val;
+        // auto p = _rt_params.find(pname.to_string());
+        // if(p == _rt_params.end())
+        //     return default_val;
+        // return p->second->as<ParamType>();
     }
     
     std::shared_ptr<evmvc::http_param> query_param(
         evmvc::string_view pname) const noexcept
     {
         if(!_ev_req->uri->query)
-            return std::shared_ptr<evmvc::http_param>();
+            return sp_http_param();
         
         auto p = _ev_req->uri->query->tqh_first;
         if(p == nullptr)
@@ -148,14 +166,16 @@ public:
                 char* pval = evhttp_decode_uri(p->val);
                 std::string sval(pval);
                 free(pval);
-                return std::make_shared<evmvc::http_param>(sval);
+                return std::make_shared<evmvc::http_param>(
+                    p->key, sval
+                );
             }
             if(p == *_ev_req->uri->query->tqh_last)
                 break;
             ++p;
         }
         
-        return std::shared_ptr<evmvc::http_param>();
+        return sp_http_param();
     }
 
     template<typename ParamType>
@@ -207,6 +227,10 @@ public:
         return vals;
     }
     
+    bool is_ajax()
+    {
+        return get("X-Requested-With").compare("XMLHttpRequest") == 0;
+    }
     
     
 protected:
@@ -214,7 +238,8 @@ protected:
     evmvc::sp_app _app;
     evhtp_request_t* _ev_req;
     sp_http_cookies _cookies;
-    param_map _rt_params;
+    //param_map _rt_params;
+    evmvc::http_params _rt_params;
     
 };
 

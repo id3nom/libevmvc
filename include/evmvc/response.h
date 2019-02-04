@@ -80,7 +80,7 @@ namespace _miscs {
             /* we can now free up our little reply_ structure */
             {
                 fclose(reply->file_desc);
-               
+                
                 evhtp_safe_free(reply->buffer, evbuffer_free);
                 evhtp_safe_free(reply, free);
                 

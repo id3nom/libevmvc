@@ -67,11 +67,16 @@ public:
         _router(std::make_shared<router>("/")),
         _evbase(nullptr), _evhtp(nullptr)
     {
+        _router->_path = "";
         std::clog << "Starting app\n" << app::version() << std::endl;
     }
     
     ~app()
     {
+        _router.reset();
+        
+        if(this->running())
+            this->stop();
     }
     
     app_options& options(){ return _options;}
@@ -145,7 +150,14 @@ public:
     
     void stop()
     {
-        
+        if(stopped() || stopping())
+            throw std::runtime_error(
+                "app must be in running state to be able to stop it."
+            );
+        this->_status = app_state::stopping;
+        evhtp_unbind_socket(_evhtp);
+        evhtp_free(_evhtp);
+        this->_status = app_state::stopped;
     }
     
     sp_router all(
@@ -260,7 +272,14 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
     
     try{
         if(!rr){
-            res.send_status(evmvc::status::not_found);
+            res.error(
+                evmvc::status::not_found,
+                EVMVC_ERR(
+                    "Unable to find ressource at '{}'",
+                    req->uri->path->full
+                )
+            );
+            //res.send_status(evmvc::status::not_found);
             return;
         }
         

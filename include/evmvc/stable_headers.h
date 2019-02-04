@@ -84,6 +84,11 @@ typedef nlohmann::json json;
 class app;
 typedef std::shared_ptr<app> sp_app;
 
+class http_param;
+typedef std::shared_ptr<http_param> sp_http_param;
+
+typedef std::vector<sp_http_param> http_params;
+
 namespace _miscs{
     void on_app_request(evhtp_request_t* req, void* arg);
 }}//ns evmvc::_miscs
