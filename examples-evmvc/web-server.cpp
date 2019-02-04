@@ -22,6 +22,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+#ifndef _DEBUG
+#define _DEBUG
+#endif
+
 #include "evmvc/evmvc.h"
 
 #include <sys/time.h>
@@ -94,7 +98,7 @@ int main(int argc, char** argv)
         
         std::clog << fmt::format("sending file: '{0}'\n", path);
         
-        res.send_file(path, [path](evmvc::cb_error err){
+        res.send_file(path, "", [path](evmvc::cb_error err){
             if(err)
                 std::cerr << fmt::format(
                     "send-file for file '{0}', failed!\n{1}\n",
@@ -170,6 +174,15 @@ int main(int argc, char** argv)
         struct event* tev = event_new(_ev_base, -1, 0, exit_app, _ev_base);
         event_add(tev, &tv);
     });
+    
+    srv->add_router(
+        std::static_pointer_cast<evmvc::router>(
+            std::make_shared<evmvc::file_router>(
+                EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
+                "/html"
+            )
+        )
+    );
     
     srv->listen(_ev_base);
     

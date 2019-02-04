@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="/html/css/uikit.min.css" />
+    <link rel="stylesheet" href="/html/css/app.css" />
+    
+    <title>login example</title>
+</head>
+<body>
+
+    <div class="uk-vertical-align uk-text-center uk-height-1-1 uk-flex uk-flex-center uk-flex-middle">
+        <div class="uk-vertical-align-middle" style="width: 250px;">
+    
+        <img class="uk-margin-bottom" width="140" height="120" 
+            src="/html/images/login-logo.jpg"
+            alt="">
+    
+        <form class="uk-panel uk-panel-box uk-form">
+            <div class="uk-form-row uk-margin-small-bottom">
+                <div class="uk-inline">
+                <span class="uk-form-icon uk-form-icon-flip" uk-icon="icon: user"></span>
+                <input id="txtUsername" class="uk-width-1-1 uk-form-large"
+                    type="text"
+                    autocomplete="username" placeholder="Username"
+                    >
+                </div>
+            </div>
+            <div class="uk-form-row uk-margin-medium-bottom">
+                <div class="uk-inline">
+                <span class="uk-form-icon uk-form-icon-flip" uk-icon="icon: lock"></span>
+                <input id="txtPass" class="uk-width-1-1 uk-form-large"
+                    type="password"
+                    autocomplete="current-password" placeholder="Password"
+                    >
+                </div>
+            </div>
+            <div class="uk-form-row">
+                <a id="btnLogin"
+                    class="uk-width-1-1 uk-button uk-button-primary uk-button-large"
+                    href="#">Login</a>
+            </div>
+            
+            <div class="uk-form-row uk-text-small">
+                <label class="uk-float-left">
+                    <input type="checkbox"> Remember Me
+                </label>
+                <a class="uk-float-right uk-link uk-link-muted" href="#">
+                    Forgot Password?
+                </a>
+            </div>
+        </form>
+    
+        </div>
+    </div>
+    
+    <!--script src="static/js/login.js"></script-->
+</body>
+</html>

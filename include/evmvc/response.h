@@ -31,6 +31,8 @@ SOFTWARE.
 #include "mime.h"
 #include "cookies.h"
 
+#include <boost/filesystem.hpp>
+
 namespace evmvc {
 namespace _miscs {
     struct file_reply {
@@ -43,10 +45,10 @@ namespace _miscs {
     static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg)
     {
         struct file_reply* reply = (struct file_reply*)arg;
-        char buf[128];
+        char buf[4000];
         size_t bytes_read;
         
-        /* try to read 128 bytes from the file pointer */
+        /* try to read 4000 bytes from the file pointer */
         bytes_read = fread(buf, 1, sizeof(buf), reply->file_desc);
         
         std::clog << fmt::format("Sending {0} bytes\n", bytes_read);
@@ -367,13 +369,17 @@ public:
         this->send(path);
     }
     
-    void send_file(evmvc::string_view path, async_cb cb = evmvc::noop_cb)
+    
+    void send_file(
+        const boost::filesystem::path filepath,
+        const evmvc::string_view& enc = "utf-8", 
+        async_cb cb = evmvc::noop_cb)
     {
         FILE* file_desc = nullptr;
         struct evmvc::_miscs::file_reply* reply = nullptr;
         
         // open up the file
-        file_desc = fopen(path.data(), "r");
+        file_desc = fopen(filepath.c_str(), "r");
         BOOST_ASSERT(file_desc != nullptr);
         
         // create internal file_reply struct
@@ -401,7 +407,7 @@ public:
         
         // set file content-type
         //TODO: get file encoding
-        this->type(path);
+        this->encoding(enc).type(filepath.extension().c_str());
         this->_prepare_headers();
         _started = true;
         

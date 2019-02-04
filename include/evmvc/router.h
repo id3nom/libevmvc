@@ -36,6 +36,7 @@ extern "C" {
 #include "request.h"
 #include "response.h"
 
+#include <boost/filesystem.hpp>
 
 namespace evmvc {
 
@@ -73,14 +74,6 @@ typedef
         evmvc::response&,
         async_cb
     )> route_handler_cb;
-// template<class Send>
-// using route_handler_cb = 
-//     std::function<void(
-//         const evmvc::request&,
-//         evmvc::response<Send>&,
-//         async_cb
-//     )>;
-
 
 class route_result;
 typedef std::shared_ptr<route_result> sp_route_result;
@@ -99,7 +92,7 @@ public:
     {
     }
     
-    void execute(
+    virtual void execute(
         evhtp_request_t* req,
         evmvc::response& res, async_cb cb
     );
@@ -220,7 +213,7 @@ public:
         return rr;
     }
     
-private:
+protected:
     
     void execute(
         const evmvc::request::param_map params,
@@ -232,7 +225,7 @@ private:
         _exec(req, res, 0, cb);
     }
     
-    void _exec(
+    virtual void _exec(
         evmvc::request& req, evmvc::response& res,
         size_t hidx, async_cb cb)
     {
@@ -430,7 +423,7 @@ public:
     {
     }
     
-    ~router()
+    virtual ~router()
     {
     }
     
@@ -457,7 +450,7 @@ public:
         return it->second;
     }
     
-    sp_route_result resolve_url(
+    virtual sp_route_result resolve_url(
         evmvc::method method,
         const evmvc::string_view& url)
     {
@@ -465,12 +458,16 @@ public:
         return resolve_url(vs, url);
     }
     
-    sp_route_result resolve_url(
+    virtual sp_route_result resolve_url(
         const evmvc::string_view& method,
         const evmvc::string_view& url)
     {
-        std::string local_url = std::string(url).substr(_path.size());
-        
+        std::string local_url = 
+            std::string(url)
+            .substr(
+                _path.size() + (url.starts_with("/") ? 1 : 0)
+            );
+
         // verify if child router match path
         for(auto it = _routers.begin(); it != _routers.end(); ++it)
             if(local_url.size() > it->first.size() &&
@@ -497,63 +494,73 @@ public:
         return nullptr;
     }
     
-    sp_router all(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router all(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_route_handler("ALL", route_path, cb);
     }
-    sp_router options(
+    virtual sp_router options(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::options, route_path, cb);
     }
-    sp_router del(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router del(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::del, route_path, cb);
     }
-    sp_router head(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router head(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::head, route_path, cb);
     }
-    sp_router get(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router get(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::get, route_path, cb);
     }
-    sp_router post(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router post(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::post, route_path, cb);
     }
-    sp_router put(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router put(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::put, route_path, cb);
     }
-    sp_router connect(
+    virtual sp_router connect(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::connect, route_path, cb);
     }
-    sp_router trace(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router trace(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::trace, route_path, cb);
     }
-    sp_router patch(const evmvc::string_view& route_path, route_handler_cb cb)
+    virtual sp_router patch(
+        const evmvc::string_view& route_path, route_handler_cb cb)
     {
         return add_handler(evmvc::method::patch, route_path, cb);
     }
-    // sp_router purge(const evmvc::string_view& route_path, route_handler_cb cb)
+    // virtual sp_router purge(
+    //   const evmvc::string_view& route_path, route_handler_cb cb)
     // {
     //     return add_handler(evmvc::method::purge, route_path, cb);
     // }
-    // sp_router link(const evmvc::string_view& route_path, route_handler_cb cb)
+    // virtual sp_router link(
+    //   const evmvc::string_view& route_path, route_handler_cb cb)
     // {
     //     return add_handler(evmvc::method::link, route_path, cb);
     // }
-    // sp_router unlink(
+    // virtual sp_router unlink(
     //     const evmvc::string_view& route_path, route_handler_cb cb)
     // {
     //     return add_handler(evmvc::method::unlink, route_path, cb);
     // }
     
-    sp_router add_route_handler(
+    virtual sp_router add_route_handler(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
@@ -561,7 +568,7 @@ public:
         return add_handler(method, route_path, cb);
     }
     
-    sp_router add_router(sp_router router)
+    virtual sp_router add_router(sp_router router)
     {
         router->_parent = this->shared_from_this();
         _routers.emplace(std::make_pair(router->_path, router));
@@ -581,7 +588,7 @@ protected:
         return std::string(path);
     }
     
-    sp_router add_handler(
+    virtual sp_router add_handler(
         evmvc::method method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
@@ -590,7 +597,7 @@ protected:
         return add_handler(vs, route_path, cb);
     }
     
-    sp_router add_handler(
+    virtual sp_router add_handler(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
@@ -603,7 +610,7 @@ protected:
         return this->shared_from_this();
     }
 
-    sp_route add_route(
+    virtual sp_route add_route(
         evmvc::method method,
         const evmvc::string_view& route_path)
     {
@@ -611,7 +618,7 @@ protected:
         return add_route(vs, route_path);
     }
     
-    sp_route add_route(
+    virtual sp_route add_route(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path)
     {
@@ -642,6 +649,75 @@ protected:
 };
 
 
+class file_route_result
+    : public route_result
+{
+public:
+    file_route_result(
+        //evmvc::sp_route rte,
+        boost::filesystem::path filepath)
+        : route_result(nullptr), _filepath(filepath)
+    {
+    }
+    
+protected:
+    
+    void execute(
+        evhtp_request_t* ev_req,
+        evmvc::response& res, async_cb cb)
+    {
+        evmvc::request req(res.app(), ev_req, res.shared_cookies(), params);
+        res.send_file(_filepath, "utf-8", cb);
+    }
+    
+    boost::filesystem::path _filepath;
+};
+
+class file_router
+    : public router
+{
+public:
+    file_router(
+        const boost::filesystem::path& base_path,
+        const evmvc::string_view& virt_path)
+        : router(virt_path), _base_path(boost::filesystem::absolute(base_path))
+    {
+    }
+    
+    
+    
+    sp_route_result resolve_url(
+        const evmvc::string_view& method,
+        const evmvc::string_view& url)
+    {
+        std::string local_url = 
+            std::string(url)
+            .substr(
+                _path.size() + (url.starts_with("/") ? 1 : 0)
+            );
+        if(local_url[0] == '/')
+            local_url = local_url.substr(1);
+        
+        boost::filesystem::path file_path = 
+            _base_path / boost::filesystem::path(local_url.data());
+        
+        return std::static_pointer_cast<route_result>(
+            std::make_shared<file_route_result>(file_path)
+        );
+    }
+    
+protected:
+    
+    sp_router add_handler(
+        const evmvc::string_view& method,
+        const evmvc::string_view& route_path,
+        route_handler_cb cb)
+    {
+        throw EVMVC_ERR("Can't add new handler on file_router!");
+    }
+    
+    boost::filesystem::path _base_path;
+};
 
 } //ns evmvc
 #endif //_libevmvc_router_h

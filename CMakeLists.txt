@@ -43,7 +43,7 @@ set(Boost_USE_STATIC_RUNTIME     OFF CACHE BOOL "Boost_USE_STATIC_RUNTIME")
 set(Boost_ALL_DYN_LINK           OFF CACHE BOOL "BOOST_ALL_DYN_LINK") 
 
 set(EVMVC_BOOST_COMPONENTS
-    #filesystem
+    filesystem
     #atomic
     #date_time
     #system
