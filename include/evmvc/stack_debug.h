@@ -32,7 +32,7 @@ SOFTWARE.
 #ifndef _libevmvc_stack_debug_h
 #define _libevmvc_stack_debug_h
 
-namespace evmvc { namespace _miscs{
+namespace evmvc { namespace _internal{
 
 /** Print a demangled stack backtrace of the caller function to FILE* out. */
 inline std::string get_stacktrace(
@@ -157,5 +157,5 @@ inline std::string get_stacktrace(
     return out;
 }
 
-}} //ns evmvc::_miscs
+}} //ns evmvc::_internal
 #endif //_libevmvc_stack_debug_h

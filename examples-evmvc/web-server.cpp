@@ -200,6 +200,16 @@ int main(int argc, char** argv)
         )
     );
     
+    srv->post("/forms/login",
+    [&_ev_base, &srv](
+        const evmvc::request& req, evmvc::response& res, auto nxt){
+        
+        //multipart/form-data; boundary=---------------------------334625884604427441415954120
+        
+        
+        res.send_status(evmvc::status::internal_server_error);
+    });
+    
     srv->listen(_ev_base);
     
     event_base_loop(_ev_base, 0);

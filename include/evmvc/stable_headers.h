@@ -42,6 +42,8 @@ extern "C" {
 }
 
 #include <boost/logic/tribool.hpp>
+#include <boost/algorithm/string.hpp>
+#include <boost/filesystem.hpp>
 
 #ifdef EVENT_MVC_USE_STD_STRING_VIEW
     #include <string_view>
@@ -51,7 +53,6 @@ extern "C" {
 
 #ifndef _libevmvc_stable_headers_h
 #define _libevmvc_stable_headers_h
-
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
@@ -89,9 +90,11 @@ typedef std::shared_ptr<http_param> sp_http_param;
 
 typedef std::vector<sp_http_param> http_params;
 
-namespace _miscs{
+namespace _internal{
+    evhtp_res on_headers(
+        evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
     void on_app_request(evhtp_request_t* req, void* arg);
-}}//ns evmvc::_miscs
+}}//ns evmvc::_internal
 
 #include "stack_debug.h"
 
@@ -108,7 +111,7 @@ class stacked_error : public std::runtime_error
 public:
     stacked_error(evmvc::string_view msg)
         : std::runtime_error(msg.data()),
-        _stack(evmvc::_miscs::get_stacktrace()),
+        _stack(evmvc::_internal::get_stacktrace()),
         _file(), _line(), _func()
     {
     }
@@ -119,7 +122,7 @@ public:
         int line,
         evmvc::string_view func)
         : std::runtime_error(msg.data()),
-        _stack(evmvc::_miscs::get_stacktrace()),
+        _stack(evmvc::_internal::get_stacktrace()),
         _file(filename), _line(line), _func(func)
     {
     }

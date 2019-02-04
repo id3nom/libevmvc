@@ -44,7 +44,7 @@ typedef std::shared_ptr<http_cookies> sp_http_cookies;
 
 class http_cookies
 {
-    friend void _miscs::on_app_request(evhtp_request_t* req, void* arg);
+    friend void _internal::on_app_request(evhtp_request_t* req, void* arg);
     friend class request;
     friend class response;
     

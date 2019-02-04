@@ -17,7 +17,10 @@
             src="/html/images/login-logo.jpg"
             alt="">
     
-        <form class="uk-panel uk-panel-box uk-form">
+        <form action="/forms/login"
+            method="POST"
+            class="uk-panel uk-panel-box uk-form">
+            
             <div class="uk-form-row uk-margin-small-bottom">
                 <div class="uk-inline">
                 <span class="uk-form-icon uk-form-icon-flip" uk-icon="icon: user"></span>
@@ -37,9 +40,15 @@
                 </div>
             </div>
             <div class="uk-form-row">
-                <a id="btnLogin"
+                <!-- <a id="btnLogin"
                     class="uk-width-1-1 uk-button uk-button-primary uk-button-large"
-                    href="#">Login</a>
+                    href="#">Login</a> -->
+                <input id="btnLogin"
+                    class="uk-width-1-1 uk-button uk-button-primary uk-button-large"
+                    type="submit"
+                    formenctype="multipart/form-data"
+                    value="Login" />
+
             </div>
             
             <div class="uk-form-row uk-text-small">
@@ -50,6 +59,8 @@
                     Forgot Password?
                 </a>
             </div>
+            
+            <input name="files" type="file" multiple="multiple" />
         </form>
     
         </div>

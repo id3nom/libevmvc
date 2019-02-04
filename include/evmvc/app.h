@@ -28,6 +28,7 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "router.h"
 #include "stack_debug.h"
+#include "multipart_parser.h"
 
 #include <sys/utsname.h>
 
@@ -45,18 +46,35 @@ class app_options
 {
 public:
     app_options()
+        : base_dir(boost::filesystem::current_path()),
+        view_dir(base_dir / "views"),
+        temp_dir(base_dir / "temp")
     {
     }
     
-    app_options(evmvc::app_options&& other) = default;
+    app_options(const evmvc::app_options& other)
+        : base_dir(other.base_dir), 
+        view_dir(other.view_dir),
+        temp_dir(other.temp_dir)
+    {
+    }
     
-    std::string root_dir = "/";
+    app_options(evmvc::app_options&& other)
+        : base_dir(std::move(other.base_dir)),
+        view_dir(std::move(other.view_dir)),
+        temp_dir(std::move(other.temp_dir))
+    {
+    }
+    
+    boost::filesystem::path base_dir;
+    boost::filesystem::path view_dir;
+    boost::filesystem::path temp_dir;
 };
 
 class app
     : public std::enable_shared_from_this<app>
 {
-    friend void _miscs::on_app_request(evhtp_request_t* req, void* arg);
+    friend void _internal::on_app_request(evhtp_request_t* req, void* arg);
     
 public:
     
@@ -102,9 +120,11 @@ public:
             uname(&uts);
             
             ver = fmt::format(
-                "{}\n  built with gcc {}.{}.{} ({} {} {} {}) {}",
+                "{}\n  built with gcc v{}.{}.{}, libevhtp v{}, "
+                "({} {} {} {}) {}",
                 EVMVC_VERSION_NAME,
                 __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
+                EVHTP_VERSION,
                 uts.sysname, uts.release, uts.version, uts.machine,
                 __DATE__
             );
@@ -139,10 +159,39 @@ public:
             );
         _status = app_state::starting;
         
-        _evhtp = evhtp_new(_evbase, NULL);
-        evhtp_set_gencb(_evhtp, _miscs::on_app_request, this);
-        evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
+        // ensure app dir exists
+        // auto fs = boost::filesystem::status(_options.base_dir);
+        // if(!boost::filesystem::exists(fs) || 
+        //     !boost::filesystem::is_directory(fs)){
+        //
+        //     if(boost::filesystem::create_directories(_options.base_dir))
+        //         std::clog << fmt::format(
+        //             "Creating base_dir '{}'\n", _options.base_dir.c_str()
+        //         );
+        // }
+        if(boost::filesystem::create_directories(_options.base_dir))
+            std::clog << fmt::format(
+                "Creating base directory '{}'\n", _options.base_dir.c_str()
+            );
+        if(boost::filesystem::create_directories(_options.temp_dir))
+            std::clog << fmt::format(
+                "Creating temp directory '{}'\n", _options.temp_dir.c_str()
+            );
+        if(boost::filesystem::create_directories(_options.view_dir))
+            std::clog << fmt::format(
+                "Creating view directory '{}'\n", _options.view_dir.c_str()
+            );
         
+        _evhtp = evhtp_new(_evbase, NULL);
+        //evhtp_set_gencb(_evhtp, _internal::on_app_request, this);
+        evhtp_callback_t* cb = evhtp_set_glob_cb(
+            _evhtp, "*", _internal::on_app_request, this
+        );
+        evhtp_callback_set_hook(
+            cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
+        );
+        
+        evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
         
         _status = app_state::running;
@@ -210,21 +259,6 @@ public:
     {
         return _router->patch(route_path, cb);
     }
-    // sp_router purge(
-    //     const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return _router->purge(route_path, cb);
-    // }
-    // sp_router link(
-    //     const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return _router->link(route_path, cb);
-    // }
-    // sp_router unlink(
-    //     const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return _router->unlink(route_path, cb);
-    // }
     
     sp_router add_route_handler(
         const evmvc::string_view& verb,
@@ -243,14 +277,21 @@ private:
     
     app_state _status;
     app_options _options;
-    std::string _root_dir;
     sp_router _router;
     struct event_base* _evbase;
     struct evhtp* _evhtp;
     
 };
 
-void _miscs::on_app_request(evhtp_request_t* req, void* arg)
+evhtp_res _internal::on_headers(
+    evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
+{
+    if(evmvc::_internal::is_multipart_data(req, hdr))
+        return evmvc::_internal::parse_multipart_data(req, hdr, (app*)arg);
+    return EVHTP_RES_OK;
+}
+
+void _internal::on_app_request(evhtp_request_t* req, void* arg)
 {
     app* a = (app*)arg;
     
@@ -291,7 +332,7 @@ void _miscs::on_app_request(evhtp_request_t* req, void* arg)
             }
         });
     }catch(const std::exception& err){
-
+        
         char* what = evhttp_htmlescape(err.what());
         std::string err_msg = fmt::format(
             "<!DOCTYPE html><html><head><title>"

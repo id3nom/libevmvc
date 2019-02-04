@@ -36,8 +36,6 @@ extern "C" {
 #include "request.h"
 #include "response.h"
 
-#include <boost/filesystem.hpp>
-
 namespace evmvc {
 
 //    # simple route that will match url "/abc/123" and "/abc/123/"

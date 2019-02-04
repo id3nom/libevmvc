@@ -299,5 +299,10 @@ public:
     
 };
 
+evmvc::string_view to_string(evmvc::status sc)
+{
+    return evmvc::statuses::status((int16_t)sc);
+}
+
 } //ns evmvc
 #endif //_libevmvc_statuses_h

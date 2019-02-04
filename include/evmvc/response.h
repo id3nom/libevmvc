@@ -34,7 +34,7 @@ SOFTWARE.
 #include <boost/filesystem.hpp>
 
 namespace evmvc {
-namespace _miscs {
+namespace _internal {
     struct file_reply {
         evhtp_request_t* request;
         FILE* file_desc;
@@ -69,7 +69,7 @@ namespace _miscs {
         /* check if we have read everything from the file */
         if(feof(reply->file_desc)){
             std::clog << fmt::format("Sending last chunk\n");
-
+            
             /* now that we have read everything from the file, we must
             * first unset our on_write hook, then inform evhtp to send
             * this message as the final chunk.
@@ -376,14 +376,14 @@ public:
         async_cb cb = evmvc::noop_cb)
     {
         FILE* file_desc = nullptr;
-        struct evmvc::_miscs::file_reply* reply = nullptr;
+        struct evmvc::_internal::file_reply* reply = nullptr;
         
         // open up the file
         file_desc = fopen(filepath.c_str(), "r");
         BOOST_ASSERT(file_desc != nullptr);
         
         // create internal file_reply struct
-        mm__alloc_(reply, struct evmvc::_miscs::file_reply, {
+        mm__alloc_(reply, struct evmvc::_internal::file_reply, {
             _ev_req, file_desc, evbuffer_new(), cb
         });
         
@@ -394,14 +394,14 @@ public:
         */
         evhtp_connection_set_hook(
             _ev_req->conn, evhtp_hook_on_write,
-            (evhtp_hook)evmvc::_miscs::send_file_chunk,
+            (evhtp_hook)evmvc::_internal::send_file_chunk,
             reply
         );
         
         /* set a hook to be called when the client disconnects */
         evhtp_connection_set_hook(
             _ev_req->conn, evhtp_hook_on_connection_fini,
-            (evhtp_hook)evmvc::_miscs::send_file_fini,
+            (evhtp_hook)evmvc::_internal::send_file_fini,
             reply
         );
         

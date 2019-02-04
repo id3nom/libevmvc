@@ -1,0 +1,33 @@
+Host: www.w3schools.com
+User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0
+Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
+Accept-Language: en-US,en;q=0.8,fr-CA;q=0.5,fr;q=0.3
+Accept-Encoding: gzip, deflate, br
+Referer: https://www.w3schools.com/TAGs/tryit.asp?filename=tryhtml_form_enctype
+Content-Type: multipart/form-data; boundary=---------------------------15774216562532776111675524662
+Content-Length: 65113
+Cookie: ASPSESSIONIDSSSRBABS=GFPMGCCAMPHMOPNBFBGAPCGD; ASPSESSIONIDQQQSBAAS=IGAEJFEALOACHACMNKAJAMDF; G_ENABLED_IDPS=google
+DNT: 1
+Connection: keep-alive
+Upgrade-Insecure-Requests: 1
+
+
+-----------------------------15774216562532776111675524662
+Content-Disposition: form-data; name="fname"
+
+md
+-----------------------------15774216562532776111675524662
+Content-Disposition: form-data; name="lname"
+
+den
+-----------------------------15774216562532776111675524662
+Content-Disposition: form-data; name="myfiles"; filename="fontawesome-webfont.woff2"
+Content-Type: application/octet-stream
+
+data of the fontawesome file...
+-----------------------------15774216562532776111675524662
+Content-Disposition: form-data; name="myfiles"; filename="name.txt"
+Content-Type: text/plain
+
+the file path
+-----------------------------15774216562532776111675524662--
