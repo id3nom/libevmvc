@@ -18,7 +18,12 @@
             "cStandard": "c11",
             "cppStandard": "c++14",
             "intelliSenseMode": "gcc-x64",
-            "configurationProvider": "vector-of-bool.cmake-tools"
+            "browse": {
+                "path":[
+                    "${workspaceFolder}"
+                ],
+                "limitSymbolsToIncludedHeaders": true
+            }
         }
     ],
     "version": 4

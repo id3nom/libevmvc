@@ -70,11 +70,14 @@ typedef struct multipart_content_t
 {
     multipart_content_t()
         : type(multipart_content_type::unknown),
+        content_type(""),
+        start_boundary(""), end_boundary(""),
         param(), file()
     {
     }
     
     multipart_content_type type;
+    std::string content_type;
     
     std::string start_boundary;
     std::string end_boundary;
@@ -177,58 +180,6 @@ static uint64_t get_content_length(evhtp_headers_t* hdr)
 static bool parse_boundary_header(
     evmvc::_internal::multipart_parser*, char* hdr)
 {
-// The following example illustrates "multipart/form-data" encoding. Suppose we have the following form:
-
-//  <FORM action="http://server.com/cgi/handle"
-//        enctype="multipart/form-data"
-//        method="post">
-//    <P>
-//    What is your name? <INPUT type="text" name="submit-name"><BR>
-//    What files are you sending? <INPUT type="file" name="files"><BR>
-//    <INPUT type="submit" value="Send"> <INPUT type="reset">
-//  </FORM>
-
-// If the user enters "Larry" in the text input, and selects the text file "file1.txt", the user agent might send back the following data:
-
-//    Content-Type: multipart/form-data; boundary=AaB03x
-
-//    --AaB03x
-//    Content-Disposition: form-data; name="submit-name"
-
-//    Larry
-//    --AaB03x
-//    Content-Disposition: form-data; name="files"; filename="file1.txt"
-//    Content-Type: text/plain
-
-//    ... contents of file1.txt ...
-//    --AaB03x--
-
-// If the user selected a second (image) file "file2.gif", the user agent might construct the parts as follows:
-
-//    Content-Type: multipart/form-data; boundary=AaB03x
-
-//    --AaB03x
-//    Content-Disposition: form-data; name="submit-name"
-
-//    Larry
-//    --AaB03x
-//    Content-Disposition: form-data; name="files"
-//    Content-Type: multipart/mixed; boundary=BbC04y
-
-//    --BbC04y
-//    Content-Disposition: file; filename="file1.txt"
-//    Content-Type: text/plain
-
-//    ... contents of file1.txt ...
-//    --BbC04y
-//    Content-Disposition: file; filename="file2.gif"
-//    Content-Type: image/gif
-//    Content-Transfer-Encoding: binary
-
-//    ...contents of file2.gif...
-//    --BbC04y--
-//    --AaB03x--
-
 // Host: www.w3schools.com
 // User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0
 // Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8
@@ -244,15 +195,86 @@ static bool parse_boundary_header(
 // 
 // -----------------------------1572261267569431463538505199
 // Content-Disposition: form-data; name="fname"
-
-
+//
+//
 // -----------------------------1572261267569431463538505199
 // Content-Disposition: form-data; name="lname"
-
-
+//
+//
 // -----------------------------1572261267569431463538505199--
 
+
+// The following example illustrates "multipart/form-data" encoding. 
+// Suppose we have the following form:
+//
+//  <FORM action="http://server.com/cgi/handle"
+//        enctype="multipart/form-data"
+//        method="post">
+//    <P>
+//    What is your name? <INPUT type="text" name="submit-name"><BR>
+//    What files are you sending? <INPUT type="file" name="files"><BR>
+//    <INPUT type="submit" value="Send"> <INPUT type="reset">
+//  </FORM>
+//
+// If the user enters "Larry" in the text input, and selects the 
+// text file "file1.txt", the user agent might send back the following data:
+//
+//    Content-Type: multipart/form-data; boundary=AaB03x
+//
+//    --AaB03x
+//    Content-Disposition: form-data; name="submit-name"
+//
+//    Larry
+//    --AaB03x
+//    Content-Disposition: form-data; name="files"; filename="file1.txt"
+//    Content-Type: text/plain
+//
+//    ... contents of file1.txt ...
+//    --AaB03x--
+
+
+// If the user selected a second (image) file "file2.gif",
+// the user agent might construct the parts as follows:
+//
+//    Content-Type: multipart/form-data; boundary=AaB03x
+//
+//    --AaB03x
+//    Content-Disposition: form-data; name="submit-name"
+//
+//    Larry
+//    --AaB03x
+//    Content-Disposition: form-data; name="files"
+//    Content-Type: multipart/mixed; boundary=BbC04y
+//
+//    --BbC04y
+//    Content-Disposition: file; filename="file1.txt"
+//    Content-Type: text/plain
+//
+//    ... contents of file1.txt ...
+//    --BbC04y
+//    Content-Disposition: file; filename="file2.gif"
+//    Content-Type: image/gif
+//    Content-Transfer-Encoding: binary
+//
+//    ...contents of file2.gif...
+//    --BbC04y--
+//    --AaB03x--
+
+    std::string hdr_line(hdr);
+    size_t col_idx = hdr_line.find_first_of(":");
+    if(col_idx == std::string::npos){
+        std::cerr << "Invalid Content-Disposition header format!";
+        return false;
+    }
     
+    std::string hdr_name = hdr_line.substr(0, col_idx -1);
+    evmvc::trim(hdr_name);
+    if(hdr_name != "Content-Disposition"){
+        std::cerr << "Invalid Content-Disposition header format!";
+        return false;
+    }
+    
+    std::string hdr_val = hdr_line.substr(col_idx +1);
     
 }
 
@@ -283,7 +305,7 @@ static evhtp_res on_read_multipart_data(
                     break;
                 }
                 
-                if(mb->boundary != line){
+                if(mb->start_boundary != line){
                     free(line);
                     res = EVHTP_RES_BADREQ;
                     goto cleanup;
@@ -299,7 +321,7 @@ static evhtp_res on_read_multipart_data(
                 char* line = evbuffer_readln(
                     mb->buf, &len, EVBUFFER_EOL_CRLF
                 );
-                if(!line){
+                if(line == nullptr){
                     has_works = false;
                     break;
                 }
@@ -307,7 +329,8 @@ static evhtp_res on_read_multipart_data(
                 if(len == 0){
                     // end of header part
                     free(line);
-                    
+                    mb->state = multipart_parser_state::content;
+                    break;
                 }
                 
                 if(!parse_boundary_header(mb, line)){
