@@ -51,6 +51,13 @@ public:
         temp_dir(base_dir / "temp")
     {
     }
+
+    app_options(const boost::filesystem::path& base_directory)
+        : base_dir(base_directory),
+        view_dir(base_dir / "views"),
+        temp_dir(base_dir / "temp")
+    {
+    }
     
     app_options(const evmvc::app_options& other)
         : base_dir(other.base_dir), 
@@ -283,11 +290,23 @@ private:
     
 };
 
+void _internal::send_error(
+    evmvc::app* app, evhtp_request_t *req, int status_code)
+{
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
+    evmvc::response res(app->shared_from_this(), req, c);
+    res.send_status((evmvc::status)status_code);
+}
+
+
 evhtp_res _internal::on_headers(
     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
 {
     if(evmvc::_internal::is_multipart_data(req, hdr))
-        return evmvc::_internal::parse_multipart_data(req, hdr, (app*)arg);
+        return evmvc::_internal::parse_multipart_data(
+            req, hdr, (app*)arg,
+            ((app*)arg)->options().temp_dir
+        );
     return EVHTP_RES_OK;
 }
 

@@ -116,7 +116,7 @@ TEST_F(router_test, routes)
             rt_val = "abc-g";
             
             const auto& p1 = req.route_param("p1");
-            auto p1val = p1->as<int32_t>();
+            auto p1val = p1->get<int32_t>();
             ASSERT_EQ(p1val, 4);
             
             if(req.route_param("p2")){
@@ -125,7 +125,7 @@ TEST_F(router_test, routes)
                 
                 if(req.route_param("p3")){
                     ASSERT_STREQ(
-                        req.route_param("p3")->as<std::string>().c_str(),
+                        req.route_param("p3")->get<std::string>().c_str(),
                         "arg3"
                     );
                 }

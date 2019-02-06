@@ -17,8 +17,8 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
 */
 
-#ifndef _libevmvc_multipart_parser_h
-#define _libevmvc_multipart_parser_h
+#ifndef _libevmvc_http_param_h
+#define _libevmvc_http_param_h
 
 #include "stable_headers.h"
 #include "router.h"
@@ -86,4 +86,4 @@ inline std::string evmvc::http_param::get<std::string, -1>() const
 
 
 }//ns evmvc
-#endif //_libevmvc_multipart_parser_h
+#endif //_libevmvc_http_param_h

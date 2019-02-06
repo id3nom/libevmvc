@@ -94,6 +94,9 @@ namespace _internal{
     evhtp_res on_headers(
         evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
     void on_app_request(evhtp_request_t* req, void* arg);
+    
+    void send_error(evmvc::app* app, evhtp_request_t *req, int status_code);
+
 }}//ns evmvc::_internal
 
 #include "stack_debug.h"
