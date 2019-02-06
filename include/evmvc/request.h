@@ -77,13 +77,13 @@ public:
     {
         for(auto& ele : _rt_params)
             if(strcmp(ele->name(), pname.data()) == 0)
-                return ele->as<ParamType>();
+                return ele->get<ParamType>();
         
         return default_val;
         // auto p = _rt_params.find(pname.to_string());
         // if(p == _rt_params.end())
         //     return default_val;
-        // return p->second->as<ParamType>();
+        // return p->second->get<ParamType>();
     }
     
     std::shared_ptr<evmvc::http_param> query_param(
@@ -120,7 +120,7 @@ public:
     {
         auto p = query_param(pname);
         if(p)
-            return p->as<ParamType>();
+            return p->get<ParamType>();
         return default_val;
     }
     

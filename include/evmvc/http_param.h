@@ -49,7 +49,7 @@ public:
             std::is_same<double, ParamType>::value)
         , int32_t>::type = -1
     >
-    ParamType as() const
+    ParamType get() const
     {
         std::stringstream ss;
         ss << "Parsing from url_value to " << typeid(ParamType).name()
@@ -68,7 +68,7 @@ public:
             std::is_same<double, ParamType>::value
         , int32_t>::type = -1
     >
-    ParamType as() const
+    ParamType get() const
     {
         return str_to_num<ParamType>(_param_value);
     }
@@ -79,7 +79,7 @@ private:
 };
 
 template<>
-inline std::string evmvc::http_param::as<std::string, -1>() const
+inline std::string evmvc::http_param::get<std::string, -1>() const
 {
     return _param_value;
 }

@@ -39,53 +39,158 @@ enum class multipart_parser_state
     failed,
 };
 
-typedef struct multipart_file_t
-{
-    multipart_file_t()
-        : name(), temp_path(),
-        size(0), fd(-1)
-    {
-    }
-    
-    std::string name;
-    boost::filesystem::path temp_path;
-    
-    
-    size_t size;
-    int fd;
-    
-    
-    
-} multipart_file;
-
 enum class multipart_content_type
 {
     unknown,
+    unset,
     form,
     file,
-    files,
+    mixed,
+    alternative,
+    digest
 };
 
 typedef struct multipart_content_t
 {
     multipart_content_t()
         : type(multipart_content_type::unknown),
-        content_type(""),
-        start_boundary(""), end_boundary(""),
-        param(), file()
+        name(""), headers()
     {
     }
     
+    multipart_content_t(multipart_content_type ct)
+        : type(ct),
+        name(""), headers()
+    {
+    }
+    
+    evmvc::sp_http_param get(const evmvc::string_view& pname)
+    {
+        for(auto& ele : headers)
+            if(strcmp(ele->name(), pname.data()) == 0)
+                return ele;
+        return nullptr;
+    }
+    
     multipart_content_type type;
-    std::string content_type;
+    std::string name;
+    evmvc::http_params headers;
+    
+} multipart_content;
+
+typedef struct multipart_content_form_t
+    : public multipart_content
+{
+    multipart_content_form_t()
+        : multipart_content(multipart_content_type::form),
+        param()
+    {
+    }
+
+    multipart_content_form_t()
+        : multipart_content(multipart_content_type::form),
+        param()
+    {
+        this->headers = copy.headers;
+    }
+    
+    sp_http_param param;
+    
+} multipart_content_form;
+
+typedef struct multipart_content_file_t
+    : public multipart_content
+{
+    multipart_content_file_t()
+        : multipart_content(multipart_content_type::file),
+        temp_path(), mime_type(""), size(0), fd(-1)
+    {
+    }
+
+    multipart_content_file_t(const multipart_content& copy)
+        : multipart_content(multipart_content_type::file),
+        temp_path(), mime_type(""), size(0), fd(-1)
+    {
+        this->headers = copy.headers;
+    }
+    
+    boost::filesystem::path temp_path;
+    std::string mime_type;
+    
+    size_t size;
+    int fd;
+    
+} multipart_content_file;
+
+typedef struct multipart_content_mixed_t
+    : public multipart_content
+{
+    multipart_content_mixed_t()
+        : multipart_content(multipart_content_type::mixed),
+        start_boundary(), end_boundary(), contents()
+    {
+    }
+
+    multipart_content_mixed_t(const multipart_content& copy)
+        : multipart_content(multipart_content_type::mixed),
+        start_boundary(), end_boundary(), contents()
+    {
+        this->headers = copy.headers;
+    }
     
     std::string start_boundary;
     std::string end_boundary;
     
-    sp_http_param param;
-    std::shared<multipart_file> file;
+    std::vector<std::shared_ptr<multipart_content>> contents;
     
-} multipart_content;
+} multipart_content_mixed;
+
+typedef struct multipart_content_alternative_t
+    : public multipart_content
+{
+    multipart_content_alternative_t()
+        : multipart_content(multipart_content_type::alternative),
+        start_boundary(), end_boundary(), contents()
+    {
+    }
+
+    multipart_content_alternative_t(const multipart_content& copy)
+        : multipart_content(multipart_content_type::alternative),
+        start_boundary(), end_boundary(), contents()
+    {
+        this->headers = copy.headers;
+    }
+    
+    std::string start_boundary;
+    std::string end_boundary;
+    
+    std::vector<std::shared_ptr<multipart_content>> contents;
+    
+} multipart_content_alternative;
+
+typedef struct multipart_content_digest_t
+    : public multipart_content
+{
+    multipart_content_digest_t()
+        : multipart_content(multipart_content_type::digest),
+        start_boundary(), end_boundary(), contents()
+    {
+    }
+    
+    multipart_content_digest_t(const multipart_content& copy)
+        : multipart_content(multipart_content_type::digest),
+        start_boundary(), end_boundary(), contents()
+    {
+        this->headers = copy.headers;
+    }
+    
+    std::string start_boundary;
+    std::string end_boundary;
+    
+    std::vector<std::shared_ptr<multipart_content>> contents;
+    
+} multipart_content_digest;
+
 
 typedef struct multipart_parser_t
 {
@@ -93,8 +198,7 @@ typedef struct multipart_parser_t
         : app(nullptr),
         state(multipart_parser_state::init),
         start_boundary(""), end_boundary(""),
-        params(),
-        files(),
+        contents(),
         total_size(0), uploaded_size(0),
         buf(nullptr), current_content()
     {
@@ -106,9 +210,8 @@ typedef struct multipart_parser_t
     
     std::string start_boundary;
     std::string end_boundary;
-    evmvc::http_params params;
     
-    std::vector<std::shared<multipart_file>> files;
+    std::vector<std::shared<multipart_content>> contents;
     
     uint64_t total_size;
     uint64_t uploaded_size;
@@ -138,6 +241,24 @@ bool is_multipart_data(evhtp_request_t* req, evhtp_headers_t* hdr)
     return false;
 }
 
+static std::string get_boundary(const std::string& hdr_val)
+{
+    std::vector<std::string> kvs;
+    boost::split(kvs, hdr_val, boost::is_any_of(";"));
+    for(auto& kv_val : kvs){
+        std::vector<std::string> kv;
+        auto tkv_val = evmvc::trim_copy(kv_val);
+        boost::split(kv, tkv_val, boost::is_any_of("="));
+        
+        if(kv.size() != 2)
+            continue;
+        
+        if(evmvc::trim_copy(kv[0]) == "boundary")
+            return evmvc::trim_copy(kv[1]);
+    }
+    return "";
+}
+
 static std::string get_boundary(evhtp_headers_t* hdr)
 {
     evhtp_kv_t* header = nullptr;
@@ -145,19 +266,9 @@ static std::string get_boundary(evhtp_headers_t* hdr)
         hdr, evmvc::to_string(evmvc::field::content_type).data()
         )
     ) != nullptr){
-        std::vector<std::string> kvs;
-        boost::split(kvs, header->val, boost::is_any_of(";"));
-        for(auto& kv_val : kvs){
-            std::vector<std::string> kv;
-            auto tkv_val = evmvc::trim_copy(kv_val);
-            boost::split(kv, tkv_val, boost::is_any_of("="));
-            
-            if(kv.size() != 2)
-                continue;
-            
-            if(evmvc::trim_copy(kv[0]) == "boundary")
-                return evmvc::trim_copy(kv[1]);
-        }
+        std::string val = get_boundary(header->val);
+        if(!val.empty())
+            return val;
     }
     
     std::cerr <<
@@ -178,7 +289,7 @@ static uint64_t get_content_length(evhtp_headers_t* hdr)
 }
 
 static bool parse_boundary_header(
-    evmvc::_internal::multipart_parser*, char* hdr)
+    evmvc::_internal::multipart_parser* mp, char* hdr)
 {
 // Host: www.w3schools.com
 // User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:60.0) Gecko/20100101 Firefox/60.0
@@ -259,22 +370,80 @@ static bool parse_boundary_header(
 //    ...contents of file2.gif...
 //    --BbC04y--
 //    --AaB03x--
-
+    
     std::string hdr_line(hdr);
     size_t col_idx = hdr_line.find_first_of(":");
     if(col_idx == std::string::npos){
-        std::cerr << "Invalid Content-Disposition header format!";
+        std::cerr << "Invalid boundary header format!";
         return false;
     }
     
     std::string hdr_name = hdr_line.substr(0, col_idx -1);
-    evmvc::trim(hdr_name);
-    if(hdr_name != "Content-Disposition"){
-        std::cerr << "Invalid Content-Disposition header format!";
-        return false;
-    }
     
     std::string hdr_val = hdr_line.substr(col_idx +1);
+    mp->current_content->params.emplace_back(
+        std::make_shared<http_param>(
+            hdr_name, hdr_val
+        )
+    );
+}
+
+bool assign_content_type(evmvc::_internal::multipart_parser* mb)
+{
+    auto ct = mb->current_content->get(
+        evmvc::to_string(evmvc::field::content_type)
+    );
+    auto cd = mb->current_content->get(
+        evmvc::to_string(evmvc::field::content_disposition)
+    );
+    
+    if(ct){
+        if(ct.get<std::string>().find("multipart/mixed") !=
+            std::string::npos
+        ){
+            auto cc = std::make_shared<multipart_content_mixed>(
+                mb->current_content
+            );
+            auto boundary = get_boundary(ct.get<std::string>());
+            if(!boundary.empty()){
+                cc->start_boundary = "--" + boundary;
+                cc->end_boundary = "--" + boundary + "--";
+            }
+            mb->current_content = cc;
+            ct.reset();
+            
+        }else if(ct.get<std::string>().find("multipart/alternative") !=
+            std::string::npos
+        ){
+            auto cc = std::make_shared<multipart_content_alternative>(
+                mb->current_content
+            );
+            auto boundary = get_boundary(ct.get<std::string>());
+            if(!boundary.empty()){
+                cc->start_boundary = "--" + boundary;
+                cc->end_boundary = "--" + boundary + "--";
+            }
+            mb->current_content = cc;
+            ct.reset();
+            
+        }else if(ct.get<std::string>().find("multipart/digest") !=
+            std::string::npos
+        ){
+            auto cc = std::make_shared<multipart_content_digest>(
+                mb->current_content
+            );
+            auto boundary = get_boundary(ct.get<std::string>());
+            if(!boundary.empty()){
+                cc->start_boundary = "--" + boundary;
+                cc->end_boundary = "--" + boundary + "--";
+            }
+            mb->current_content = cc;
+            ct.reset();
+            
+        }
+        
+    }
+    
     
 }
 
@@ -312,6 +481,9 @@ static evhtp_res on_read_multipart_data(
                 }
                 // header boundary found
                 mb->state = multipart_data_parser_state::headers;
+                mb->current_content = std::make_shared<multipart_content>(
+                    multipart_content_type::unset
+                );
                 free(line);
                 break;
             }
@@ -330,6 +502,7 @@ static evhtp_res on_read_multipart_data(
                     // end of header part
                     free(line);
                     mb->state = multipart_parser_state::content;
+                    
                     break;
                 }
                 
