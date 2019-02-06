@@ -105,6 +105,12 @@ typedef struct multipart_content_t
         headers(), name(""), mime_type("text/plain")
     {
     }
+
+    multipart_content_t(multipart_content_type ct)
+        : parent(), type(ct),
+        headers(), name(""), mime_type("text/plain")
+    {
+    }
     
     multipart_content_t(
         const std::weak_ptr<multipart_subcontent>& p,
@@ -188,6 +194,12 @@ typedef struct multipart_content_file_t
 struct multipart_subcontent_t
     : public multipart_content
 {
+    multipart_subcontent_t()
+        : multipart_content(multipart_content_type::subcontent),
+        start_boundary(""), end_boundary("")//, contents()
+    {
+    }
+    
     multipart_subcontent_t(const std::weak_ptr<multipart_subcontent>& p)
         : multipart_content(p, multipart_content_type::subcontent),
         start_boundary(""), end_boundary("")//, contents()
@@ -838,9 +850,7 @@ evhtp_res parse_multipart_data(
     mp->total_size = evmvc::_internal::get_content_length(hdr);
     mp->temp_dir = temp_dir;
     
-    auto cc = std::make_shared<multipart_subcontent>(
-        nullptr
-    );
+    auto cc = std::make_shared<multipart_subcontent>();
     cc->sub_type = multipart_subcontent_type::root;
     cc->parent = std::static_pointer_cast<multipart_subcontent>(
         cc->shared_from_this()
@@ -849,14 +859,18 @@ evhtp_res parse_multipart_data(
     mp->current = mp->root_content = cc;
     
     
-    evhtp_callback_set_hook(
-        (evhtp_callback_t*)&req->hooks, evhtp_hook_on_read, 
-        (evhtp_hook)on_read_multipart_data, mp
-    );
-    evhtp_callback_set_hook(
-        (evhtp_callback_t*)&req->hooks, evhtp_hook_on_request_fini, 
-        (evhtp_hook)on_request_fini_multipart_data, mp
-    );
+    req->hooks->on_read = on_read_multipart_data;
+    req->hooks->on_read_arg = mp;
+    // evhtp_callback_set_hook(
+    //     (evhtp_callback_t*)&req->hooks, evhtp_hook_on_read, 
+    //     (evhtp_hook)on_read_multipart_data, mp
+    // );
+    req->hooks->on_request_fini = on_request_fini_multipart_data;
+    req->hooks->on_request_fini_arg = mp;
+    // evhtp_callback_set_hook(
+    //     (evhtp_callback_t*)&req->hooks, evhtp_hook_on_request_fini, 
+    //     (evhtp_hook)on_request_fini_multipart_data, mp
+    // );
     req->cbarg = mp;
     
     return EVHTP_RES_OK;
