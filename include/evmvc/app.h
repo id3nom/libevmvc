@@ -127,13 +127,22 @@ public:
             uname(&uts);
             
             ver = fmt::format(
-                "{}\n  built with gcc v{}.{}.{}, libevhtp v{}, "
-                "({} {} {} {}) {}",
+                "{}\n  built with gcc v{}.{}.{} "
+                "({} {} {} {}) {}\n"
+                "   Boost v{}\n"
+                "   {}\n" //openssl
+                "   libpcre v{}.{} {}\n"
+                "   libevent v{}\n"
+                "   libevhtp v{}\n",
                 EVMVC_VERSION_NAME,
                 __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
-                EVHTP_VERSION,
                 uts.sysname, uts.release, uts.version, uts.machine,
-                __DATE__
+                __DATE__,
+                BOOST_LIB_VERSION,
+                OPENSSL_VERSION_TEXT,
+                PCRE_MAJOR, PCRE_MINOR, EVMVC_STRING(PCRE_DATE),
+                _EVENT_VERSION,
+                EVHTP_VERSION
             );
         }
         

@@ -109,6 +109,9 @@ namespace _internal{
         __FILE__, __LINE__, __PRETTY_FUNCTION__ \
     )
 
+#define __EVMVC_STRING(s) #s
+#define EVMVC_STRING(s) __EVMVC_STRING(#s)
+
 namespace evmvc {
     
 class stacked_error : public std::runtime_error 
