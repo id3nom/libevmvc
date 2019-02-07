@@ -291,11 +291,17 @@ private:
 };
 
 void _internal::send_error(
-    evmvc::app* app, evhtp_request_t *req, int status_code)
+    evmvc::app* app, evhtp_request_t *req, int status_code,
+    evmvc::string_view msg)
 {
     evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
     evmvc::response res(app->shared_from_this(), req, c);
-    res.send_status((evmvc::status)status_code);
+    
+    res.error(
+        (evmvc::status)status_code,
+        EVMVC_ERR(msg.data())
+    );
+    //res.send_status((evmvc::status)status_code);
 }
 
 
@@ -308,6 +314,12 @@ evhtp_res _internal::on_headers(
             ((app*)arg)->options().temp_dir
         );
     return EVHTP_RES_OK;
+}
+
+void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
+{
+    auto mp = (evmvc::_internal::multipart_parser*)arg;
+    _internal::on_app_request(req, mp->app);
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)

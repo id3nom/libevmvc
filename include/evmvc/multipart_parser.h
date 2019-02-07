@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cinttypes>
 
 // max content buffer size of 10KiB
 #define EVMVC_MAX_CONTENT_BUF_LEN 10240
@@ -235,7 +236,6 @@ struct multipart_subcontent_t
     std::vector<std::shared_ptr<multipart_content>> contents;
     
 };
-//typedef struct multipart_subcontent_t multipart_subcontent;
 
 
 typedef struct multipart_parser_t
@@ -243,31 +243,33 @@ typedef struct multipart_parser_t
     multipart_parser_t()
         : app(nullptr),
         state(multipart_parser_state::init),
-        // start_boundary(""), end_boundary(""),
-        // contents(),
         total_size(0), uploaded_size(0),
-        buf(nullptr),
-        root_content(),
-        current()
+        buf(evbuffer_new()),
+        root(),
+        current(),
+        temp_dir(""),
+        completed(false)
     {
+    }
+    
+    ~multipart_parser_t()
+    {
+        evbuffer_free(buf);
     }
     
     evmvc::app* app;
     
     multipart_parser_state state;
     
-    //std::string start_boundary;
-    //std::string end_boundary;
-    //std::vector<std::shared<multipart_content>> contents;
-    
     uint64_t total_size;
     uint64_t uploaded_size;
     
     evbuf_t* buf;
     
-    std::shared_ptr<multipart_subcontent> root_content;
+    std::shared_ptr<multipart_subcontent> root;
     std::shared_ptr<multipart_content> current;
     boost::filesystem::path temp_dir;
+    bool completed;
     
 } multipart_parser;
 
@@ -446,7 +448,7 @@ static bool parse_boundary_header(
         return false;
     }
     
-    std::string hdr_name = hdr_line.substr(0, col_idx -1);
+    std::string hdr_name = hdr_line.substr(0, col_idx);
     
     std::string hdr_val = hdr_line.substr(col_idx +1);
     mp->current->headers.emplace_back(
@@ -553,6 +555,8 @@ static evhtp_res parse_end_of_section(
     bool& ended,
     char* line)
 {
+    std::clog << "parse_end_of_section\n";
+
     if(mp->current->get_parent()->start_boundary == line){
         ended = true;
         mp->state = evmvc::_internal::multipart_parser_state::headers;
@@ -586,6 +590,11 @@ static evhtp_res parse_end_of_section(
             return EVHTP_RES_SERVERR;
     }
     
+    if(ended && mp->current == mp->root){
+        std::clog << "on_read_file_data ended\n";
+        mp->completed = true;
+    }
+    
     return EVHTP_RES_OK;
 }
 
@@ -593,6 +602,8 @@ static evhtp_res on_read_form_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
+    std::clog << "on_read_form_data\n";
+    
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
     
@@ -620,6 +631,7 @@ static evhtp_res on_read_file_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
+    std::clog << "on_read_file_data\n";
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
     
@@ -630,13 +642,13 @@ static evhtp_res on_read_file_data(
         evhtp_res res = parse_end_of_section(mp, ended, line);
         if(res != EVHTP_RES_OK || ended){
             if(mf->fd != -1){
-                if(mf->append_crlf && writen(mf->fd, "\r\n", 2) < 0){
-                    std::cerr << fmt::format(
-                        "Failed to write to temp file '{}'\nErr: {}",
-                        mf->temp_path.c_str(), strerror(errno)
-                    );
-                    res = EVHTP_RES_SERVERR;
-                }
+                // if(mf->append_crlf && writen(mf->fd, "\r\n", 2) < 0){
+                //     std::cerr << fmt::format(
+                //         "Failed to write to temp file '{}'\nErr: {}",
+                //         mf->temp_path.c_str(), strerror(errno)
+                //     );
+                //     res = EVHTP_RES_SERVERR;
+                // }
                 
                 if(close(mf->fd) < 0){
                     std::cerr << fmt::format(
@@ -708,8 +720,14 @@ static evhtp_res on_read_multipart_data(
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     if(mp->state == multipart_parser_state::failed)
         return EVHTP_RES_OK;
-    
+
     size_t blen = evbuffer_get_length(buf);
+    
+    std::clog << fmt::format(
+        "on_read_multipart_data received '{}' bytes\n",
+        blen
+    );
+
     mp->uploaded_size += blen;
     evbuffer_add_buffer(mp->buf, buf);
     evbuffer_drain(buf, blen);
@@ -818,22 +836,77 @@ cleanup:
         mp->state = multipart_parser_state::failed;
     }
     
-    if(res == EVHTP_RES_BADREQ)
+    if(res == EVHTP_RES_BADREQ){
         send_error(mp->app, req, res);
-    else if(res == EVHTP_RES_SERVERR)
+        return EVHTP_RES_OK;
+    }else if(res == EVHTP_RES_SERVERR){
         send_error(mp->app, req, res);
+        return EVHTP_RES_OK;
+    }
+    // if(!mp->completed)
+    //     evhtp_request_pause(req);
     
     return EVHTP_RES_OK;
+    // return mp->completed ? 
+    //     EVHTP_RES_OK : EVHTP_RES_CONTINUE;
 }
 
 static evhtp_res on_request_fini_multipart_data(
     evhtp_request_t *req, void *arg)
 {
+    std::clog << "on_request_fini_multipart_data\n";
+    
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     delete mp;
     
     return EVHTP_RES_OK;
 }
+
+void on_multipart_request(evhtp_request_t* req, void* arg);
+
+
+
+
+
+
+// static void
+// request_cb(evhtp_request_t * req, void * arg)
+// {
+//     printf("hi %zu\n", evbuffer_get_length(req->buffer_in));
+// }
+
+// static evhtp_res
+// print_data(evhtp_request_t * req, evbuf_t * buf, void * arg)
+// {
+//     printf("Got %zu bytes\n", evbuffer_get_length(buf));
+
+//     return EVHTP_RES_OK;
+// }
+
+// static evhtp_res
+// print_new_chunk_len(evhtp_request_t * req, uint64_t len, void * arg)
+// {
+//     printf("started new chunk, %" PRIu64 " bytes\n", len);
+
+//     return EVHTP_RES_OK;
+// }
+
+// static evhtp_res
+// print_chunk_complete(evhtp_request_t * req, void * arg)
+// {
+//     printf("ended a single chunk\n");
+
+//     return EVHTP_RES_OK;
+// }
+
+// static evhtp_res
+// print_chunks_complete(evhtp_request_t * req, void * arg)
+// {
+//     printf("all chunks read\n");
+
+//     return EVHTP_RES_OK;
+// }
+
 
 
 evhtp_res parse_multipart_data(
@@ -847,6 +920,7 @@ evhtp_res parse_multipart_data(
     evmvc::_internal::multipart_parser* mp = 
         new evmvc::_internal::multipart_parser();
     
+    mp->app = arg;
     mp->total_size = evmvc::_internal::get_content_length(hdr);
     mp->temp_dir = temp_dir;
     
@@ -856,8 +930,7 @@ evhtp_res parse_multipart_data(
         cc->shared_from_this()
     );
     cc->set_boundary(boundary);
-    mp->current = mp->root_content = cc;
-    
+    mp->current = mp->root = cc;
     
     req->hooks->on_read = on_read_multipart_data;
     req->hooks->on_read_arg = mp;
@@ -871,10 +944,37 @@ evhtp_res parse_multipart_data(
     //     (evhtp_callback_t*)&req->hooks, evhtp_hook_on_request_fini, 
     //     (evhtp_hook)on_request_fini_multipart_data, mp
     // );
+    
+    req->cb = on_multipart_request;
     req->cbarg = mp;
+    
+    
+    
+    // req->cb = request_cb;
+    // req->cbarg = mp;
+
+    // evhtp_request_set_hook(
+    //     req, evhtp_hook_on_read,
+    //     (evhtp_hook)print_data, NULL
+    // );
+    // evhtp_request_set_hook(
+    //     req, evhtp_hook_on_new_chunk,
+    //     (evhtp_hook)print_new_chunk_len, NULL
+    // );
+    // evhtp_request_set_hook(
+    //     req, evhtp_hook_on_chunk_complete,
+    //     (evhtp_hook)print_chunk_complete, NULL
+    // );
+    // evhtp_request_set_hook(
+    //     req, evhtp_hook_on_chunks_complete,
+    //     (evhtp_hook)print_chunks_complete, NULL
+    // );
     
     return EVHTP_RES_OK;
 }
+
+
+
 
 
 }}//ns evmvc::_internal
