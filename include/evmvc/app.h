@@ -301,7 +301,16 @@ void _internal::send_error(
         (evmvc::status)status_code,
         EVMVC_ERR(msg.data())
     );
-    //res.send_status((evmvc::status)status_code);
+}
+
+void _internal::send_error(
+    evmvc::app* app, evhtp_request_t *req, int status_code,
+    evmvc::cb_error err)
+{
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
+    evmvc::response res(app->shared_from_this(), req, c);
+    
+    res.error((evmvc::status)status_code, err);
 }
 
 
@@ -318,6 +327,7 @@ evhtp_res _internal::on_headers(
 
 void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
+    std::clog << "on_multipart_request\n";
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     _internal::on_app_request(req, mp->app);
 }

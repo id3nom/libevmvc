@@ -424,6 +424,34 @@ public:
     }
     void error(evmvc::status err_status, const cb_error& err);
     
+    void redirect(evmvc::string_view new_location,
+        evmvc::status redir_status = evmvc::status::found)
+    {
+        switch (redir_status){
+            // Permanent redirections
+            case evmvc::status::moved_permanently:
+            case evmvc::status::permanent_redirect:
+
+            // Temporary redirections
+            case evmvc::status::found:
+            case evmvc::status::see_other:
+            case evmvc::status::temporary_redirect:
+
+            // Special redirections
+            case evmvc::status::multiple_choices:
+            case evmvc::status::not_modified:
+                
+                this->set(evmvc::field::location, new_location);
+                this->send_status(redir_status);
+                break;
+            
+            default:
+                throw EVMVC_ERR(
+                    "Invalid redirection status!\nSee 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Redirections' for valid statuses!"
+                );
+        }
+    }
+    
 private:
     void _prepare_headers()
     {

@@ -322,5 +322,10 @@ void assign_async_cb(
 }
 
 
+namespace _internal{
+    void send_error(
+        evmvc::app* app, evhtp_request_t *req, int status_code,
+        evmvc::cb_error err);
+}//ns _internal
 } //ns evmvc
 #endif //_libevmvc_cb_def_h

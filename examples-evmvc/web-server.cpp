@@ -204,10 +204,13 @@ int main(int argc, char** argv)
     [&_ev_base, &srv](
         const evmvc::request& req, evmvc::response& res, auto nxt){
         
-        //multipart/form-data; boundary=---------------------------334625884604427441415954120
+        res.redirect("/html/login-results.html");
         
-        
-        res.send_status(evmvc::status::internal_server_error);
+        // res.error(
+        //     evmvc::status::internal_server_error,
+        //     EVMVC_ERR("Not implemented!")
+        // );
+            
     });
     
     srv->listen(_ev_base);
