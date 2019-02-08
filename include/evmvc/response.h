@@ -27,15 +27,27 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "statuses.h"
+#include "headers.h"
 #include "fields.h"
 #include "mime.h"
 #include "cookies.h"
+#include "request.h"
 
 #include <boost/filesystem.hpp>
 
-#define MOD_GZIP_ZLIB_WINDOWSIZE 15
-#define MOD_GZIP_ZLIB_CFACTOR 9
-#define MOD_GZIP_ZLIB_BSIZE 8096
+// file read buffer size of 10KiB
+#define EVMVC_READ_BUF_SIZE 10240
+
+// http://www.zlib.net/manual.html#Advanced
+#define EVMVC_COMPRESSION_NOT_SUPPORTED (-MAX_WBITS - 1000)
+#define EVMVC_ZLIB_DEFLATE_WSIZE (-MAX_WBITS)
+#define EVMVC_ZLIB_ZLIB_WSIZE MAX_WBITS
+#define EVMVC_ZLIB_GZIP_WSIZE (MAX_WBITS | 16)
+#define EVMVC_ZLIB_MEM_LEVEL 8
+#define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
+//#define MOD_GZIP_ZLIB_WINDOWSIZE 15
+//#define MOD_GZIP_ZLIB_CFACTOR 9
+//#define MOD_GZIP_ZLIB_BSIZE 8096
 
 namespace evmvc {
 namespace _internal {
@@ -51,10 +63,10 @@ namespace _internal {
     static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg)
     {
         struct file_reply* reply = (struct file_reply*)arg;
-        char buf[4000];
+        char buf[EVMVC_READ_BUF_SIZE];
         size_t bytes_read;
         
-        /* try to read 4000 bytes from the file pointer */
+        /* try to read EVMVC_READ_BUF_SIZE bytes from the file pointer */
         bytes_read = fread(buf, 1, sizeof(buf), reply->file_desc);
         
         if(bytes_read > 0){
@@ -65,40 +77,53 @@ namespace _internal {
                 
                 // retrieve the compressed bytes blockwise.
                 int ret;
-                char zbuf[4000];
-                do{
-                    reply->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
-                    reply->zs->avail_out = sizeof(zbuf);
-                    ret = deflate(reply->zs, Z_FINISH);
-                    bytes_read = 0;
-                    if(reply->zs_size < reply->zs->total_out){
-                        bytes_read = reply->zs->total_out - reply->zs_size;
-                        evbuffer_add(
-                            reply->buffer,
-                            zbuf,
-                            reply->zs->total_out - reply->zs_size
-                        );
-                        reply->zs_size = reply->zs->total_out;
-                    }
-                }while(ret == Z_OK);
+                char zbuf[EVMVC_READ_BUF_SIZE];
+                int flush_mode = feof(reply->file_desc) ?
+                    Z_FINISH : Z_SYNC_FLUSH;
+                bytes_read = 0;
+                
+                reply->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
+                reply->zs->avail_out = sizeof(zbuf);
+                
+                ret = deflate(reply->zs, flush_mode);
+                if(reply->zs_size < reply->zs->total_out){
+                    bytes_read += reply->zs->total_out - reply->zs_size;
+                    evbuffer_add(
+                        reply->buffer,
+                        zbuf,
+                        reply->zs->total_out - reply->zs_size
+                    );
+                    reply->zs_size = reply->zs->total_out;
+                }
+                
+                if(ret != Z_OK && ret != Z_STREAM_END){
+                    std::cerr << fmt::format(
+                        "zlib deflate function returned: '{}'\n",
+                        ret
+                    );
+                    evhtp_send_reply_chunk_end(reply->request);
+                    return EVHTP_RES_SERVERR;
+                }
                 
             }else{
                 /* add our data we read from the file into our reply buffer */
                 evbuffer_add(reply->buffer, buf, bytes_read);
             }
             
-            std::clog << fmt::format(
-                "Sending {} bytes for '{}'\n",
-                bytes_read, reply->request->uri->path->full
-            );
-            
-            /* send the reply buffer as a http chunked message */
-            evhtp_send_reply_chunk(reply->request, reply->buffer);
-            
-            /* we can now drain our reply buffer as to not be a resource
-            * hog.
-            */
-            evbuffer_drain(reply->buffer, bytes_read);
+            if(bytes_read > 0){
+                std::clog << fmt::format(
+                    "Sending {} bytes for '{}'\n",
+                    bytes_read, reply->request->uri->path->full
+                );
+                
+                /* send the reply buffer as a http chunked message */
+                evhtp_send_reply_chunk(reply->request, reply->buffer);
+                
+                /* we can now drain our reply buffer as to not be a resource
+                * hog.
+                */
+                evbuffer_drain(reply->buffer, bytes_read);
+            }
         }
         
         /* check if we have read everything from the file */
@@ -118,6 +143,10 @@ namespace _internal {
             /* we can now free up our little reply_ structure */
             {
                 if(reply->zs){
+                    // if(reply->zs->next_out){
+                    //     delete[] reply->zs->next_out;
+                    //     reply->zs->next_out = nullptr;
+                    // }
                     deflateEnd(reply->zs);
                     reply->zs = nullptr;
                 }
@@ -143,6 +172,10 @@ namespace _internal {
         struct file_reply* reply = (struct file_reply*)arg;
 
         if(reply->zs){
+            // if(reply->zs->next_out){
+            //     delete[] reply->zs->next_out;
+            //     reply->zs->next_out = nullptr;
+            // }
             deflateEnd(reply->zs);
             reply->zs = nullptr;
         }
@@ -156,9 +189,18 @@ namespace _internal {
     
 }
 
+class route;
+class file_route_result;
+
+class response;
+typedef std::shared_ptr<response> sp_response;
+
 class response
     : public std::enable_shared_from_this<response>
 {
+    friend class evmvc::route;
+    friend class evmvc::file_route_result;
+    
 public:
     
     response(const sp_app& app, evhtp_request_t* ev_req,
@@ -242,34 +284,42 @@ public:
         return *this;
     }
     
-    evmvc::string_view get(evmvc::field header_name) const
+    evmvc::sp_header get(evmvc::field header_name) const
     {
         return get(to_string(header_name));
     }
     
-    evmvc::string_view get(evmvc::string_view header_name) const
+    evmvc::sp_header get(evmvc::string_view header_name) const
     {
         evhtp_kv_t* header = nullptr;
         if((header = evhtp_headers_find_header(
             _ev_req->headers_out, header_name.data()
         )) != nullptr)
-            return header->val;
+            return std::make_shared<evmvc::header>(
+                header->key,
+                header->val
+            );
         return nullptr;
     }
     
-    std::vector<evmvc::string_view> list(evmvc::field header_name) const
+    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
     {
         return list(to_string(header_name));
     }
     
-    std::vector<evmvc::string_view> list(evmvc::string_view header_name) const
+    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
     {
-        std::vector<evmvc::string_view> vals;
+        std::vector<evmvc::sp_header> vals;
         
         evhtp_kv_t* kv;
         TAILQ_FOREACH(kv, _ev_req->headers_out, next){
             if(strcmp(kv->key, header_name.data()) == 0)
-                vals.emplace_back(kv->val);
+                vals.emplace_back(
+                    std::make_shared<evmvc::header>(
+                        kv->key,
+                        kv->val
+                    )
+                );
         }
         
         return vals;
@@ -457,23 +507,53 @@ public:
         // set file content-type
         auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
         if(evmvc::mime::compressible(mime_type)){
-            reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
-            memset(reply->zs, 0, sizeof(*reply->zs));
+            sp_header hdr = _req->get(
+                evmvc::field::accept_encoding
+            );
             
-            int def_level = Z_DEFAULT_COMPRESSION;// Z_BEST_COMPRESSION;
-            if(deflateInit2(
-                reply->zs,
-                def_level,
-                Z_DEFLATED,
-                MOD_GZIP_ZLIB_WINDOWSIZE + 16,
-                MOD_GZIP_ZLIB_CFACTOR,
-                Z_DEFAULT_STRATEGY
-                ) != Z_OK
-            ){
-                throw EVMVC_ERR("deflateInit2 failed!");
-        	}
-            
-            this->set(evmvc::field::content_encoding, "gzip");
+            if(hdr){
+                auto encs = hdr->accept_encodings();
+                int wsize = EVMVC_COMPRESSION_NOT_SUPPORTED;
+                if(encs.size() == 0)
+                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
+                for(const auto& enc : encs){
+                    if(enc.type == encoding_type::gzip){
+                        wsize = EVMVC_ZLIB_GZIP_WSIZE;
+                        break;
+                    }
+                    if(enc.type == encoding_type::deflate){
+                        wsize = EVMVC_ZLIB_DEFLATE_WSIZE;
+                        break;
+                    }
+                    if(enc.type == encoding_type::star){
+                        wsize = EVMVC_ZLIB_GZIP_WSIZE;
+                        break;
+                    }
+                }
+                
+                if(wsize != EVMVC_COMPRESSION_NOT_SUPPORTED){
+                    reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
+                    memset(reply->zs, 0, sizeof(*reply->zs));
+                    
+                    int compression_level = Z_DEFAULT_COMPRESSION;
+                    if(deflateInit2(
+                        reply->zs,
+                        compression_level,
+                        Z_DEFLATED,
+                        wsize, //MOD_GZIP_ZLIB_WINDOWSIZE + 16,
+                        EVMVC_ZLIB_MEM_LEVEL,// MOD_GZIP_ZLIB_CFACTOR,
+                        EVMVC_ZLIB_STRATEGY// Z_DEFAULT_STRATEGY
+                        ) != Z_OK
+                    ){
+                        throw EVMVC_ERR("deflateInit2 failed!");
+                    }
+                    
+                    this->set(
+                        evmvc::field::content_encoding, 
+                        wsize == EVMVC_ZLIB_GZIP_WSIZE ? "gzip" : "deflate"
+                    );
+                }
+            }
         }
         
         //TODO: get file encoding
@@ -556,6 +636,7 @@ private:
     
     sp_app _app;
     evhtp_request_t* _ev_req;
+    evmvc::sp_request _req;
     sp_http_cookies _cookies;
     bool _started;
     bool _ended;

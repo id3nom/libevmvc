@@ -32,6 +32,8 @@ SOFTWARE.
 
 #include <sys/utsname.h>
 
+#define EVMVC_PCRE_DATE EVMVC_STRING(PCRE_DATE)
+
 namespace evmvc {
 
 enum class app_state
@@ -48,34 +50,45 @@ public:
     app_options()
         : base_dir(boost::filesystem::current_path()),
         view_dir(base_dir / "views"),
-        temp_dir(base_dir / "temp")
+        temp_dir(base_dir / "temp"),
+        cache_dir(base_dir / "cache"),
+        secure(false)
     {
     }
 
     app_options(const boost::filesystem::path& base_directory)
         : base_dir(base_directory),
         view_dir(base_dir / "views"),
-        temp_dir(base_dir / "temp")
+        temp_dir(base_dir / "temp"),
+        cache_dir(base_dir / "cache"),
+        secure(false)
     {
     }
     
     app_options(const evmvc::app_options& other)
         : base_dir(other.base_dir), 
         view_dir(other.view_dir),
-        temp_dir(other.temp_dir)
+        temp_dir(other.temp_dir),
+        cache_dir(other.cache_dir),
+        secure(other.secure)
     {
     }
     
     app_options(evmvc::app_options&& other)
         : base_dir(std::move(other.base_dir)),
         view_dir(std::move(other.view_dir)),
-        temp_dir(std::move(other.temp_dir))
+        temp_dir(std::move(other.temp_dir)),
+        cache_dir(std::move(other.cache_dir)),
+        secure(other.secure)
     {
     }
     
     boost::filesystem::path base_dir;
     boost::filesystem::path view_dir;
     boost::filesystem::path temp_dir;
+    boost::filesystem::path cache_dir;
+    
+    bool secure;
 };
 
 class app
@@ -142,12 +155,22 @@ public:
                 BOOST_LIB_VERSION,
                 OPENSSL_VERSION_TEXT,
                 ZLIB_VERSION,
-                PCRE_MAJOR, PCRE_MINOR, EVMVC_STRING(PCRE_DATE),
+                PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
                 _EVENT_VERSION,
                 EVHTP_VERSION
             );
         }
         
+        return ver;
+    }
+    
+    static std::string html_version()
+    {
+        static std::string ver =
+            evmvc::replace_substring_copy(
+                evmvc::replace_substring_copy(version(), "\n", "<br/>"),
+                " ", "&nbsp;"
+            );
         return ver;
     }
     
@@ -177,28 +200,7 @@ public:
             );
         _status = app_state::starting;
         
-        // ensure app dir exists
-        // auto fs = boost::filesystem::status(_options.base_dir);
-        // if(!boost::filesystem::exists(fs) || 
-        //     !boost::filesystem::is_directory(fs)){
-        //
-        //     if(boost::filesystem::create_directories(_options.base_dir))
-        //         std::clog << fmt::format(
-        //             "Creating base_dir '{}'\n", _options.base_dir.c_str()
-        //         );
-        // }
-        if(boost::filesystem::create_directories(_options.base_dir))
-            std::clog << fmt::format(
-                "Creating base directory '{}'\n", _options.base_dir.c_str()
-            );
-        if(boost::filesystem::create_directories(_options.temp_dir))
-            std::clog << fmt::format(
-                "Creating temp directory '{}'\n", _options.temp_dir.c_str()
-            );
-        if(boost::filesystem::create_directories(_options.view_dir))
-            std::clog << fmt::format(
-                "Creating view directory '{}'\n", _options.view_dir.c_str()
-            );
+        this->_init();
         
         _evhtp = evhtp_new(_evbase, NULL);
         //evhtp_set_gencb(_evhtp, _internal::on_app_request, this);
@@ -210,7 +212,16 @@ public:
         );
         
         evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
+        /* create 1 listener, 4 acceptors */
+        evhtp_use_threads_wexit(_evhtp, NULL, NULL, 4, NULL);
+        
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
+        
+        std::clog << fmt::format(
+            "\nEVMVC is listening at '{}://{}:{}'\n",
+            _options.secure ? "https" : "http",
+            address.data(), port
+        );
         
         _status = app_state::running;
     }
@@ -293,6 +304,26 @@ public:
     
 private:
     
+    void _init()
+    {
+        if(boost::filesystem::create_directories(_options.base_dir))
+            std::clog << fmt::format(
+                "Creating base directory '{}'\n", _options.base_dir.c_str()
+            );
+        if(boost::filesystem::create_directories(_options.temp_dir))
+            std::clog << fmt::format(
+                "Creating temp directory '{}'\n", _options.temp_dir.c_str()
+            );
+        if(boost::filesystem::create_directories(_options.view_dir))
+            std::clog << fmt::format(
+                "Creating view directory '{}'\n", _options.view_dir.c_str()
+            );
+        if(boost::filesystem::create_directories(_options.cache_dir))
+            std::clog << fmt::format(
+                "Creating cache directory '{}'\n", _options.cache_dir.c_str()
+            );
+    }
+    
     app_state _status;
     app_options _options;
     sp_router _router;
@@ -361,11 +392,13 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
     evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
-    evmvc::response res(a->shared_from_this(), req, c);
+    evmvc::sp_response res = std::make_shared<evmvc::response>(
+        a->shared_from_this(), req, c
+    );
     
     try{
         if(!rr){
-            res.error(
+            res->error(
                 evmvc::status::not_found,
                 EVMVC_ERR(
                     "Unable to find ressource at '{}'",
@@ -377,9 +410,9 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
         }
         
         rr->execute(req, res,
-        [&rr, &req, &res](auto error){
+        [&rr, req, res](auto error){
             if(error){
-                res.error(evmvc::status::internal_server_error, error);
+                res->error(evmvc::status::internal_server_error, error);
                 return;
             }
         });
@@ -389,14 +422,15 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
         std::string err_msg = fmt::format(
             "<!DOCTYPE html><html><head><title>"
             "LIBEVMVC Error</title></head><body>"
-            "<table>\n<tr><td style='background-color:red;font-size:1.1em;'>"
+            "<table>\n<tr><td style='background-color:{0};font-size:1.1em;'>"
                 "<b>Error summary</b>"
             "</td></tr>\n"
-            "<tr><td style='color:red;'><b>Error {}, {}</b></td></tr>\n"
-            "<tr><td style='color:red;'>{}</td></tr>\n",
+            "<tr><td style='color:{0};'><b>Error {1}, {2}</b></td></tr>\n"
+            "<tr><td style='color:{0};'>{3}</td></tr>\n",
+            evmvc::statuses::color(evmvc::status::internal_server_error),
             (int16_t)evmvc::status::internal_server_error,
             evmvc::statuses::status(
-                (int16_t)evmvc::status::internal_server_error
+                evmvc::status::internal_server_error
             ).data(),
             what
         );
@@ -433,12 +467,12 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
             "<tr><td style='"
             "border-top: 1px solid black; font-size:0.9em'>{}"
             "</td></tr>\n",
-            app::version()
+            app::html_version()
         );
         
         err_msg += "</table></body></html>";
         
-        res.status(evmvc::status::internal_server_error).html(err_msg);
+        res->status(evmvc::status::internal_server_error).html(err_msg);
     }
 }
 
@@ -448,15 +482,14 @@ void response::error(evmvc::status err_status, const cb_error& err)
     std::string err_msg = fmt::format(
         "<!DOCTYPE html><html><head><title>"
         "LIBEVMVC Error</title></head><body>"
-        "<table>\n<tr><td style='background-color:red;font-size:1.1em;'>"
+        "<table>\n<tr><td style='background-color:{0};font-size:1.1em;'>"
             "<b>Error summary</b>"
         "</td></tr>\n"
-        "<tr><td style='color:red;'><b>Error {}, {}</b></td></tr>\n"
-        "<tr><td style='color:red;'>{}</td></tr>\n",
-        (int16_t)evmvc::status::internal_server_error,
-        evmvc::statuses::status(
-            (int16_t)evmvc::status::internal_server_error
-        ).data(),
+        "<tr><td style='color:{0};'><b>Error {1}, {2}</b></td></tr>\n"
+        "<tr><td style='color:{0};'>{3}</td></tr>\n",
+        evmvc::statuses::color(err_status),
+        (int16_t)err_status,
+        evmvc::statuses::status(err_status).data(),
         what
     );
     free(what);
@@ -489,7 +522,7 @@ void response::error(evmvc::status err_status, const cb_error& err)
         "<tr><td style='"
         "border-top: 1px solid black; font-size:0.9em'>{}"
         "</td></tr>\n",
-        app::version()
+        app::html_version()
     );
     
     err_msg += "</table></body></html>";

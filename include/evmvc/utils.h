@@ -89,10 +89,11 @@ inline void lower_case(std::string& str)
     );
 }
 
-inline std::string lower_case_copy(std::string str)
+inline std::string lower_case_copy(evmvc::string_view str)
 {
-    lower_case(str);
-    return str;
+    std::string s = str.to_string();
+    lower_case(s);
+    return s;
 }
 
 

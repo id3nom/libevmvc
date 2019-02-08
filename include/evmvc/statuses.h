@@ -139,6 +139,22 @@ public:
         
         return _retry;
     }
+
+    static std::string color(int16_t code)
+    {
+        if(code < 300)
+            return "green";
+        if(code < 400)
+            return "orange";
+        if(code < 500)
+            return "royalblue";
+            
+        return "red";
+    }
+    static std::string color(evmvc::status s)
+    {
+        return color((int16_t)s);
+    }
     
     static const evmvc::json& codes()
     {
@@ -219,6 +235,10 @@ public:
             return "Invalid status code!";
         else
             return *it;
+    }
+    static evmvc::string_view status(evmvc::status s)
+    {
+        return status((int16_t)s);
     }
     
     static int16_t code(evmvc::string_view msg)

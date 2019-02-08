@@ -68,8 +68,8 @@ namespace evmvc {
 
 typedef 
     std::function<void(
-        const evmvc::request&,
-        evmvc::response&,
+        const evmvc::sp_request,
+        evmvc::sp_response,
         async_cb
     )> route_handler_cb;
 
@@ -92,7 +92,7 @@ public:
     
     virtual void execute(
         evhtp_request_t* req,
-        evmvc::response& res, async_cb cb
+        evmvc::sp_response res, async_cb cb
     );
     
     sp_route route;
@@ -221,15 +221,18 @@ protected:
         const evmvc::http_params& params,
         //const evmvc::request::param_map& params,
         evhtp_request_t* ev_req,
-        evmvc::response& res,
+        evmvc::sp_response res,
         async_cb cb)
     {
-        evmvc::request req(res.app(), ev_req, res.shared_cookies(), params);
+        evmvc::sp_request req = std::make_shared<evmvc::request>(
+            res->app(), ev_req, res->shared_cookies(), params
+        );
+        res->_req = req;
         _exec(req, res, 0, cb);
     }
     
     virtual void _exec(
-        evmvc::request& req, evmvc::response& res,
+        evmvc::sp_request req, evmvc::sp_response res,
         size_t hidx, async_cb cb)
     {
         _handlers[hidx](
@@ -395,7 +398,7 @@ protected:
 
 void route_result::execute(
     evhtp_request_t* req,
-    evmvc::response& res, async_cb cb)
+    evmvc::sp_response res, async_cb cb)
 {
     route->execute(params, req, res, cb);
 }
@@ -655,9 +658,14 @@ class file_route_result
     : public route_result
 {
 public:
+    file_route_result()
+        : route_result(nullptr), _filepath(), _not_found(true)
+    {
+    }
+
     file_route_result(
         boost::filesystem::path filepath)
-        : route_result(nullptr), _filepath(filepath)
+        : route_result(nullptr), _filepath(filepath), _not_found(false)
     {
     }
     
@@ -665,13 +673,26 @@ protected:
     
     void execute(
         evhtp_request_t* ev_req,
-        evmvc::response& res, async_cb cb)
+        evmvc::sp_response res, async_cb cb)
     {
-        evmvc::request req(res.app(), ev_req, res.shared_cookies(), params);
-        res.send_file(_filepath, "utf-8", cb);
+        evmvc::sp_request req = std::make_shared<evmvc::request>(
+            res->app(), ev_req, res->shared_cookies(), params
+        );
+        res->_req = req;
+        
+        if(_not_found){
+            res->error(evmvc::status::not_found, EVMVC_ERR(""));
+            if(cb)
+                cb(nullptr);
+                //cb(EVMVC_ERR(""));
+            return;
+        }
+        
+        res->send_file(_filepath, "utf-8", cb);
     }
     
     boost::filesystem::path _filepath;
+    bool _not_found;
 };
 
 class file_router
@@ -694,10 +715,18 @@ public:
         std::string local_url = 
             std::string(url).substr(_path.size());
         
+        boost::system::error_code ec;
         boost::filesystem::path file_path = 
             boost::filesystem::canonical(
-                _base_path / boost::filesystem::path(local_url.data())
+                _base_path / boost::filesystem::path(local_url.data()),
+                ec
             );
+        
+        if(ec){
+            return std::static_pointer_cast<route_result>(
+                std::make_shared<file_route_result>()
+            );
+        }
         
         return std::static_pointer_cast<route_result>(
             std::make_shared<file_route_result>(file_path)

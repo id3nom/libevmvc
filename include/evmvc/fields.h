@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_headers_h
-#define _libevmvc_headers_h
+#ifndef _libevmvc_fields_h
+#define _libevmvc_fields_h
 
 #include "stable_headers.h"
 #include <boost/assert.hpp>
@@ -940,4 +940,4 @@ inline std::ostream& operator<<(std::ostream& os, field f)
 
 
 } //ns evmvc
-#endif //_libevmvc_headers_h
+#endif //_libevmvc_fields_h

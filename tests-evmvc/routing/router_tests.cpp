@@ -65,7 +65,7 @@ TEST_F(router_test, routes)
         // # "/abc-c/123/456/" and any sub path "/abc-c/123/def/sub/path/..."
         // /abc-c/123/**
         r->get("/abc-c/123/**",
-        [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
+        [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
             async_cb cb
         ){
             rt_val = "abc-c";
@@ -88,7 +88,7 @@ TEST_F(router_test, routes)
         // /abc-e/123/:p1(\\d+)/[:p2]
         r->get("/abc-e/123/:p1(\\d+)/:[p2]",
         [&rt_val](
-            const evmvc::request& /*req*/, evmvc::response& /*res*/,
+            const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
             async_cb cb
         ){
             rt_val = "abc-e";
@@ -99,7 +99,7 @@ TEST_F(router_test, routes)
         // # regex parameter can be optional as well
         // /abc-f/123/[:p1(\\d+)]
         r->get("/abc-f/123/:[p1(\\d+)]",
-        [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
+        [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
             async_cb cb
         ){
             rt_val = "abc-f";
@@ -110,22 +110,22 @@ TEST_F(router_test, routes)
         // # all parameters following an optional parameter must be optional
         // /abc-g/123/:p1(\\d+)/[:p2]/[:p3]
         r->get("/abc-g/123/:p1(\\d+)/:[p2]/:[p3]",
-        [&rt_val](const evmvc::request& req, evmvc::response& /*res*/,
+        [&rt_val](const evmvc::sp_request req, evmvc::sp_response /*res*/,
             async_cb next
         ){
             rt_val = "abc-g";
             
-            const auto& p1 = req.route_param("p1");
+            const auto& p1 = req->route_param("p1");
             auto p1val = p1->get<int32_t>();
             ASSERT_EQ(p1val, 4);
             
-            if(req.route_param("p2")){
-                auto p2val = req.route_param_as<std::string>("p2");
+            if(req->route_param("p2")){
+                auto p2val = req->route_param_as<std::string>("p2");
                 ASSERT_STREQ(p2val.c_str(), "arg2");
                 
-                if(req.route_param("p3")){
+                if(req->route_param("p3")){
                     ASSERT_STREQ(
-                        req.route_param("p3")->get<std::string>().c_str(),
+                        req->route_param("p3")->get<std::string>().c_str(),
                         "arg3"
                     );
                 }
@@ -140,7 +140,9 @@ TEST_F(router_test, routes)
         evhtp_request_t* ev_req = nullptr;
         evmvc::sp_http_cookies c =
             std::make_shared<evmvc::http_cookies>(ev_req);
-        evmvc::response res(srv, ev_req, c);
+        evmvc::sp_response res = std::make_shared<evmvc::response>(
+            srv, ev_req, c
+        );
         
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)

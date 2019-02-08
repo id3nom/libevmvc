@@ -27,12 +27,16 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "utils.h"
+#include "headers.h"
 #include "fields.h"
 #include "methods.h"
 #include "cookies.h"
 #include "http_param.h"
 
 namespace evmvc {
+
+class request;
+typedef std::shared_ptr<request> sp_request;
 
 class request
     : public std::enable_shared_from_this<request>
@@ -129,34 +133,42 @@ public:
         return (evmvc::method)_ev_req->method;
     }
     
-    evmvc::string_view get(evmvc::field header_name)
+    evmvc::sp_header get(evmvc::field header_name) const
     {
         return get(to_string(header_name));
     }
     
-    evmvc::string_view get(evmvc::string_view header_name) const
+    evmvc::sp_header get(evmvc::string_view header_name) const
     {
         evhtp_kv_t* header = nullptr;
         if((header = evhtp_headers_find_header(
             _ev_req->headers_in, header_name.data()
         )) != nullptr)
-            return header->val;
+            return std::make_shared<evmvc::header>(
+                header->key,
+                header->val
+            );
         return nullptr;
     }
     
-    std::vector<evmvc::string_view> list(evmvc::field header_name) const
+    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
     {
         return list(to_string(header_name));
     }
     
-    std::vector<evmvc::string_view> list(evmvc::string_view header_name) const
+    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
     {
-        std::vector<evmvc::string_view> vals;
+        std::vector<evmvc::sp_header> vals;
         
         evhtp_kv_t* kv;
-        TAILQ_FOREACH(kv, _ev_req->headers_out, next){
+        TAILQ_FOREACH(kv, _ev_req->headers_in, next){
             if(strcmp(kv->key, header_name.data()) == 0)
-                vals.emplace_back(kv->val);
+                vals.emplace_back(
+                    std::make_shared<evmvc::header>(
+                        kv->key,
+                        kv->val
+                    )
+                );
         }
         
         return vals;
@@ -164,7 +176,7 @@ public:
     
     bool is_ajax()
     {
-        return get("X-Requested-With").compare("XMLHttpRequest") == 0;
+        return get("X-Requested-With")->compare_value("XMLHttpRequest");
     }
     
     

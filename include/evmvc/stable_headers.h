@@ -111,7 +111,7 @@ namespace _internal{
     )
 
 #define __EVMVC_STRING(s) #s
-#define EVMVC_STRING(s) __EVMVC_STRING(#s)
+#define EVMVC_STRING(s) __EVMVC_STRING(s)
 
 namespace evmvc {
     

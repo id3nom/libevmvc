@@ -33,6 +33,9 @@ extern "C" {
 #include <event2/event.h>
 }
 
+#include <sys/types.h>
+#include <unistd.h>
+
 struct exit_app_params
 {
     event_base* ev_base;
@@ -53,37 +56,44 @@ void exit_app(int, short, void* arg)
 
 int main(int argc, char** argv)
 {
+    // show app pid
+    pid_t pid = getpid();
+    std::clog << fmt::format(
+        "Starting evmvc_web_server, pid: {}\n\n",
+        pid
+    );
+    
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
     evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
     
     srv->get("/test",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.status(evmvc::status::ok).send(
-            req.query_param_as<std::string>("val", "testing 1, 2...")
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->status(evmvc::status::ok).send(
+            req->query_param_as<std::string>("val", "testing 1, 2...")
         );
         nxt(nullptr);
     });
     
     srv->get("/download-file/:[filename]",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.status(evmvc::status::ok)
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->status(evmvc::status::ok)
             .download("the file path",
-            req.route_param_as<std::string>("filename", "test.txt"));
+            req->route_param_as<std::string>("filename", "test.txt"));
         nxt(nullptr);
     });
     
     srv->get("/echo/:val",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.status(evmvc::status::ok).send(
-            req.route_param_as<std::string>("val")
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->status(evmvc::status::ok).send(
+            req->route_param_as<std::string>("val")
         );
         nxt(nullptr);
     });
     
     srv->get("/send-json",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         evmvc::json json_val = evmvc::json::parse(
             "{\"menu\": {"
             "\"id\": \"file\","
@@ -97,17 +107,17 @@ int main(int argc, char** argv)
             "}"
             "}}"
         );
-        res.status(evmvc::status::ok).send(json_val);
+        res->status(evmvc::status::ok).send(json_val);
         nxt(nullptr);
     });
     
     srv->get("/send-file",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        auto path = req.query_param_as<std::string>("path");
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        auto path = req->query_param_as<std::string>("path");
         
         std::clog << fmt::format("sending file: '{0}'\n", path);
         
-        res.send_file(path, "", [path](evmvc::cb_error err){
+        res->send_file(path, "", [path](evmvc::cb_error err){
             if(err)
                 std::cerr << fmt::format(
                     "send-file for file '{0}', failed!\n{1}\n",
@@ -117,7 +127,7 @@ int main(int argc, char** argv)
     });
     
     srv->get("/cookies/set/:[name]/:[val]/:[path]",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         evmvc::http_cookies::options opts;
         opts.expires = 
                 date::sys_days{date::year(2021)/01/01} +
@@ -125,30 +135,30 @@ int main(int argc, char** argv)
                 std::chrono::seconds{59};
         opts.path = "/cookies";
         
-        res.cookies().set("cookie-a", "abc", opts);
+        res->cookies().set("cookie-a", "abc", opts);
         
         opts = {};
-        opts.path = req.route_param_as<std::string>("path", "/");
-        res.cookies().set(
-            req.route_param_as<std::string>("name", "cookie-b"),
-            req.route_param_as<std::string>("val", "def"),
+        opts.path = req->route_param_as<std::string>("path", "/");
+        res->cookies().set(
+            req->route_param_as<std::string>("name", "cookie-b"),
+            req->route_param_as<std::string>("val", "def"),
             opts
         );
         
-        res.status(evmvc::status::ok).send(
+        res->status(evmvc::status::ok).send(
             "route: /cookies/set/:[name]/:[val]/:[path]"
         );
     });
     
     srv->get("/cookies/get/:[name]",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.status(evmvc::status::ok).send(
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->status(evmvc::status::ok).send(
             fmt::format("route: {}\ncookie-a: {}, {}: {}", 
                 "/cookies/get/:[name]",
-                res.cookies().get<std::string>("cookie-a"),
-                req.route_param_as<std::string>("name", "cookie-b"),
-                res.cookies().get<std::string>(
-                    req.route_param_as<std::string>("name", "cookie-b"),
+                res->cookies().get<std::string>("cookie-a"),
+                req->route_param_as<std::string>("name", "cookie-b"),
+                res->cookies().get<std::string>(
+                    req->route_param_as<std::string>("name", "cookie-b"),
                     "do not exists!"
                 )
             )
@@ -156,31 +166,31 @@ int main(int argc, char** argv)
     });
     
     srv->get("/cookies/clear/:[name]/:[path]",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         evmvc::http_cookies::options opts;
-        opts.path = req.route_param_as<std::string>("path", "");
+        opts.path = req->route_param_as<std::string>("path", "");
         
-        res.cookies().clear(
-            req.route_param_as<std::string>("name", "cookie-b"),
+        res->cookies().clear(
+            req->route_param_as<std::string>("name", "cookie-b"),
             opts
         );
-        res.status(evmvc::status::ok).send(
+        res->status(evmvc::status::ok).send(
             "route: /cookies/clear/:[name]/:[path]"
         );
     });
     
     srv->get("/error",
-    [](const evmvc::request& req, evmvc::response& res, auto nxt){
-        res.error(
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->error(
             EVMVC_ERR("testing error sending.")
         );
     });
     
     srv->get("/exit",
     [&_ev_base, &srv](
-        const evmvc::request& req, evmvc::response& res, auto nxt){
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
-        res.send_status(evmvc::status::ok);
+        res->send_status(evmvc::status::ok);
         struct timeval tv = {1,0};
         struct exit_app_params* params = new exit_app_params();
         params->ev_base = _ev_base;
@@ -202,9 +212,9 @@ int main(int argc, char** argv)
     
     srv->post("/forms/login",
     [&_ev_base, &srv](
-        const evmvc::request& req, evmvc::response& res, auto nxt){
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
-        res.redirect("/html/login-results.html");
+        res->redirect("/html/login-results.html");
         
         // res.error(
         //     evmvc::status::internal_server_error,
