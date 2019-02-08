@@ -131,6 +131,7 @@ public:
                 "({} {} {} {}) {}\n"
                 "   Boost v{}\n"
                 "   {}\n" //openssl
+                "   zlib v{}\n"
                 "   libpcre v{}.{} {}\n"
                 "   libevent v{}\n"
                 "   libevhtp v{}\n",
@@ -140,6 +141,7 @@ public:
                 __DATE__,
                 BOOST_LIB_VERSION,
                 OPENSSL_VERSION_TEXT,
+                ZLIB_VERSION,
                 PCRE_MAJOR, PCRE_MINOR, EVMVC_STRING(PCRE_DATE),
                 _EVENT_VERSION,
                 EVHTP_VERSION

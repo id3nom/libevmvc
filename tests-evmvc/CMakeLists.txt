@@ -24,6 +24,7 @@ target_link_libraries(libevmvc_tests
     evmvc
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${ZLIB_LIBRARIES}
     pthread
     tz
     fmt

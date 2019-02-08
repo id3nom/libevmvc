@@ -40,6 +40,7 @@ extern "C" {
 #include <event2/http.h>
 #include <evhtp/evhtp.h>
 }
+#include <zlib.h>
 
 #include <boost/logic/tribool.hpp>
 #include <boost/algorithm/string.hpp>

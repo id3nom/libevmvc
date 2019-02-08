@@ -64,9 +64,15 @@ include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
 
 # OpenSSL
-find_package(OpenSSL)
+find_package(OpenSSL REQUIRED)
 if (OPENSSL_FOUND)
     include_directories (${OPENSSL_INCLUDE_DIR})
+endif()
+
+# FindZLib
+find_package(ZLIB REQUIRED)
+if (ZLIB_FOUND)
+    include_directories(${ZLIB_INCLUDE_DIRS})
 endif()
 
 # # libevent
@@ -248,6 +254,7 @@ endif(CMAKE_SYSTEM_NAME STREQUAL "Windows")
 target_link_libraries(evmvc 
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${ZLIB_LIBRARIES}
     pthread
     tz
     fmt

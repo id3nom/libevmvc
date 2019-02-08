@@ -33,12 +33,18 @@ SOFTWARE.
 
 #include <boost/filesystem.hpp>
 
+#define MOD_GZIP_ZLIB_WINDOWSIZE 15
+#define MOD_GZIP_ZLIB_CFACTOR 9
+#define MOD_GZIP_ZLIB_BSIZE 8096
+
 namespace evmvc {
 namespace _internal {
     struct file_reply {
         evhtp_request_t* request;
         FILE* file_desc;
         struct evbuffer* buffer;
+        z_stream* zs;
+        uLong zs_size;
         evmvc::async_cb cb;
     };
     
@@ -51,24 +57,56 @@ namespace _internal {
         /* try to read 4000 bytes from the file pointer */
         bytes_read = fread(buf, 1, sizeof(buf), reply->file_desc);
         
-        std::clog << fmt::format("Sending {0} bytes\n", bytes_read);
-        
-        if (bytes_read > 0) {
-            /* add our data we read from the file into our reply buffer */
-            evbuffer_add(reply->buffer, buf, bytes_read);
-
+        if(bytes_read > 0){
+            // verify if we need to compress data
+            if(reply->zs){
+                reply->zs->next_in = (Bytef*)buf;
+                reply->zs->avail_in = bytes_read;
+                
+                // retrieve the compressed bytes blockwise.
+                int ret;
+                char zbuf[4000];
+                do{
+                    reply->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
+                    reply->zs->avail_out = sizeof(zbuf);
+                    ret = deflate(reply->zs, Z_FINISH);
+                    bytes_read = 0;
+                    if(reply->zs_size < reply->zs->total_out){
+                        bytes_read = reply->zs->total_out - reply->zs_size;
+                        evbuffer_add(
+                            reply->buffer,
+                            zbuf,
+                            reply->zs->total_out - reply->zs_size
+                        );
+                        reply->zs_size = reply->zs->total_out;
+                    }
+                }while(ret == Z_OK);
+                
+            }else{
+                /* add our data we read from the file into our reply buffer */
+                evbuffer_add(reply->buffer, buf, bytes_read);
+            }
+            
+            std::clog << fmt::format(
+                "Sending {} bytes for '{}'\n",
+                bytes_read, reply->request->uri->path->full
+            );
+            
             /* send the reply buffer as a http chunked message */
             evhtp_send_reply_chunk(reply->request, reply->buffer);
-
+            
             /* we can now drain our reply buffer as to not be a resource
             * hog.
             */
             evbuffer_drain(reply->buffer, bytes_read);
         }
-
+        
         /* check if we have read everything from the file */
         if(feof(reply->file_desc)){
-            std::clog << fmt::format("Sending last chunk\n");
+            std::clog << fmt::format(
+                "Sending last chunk for '{}'\n",
+                reply->request->uri->path->full
+            );
             
             /* now that we have read everything from the file, we must
             * first unset our on_write hook, then inform evhtp to send
@@ -79,6 +117,11 @@ namespace _internal {
 
             /* we can now free up our little reply_ structure */
             {
+                if(reply->zs){
+                    deflateEnd(reply->zs);
+                    reply->zs = nullptr;
+                }
+                
                 fclose(reply->file_desc);
                 
                 evhtp_safe_free(reply->buffer, evbuffer_free);
@@ -98,6 +141,12 @@ namespace _internal {
         struct evhtp_connection* c, void* arg)
     {
         struct file_reply* reply = (struct file_reply*)arg;
+
+        if(reply->zs){
+            deflateEnd(reply->zs);
+            reply->zs = nullptr;
+        }
+        
         fclose(reply->file_desc);
         evhtp_safe_free(reply->buffer, evbuffer_free);
         evhtp_safe_free(reply, free);
@@ -384,7 +433,7 @@ public:
         
         // create internal file_reply struct
         mm__alloc_(reply, struct evmvc::_internal::file_reply, {
-            _ev_req, file_desc, evbuffer_new(), cb
+            _ev_req, file_desc, evbuffer_new(), nullptr, 0, cb
         });
         
         /* here we set a connection hook of the type `evhtp_hook_on_write`
@@ -406,6 +455,27 @@ public:
         );
         
         // set file content-type
+        auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
+        if(evmvc::mime::compressible(mime_type)){
+            reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
+            memset(reply->zs, 0, sizeof(*reply->zs));
+            
+            int def_level = Z_DEFAULT_COMPRESSION;// Z_BEST_COMPRESSION;
+            if(deflateInit2(
+                reply->zs,
+                def_level,
+                Z_DEFLATED,
+                MOD_GZIP_ZLIB_WINDOWSIZE + 16,
+                MOD_GZIP_ZLIB_CFACTOR,
+                Z_DEFAULT_STRATEGY
+                ) != Z_OK
+            ){
+                throw EVMVC_ERR("deflateInit2 failed!");
+        	}
+            
+            this->set(evmvc::field::content_encoding, "gzip");
+        }
+        
         //TODO: get file encoding
         this->encoding(enc).type(filepath.extension().c_str());
         this->_prepare_headers();

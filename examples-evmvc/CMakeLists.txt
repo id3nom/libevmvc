@@ -18,6 +18,7 @@ set (EVMVC_EXAMPLES_LIBRARIES
     evmvc
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
+    ${ZLIB_LIBRARIES}
     pthread
     tz
     fmt
