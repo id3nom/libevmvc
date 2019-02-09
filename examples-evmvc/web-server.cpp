@@ -66,6 +66,9 @@ int main(int argc, char** argv)
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
+    opts.log_console_level =
+        opts.log_file_level = spdlog::level::trace;
+    
     evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
     
     srv->get("/test",
@@ -227,6 +230,7 @@ int main(int argc, char** argv)
     
     event_base_loop(_ev_base, 0);
     
+    srv.reset();
     event_base_free(_ev_base);
     
     return 0;

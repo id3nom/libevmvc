@@ -52,7 +52,15 @@ public:
         view_dir(base_dir / "views"),
         temp_dir(base_dir / "temp"),
         cache_dir(base_dir / "cache"),
-        secure(false)
+        log_dir(base_dir / "logs"),
+        secure(false),
+        use_default_logger(true),
+        
+        log_console_level(spdlog::level::level_enum::warn),
+        log_console_enable_color(true),
+        log_file_level(spdlog::level::level_enum::warn),
+        log_file_max_size(1048576 * 5),
+        log_file_max_files(7)
     {
     }
 
@@ -61,7 +69,15 @@ public:
         view_dir(base_dir / "views"),
         temp_dir(base_dir / "temp"),
         cache_dir(base_dir / "cache"),
-        secure(false)
+        log_dir(base_dir / "logs"),
+        secure(false),
+        use_default_logger(true),
+        
+        log_console_level(spdlog::level::level_enum::warn),
+        log_console_enable_color(true),
+        log_file_level(spdlog::level::level_enum::warn),
+        log_file_max_size(1048576 * 5),
+        log_file_max_files(7)
     {
     }
     
@@ -70,7 +86,15 @@ public:
         view_dir(other.view_dir),
         temp_dir(other.temp_dir),
         cache_dir(other.cache_dir),
-        secure(other.secure)
+        log_dir(other.log_dir),
+        secure(other.secure),
+        use_default_logger(other.use_default_logger),
+        
+        log_console_level(other.log_console_level),
+        log_console_enable_color(other.log_console_enable_color),
+        log_file_level(other.log_file_level),
+        log_file_max_size(other.log_file_max_size),
+        log_file_max_files(other.log_file_max_files)
     {
     }
     
@@ -79,7 +103,15 @@ public:
         view_dir(std::move(other.view_dir)),
         temp_dir(std::move(other.temp_dir)),
         cache_dir(std::move(other.cache_dir)),
-        secure(other.secure)
+        log_dir(std::move(other.log_dir)),
+        secure(other.secure),
+        use_default_logger(other.use_default_logger),
+        
+        log_console_level(other.log_console_level),
+        log_console_enable_color(other.log_console_enable_color),
+        log_file_level(other.log_file_level),
+        log_file_max_size(other.log_file_max_size),
+        log_file_max_files(other.log_file_max_files)
     {
     }
     
@@ -87,8 +119,19 @@ public:
     boost::filesystem::path view_dir;
     boost::filesystem::path temp_dir;
     boost::filesystem::path cache_dir;
+    boost::filesystem::path log_dir;
     
     bool secure;
+    
+    bool use_default_logger;
+    
+    spdlog::level::level_enum log_console_level;
+    bool log_console_enable_color;
+    
+    spdlog::level::level_enum log_file_level;
+    size_t log_file_max_size;
+    size_t log_file_max_files;
+    
 };
 
 class app
@@ -106,11 +149,54 @@ public:
         _evbase(nullptr), _evhtp(nullptr)
     {
         _router->_path = "";
-        std::clog << "Starting app\n" << app::version() << std::endl;
+        
+        // init the default logger
+        if(_options.use_default_logger){
+            //https://github.com/gabime/spdlog
+            
+            std::vector<spdlog::sink_ptr> sinks;
+            auto stdout_sink =
+                std::make_shared<spdlog::sinks::stdout_sink_mt>();
+            if(_options.log_console_enable_color)
+                sinks.emplace_back(
+                    std::make_shared<spdlog::sinks::ansicolor_sink>(
+                        stdout_sink
+                    )
+                );
+            else
+                sinks.emplace_back(stdout_sink);
+            
+            sinks[sinks.size()-1]->set_level(
+                _options.log_console_level
+            );
+            
+            boost::filesystem::create_directories(_options.log_dir);
+            sinks.emplace_back(
+                std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
+                    (_options.log_dir / "libevmvc").c_str(), "log",
+                    _options.log_file_max_size,
+                    _options.log_file_max_files
+                )
+            );
+            
+            sinks[sinks.size()-1]->set_level(
+                _options.log_file_level
+            );
+            
+            _logger = std::make_shared<spdlog::logger>(
+                "libevmvc", sinks.begin(), sinks.end()
+            );
+            _logger->flush_on(spdlog::level::warn);
+        }
+        
+        this->info("Starting app\n{}", app::version());
     }
     
     ~app()
     {
+        if(_logger)
+            _logger->flush();
+        
         _router.reset();
         
         if(this->running())
@@ -119,15 +205,60 @@ public:
     
     app_options& options(){ return _options;}
     
-    app_state status()
+    void replace_logger(std::shared_ptr<spdlog::logger> logger)
+    {
+        _logger = logger;
+    }
+    std::shared_ptr<spdlog::logger> log()
+    {
+        return _logger;
+    }
+    
+    template <typename... Args>
+    void trace(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->trace(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void debug(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->debug(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void info(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->info(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void warn(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->warn(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void error(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->error(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void critical(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_logger) _logger->critical(fmt.data(), args...);
+    }
+    
+    app_state status() const
     {
         return _status;
     }
     
-    bool stopped(){ return _status == app_state::stopped;}
-    bool starting(){ return _status == app_state::starting;}
-    bool running(){ return _status == app_state::running;}
-    bool stopping(){ return _status == app_state::stopping;}
+    bool stopped() const { return _status == app_state::stopped;}
+    bool starting() const { return _status == app_state::starting;}
+    bool running() const { return _status == app_state::running;}
+    bool stopping() const { return _status == app_state::stopping;}
     
     static std::string version()
     {
@@ -142,12 +273,13 @@ public:
             ver = fmt::format(
                 "{}\n  built with gcc v{}.{}.{} "
                 "({} {} {} {}) {}\n"
-                "   Boost v{}\n"
-                "   {}\n" //openssl
-                "   zlib v{}\n"
-                "   libpcre v{}.{} {}\n"
-                "   libevent v{}\n"
-                "   libevhtp v{}\n",
+                "    Boost v{}\n"
+                "    {}\n" //openssl
+                "    zlib v{}\n"
+                "    libpcre v{}.{} {}\n"
+                "    libevent v{}\n"
+                "    libicu v{}\n"
+                "    libevhtp v{}\n",
                 EVMVC_VERSION_NAME,
                 __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
                 uts.sysname, uts.release, uts.version, uts.machine,
@@ -156,6 +288,7 @@ public:
                 OPENSSL_VERSION_TEXT,
                 ZLIB_VERSION,
                 PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
+                EVMVC_ICU_VERSION,
                 _EVENT_VERSION,
                 EVHTP_VERSION
             );
@@ -213,12 +346,12 @@ public:
         
         evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
         /* create 1 listener, 4 acceptors */
-        evhtp_use_threads_wexit(_evhtp, NULL, NULL, 4, NULL);
+        evhtp_use_threads_wexit(_evhtp, NULL, NULL, 8, NULL);
         
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
         
-        std::clog << fmt::format(
-            "\nEVMVC is listening at '{}://{}:{}'\n",
+        this->info(
+            "EVMVC is listening at '{}://{}:{}'\n",
             _options.secure ? "https" : "http",
             address.data(), port
         );
@@ -307,19 +440,19 @@ private:
     void _init()
     {
         if(boost::filesystem::create_directories(_options.base_dir))
-            std::clog << fmt::format(
+            this->info(
                 "Creating base directory '{}'\n", _options.base_dir.c_str()
             );
         if(boost::filesystem::create_directories(_options.temp_dir))
-            std::clog << fmt::format(
+            this->info(
                 "Creating temp directory '{}'\n", _options.temp_dir.c_str()
             );
         if(boost::filesystem::create_directories(_options.view_dir))
-            std::clog << fmt::format(
+            this->info(
                 "Creating view directory '{}'\n", _options.view_dir.c_str()
             );
         if(boost::filesystem::create_directories(_options.cache_dir))
-            std::clog << fmt::format(
+            this->info(
                 "Creating cache directory '{}'\n", _options.cache_dir.c_str()
             );
     }
@@ -329,7 +462,7 @@ private:
     sp_router _router;
     struct event_base* _evbase;
     struct evhtp* _evhtp;
-    
+    std::shared_ptr<spdlog::logger> _logger;
 };
 
 void _internal::send_error(
@@ -369,9 +502,9 @@ evhtp_res _internal::on_headers(
 
 void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
-    std::clog << "on_multipart_request\n";
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     _internal::on_app_request(req, mp->app);
+    mp->app->trace("_internal::on_multipart_request");
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)

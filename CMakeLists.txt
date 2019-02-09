@@ -3,7 +3,7 @@ cmake_policy(SET CMP0054 NEW)
 project(libevmvc VERSION 0.1.0 LANGUAGES CXX C)
 
 # define module path
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/CMake")
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 if(NOT PrecompiledHeader_CMake_INCLUDED)
     include(PrecompiledHeader)
@@ -74,6 +74,16 @@ find_package(ZLIB REQUIRED)
 if (ZLIB_FOUND)
     include_directories(${ZLIB_INCLUDE_DIRS})
 endif()
+
+# FindICU
+find_package(ICU REQUIRED)
+if (ICU_FOUND)
+    include_directories(${ICU_INCLUDE_DIRS})
+endif()
+
+# find spdlog
+find_package(spdlog CONFIG REQUIRED)
+
 
 # # libevent
 # if(NOT LIBEVENT_CMake_INCLUDED)
@@ -255,6 +265,8 @@ target_link_libraries(evmvc
     ${Boost_LIBRARIES}
     ${OPENSSL_LIBRARIES}
     ${ZLIB_LIBRARIES}
+    ${ICU_LIBRARIES}
+    spdlog::spdlog
     pthread
     tz
     fmt

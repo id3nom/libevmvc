@@ -40,6 +40,8 @@ SOFTWARE.
 #define EVMVC_PROJECT_BINARY_DIR "@PROJECT_BINARY_DIR@"
 #endif
 
+#define EVMVC_ICU_VERSION "@ICU_VERSION@"
+
 // defines the type of build
 #cmakedefine EVMVC_BUILD_DEBUG 1
 #cmakedefine EVMVC_BUILD_TEST 1

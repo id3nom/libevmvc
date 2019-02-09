@@ -31,7 +31,8 @@
 #include <deque>
 #include <vector>
 
-#include "fmt/format.h"
+//#include "fmt/format.h"
+#include <spdlog/spdlog.h>
 
 extern "C" {
 #ifndef EVHTP_DISABLE_REGEX
