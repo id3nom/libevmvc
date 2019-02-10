@@ -45,7 +45,7 @@ enum class method
     unknown = htp_method_UNKNOWN
 };
 
-evmvc::string_view method_to_string(evmvc::method v)
+evmvc::string_view to_string(evmvc::method v)
 {
     switch(v){
         case evmvc::method::get:

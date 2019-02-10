@@ -45,148 +45,27 @@ SOFTWARE.
 #define EVMVC_ZLIB_GZIP_WSIZE (MAX_WBITS | 16)
 #define EVMVC_ZLIB_MEM_LEVEL 8
 #define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
-//#define MOD_GZIP_ZLIB_WINDOWSIZE 15
-//#define MOD_GZIP_ZLIB_CFACTOR 9
-//#define MOD_GZIP_ZLIB_BSIZE 8096
 
 namespace evmvc {
+    
+class response;
+typedef std::shared_ptr<evmvc::response> sp_response;
+
 namespace _internal {
     struct file_reply {
+        sp_response res;
         evhtp_request_t* request;
         FILE* file_desc;
         struct evbuffer* buffer;
         z_stream* zs;
         uLong zs_size;
         evmvc::async_cb cb;
+        std::shared_ptr<spdlog::logger> log;
     };
     
-    static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg)
-    {
-        struct file_reply* reply = (struct file_reply*)arg;
-        char buf[EVMVC_READ_BUF_SIZE];
-        size_t bytes_read;
-        
-        /* try to read EVMVC_READ_BUF_SIZE bytes from the file pointer */
-        bytes_read = fread(buf, 1, sizeof(buf), reply->file_desc);
-        
-        if(bytes_read > 0){
-            // verify if we need to compress data
-            if(reply->zs){
-                reply->zs->next_in = (Bytef*)buf;
-                reply->zs->avail_in = bytes_read;
-                
-                // retrieve the compressed bytes blockwise.
-                int ret;
-                char zbuf[EVMVC_READ_BUF_SIZE];
-                int flush_mode = feof(reply->file_desc) ?
-                    Z_FINISH : Z_SYNC_FLUSH;
-                bytes_read = 0;
-                
-                reply->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
-                reply->zs->avail_out = sizeof(zbuf);
-                
-                ret = deflate(reply->zs, flush_mode);
-                if(reply->zs_size < reply->zs->total_out){
-                    bytes_read += reply->zs->total_out - reply->zs_size;
-                    evbuffer_add(
-                        reply->buffer,
-                        zbuf,
-                        reply->zs->total_out - reply->zs_size
-                    );
-                    reply->zs_size = reply->zs->total_out;
-                }
-                
-                if(ret != Z_OK && ret != Z_STREAM_END){
-                    std::cerr << fmt::format(
-                        "zlib deflate function returned: '{}'\n",
-                        ret
-                    );
-                    evhtp_send_reply_chunk_end(reply->request);
-                    return EVHTP_RES_SERVERR;
-                }
-                
-            }else{
-                /* add our data we read from the file into our reply buffer */
-                evbuffer_add(reply->buffer, buf, bytes_read);
-            }
-            
-            if(bytes_read > 0){
-                std::clog << fmt::format(
-                    "Sending {} bytes for '{}'\n",
-                    bytes_read, reply->request->uri->path->full
-                );
-                
-                /* send the reply buffer as a http chunked message */
-                evhtp_send_reply_chunk(reply->request, reply->buffer);
-                
-                /* we can now drain our reply buffer as to not be a resource
-                * hog.
-                */
-                evbuffer_drain(reply->buffer, bytes_read);
-            }
-        }
-        
-        /* check if we have read everything from the file */
-        if(feof(reply->file_desc)){
-            std::clog << fmt::format(
-                "Sending last chunk for '{}'\n",
-                reply->request->uri->path->full
-            );
-            
-            /* now that we have read everything from the file, we must
-            * first unset our on_write hook, then inform evhtp to send
-            * this message as the final chunk.
-            */
-            evhtp_connection_unset_hook(conn, evhtp_hook_on_write);
-            evhtp_send_reply_chunk_end(reply->request);
-
-            /* we can now free up our little reply_ structure */
-            {
-                if(reply->zs){
-                    // if(reply->zs->next_out){
-                    //     delete[] reply->zs->next_out;
-                    //     reply->zs->next_out = nullptr;
-                    // }
-                    deflateEnd(reply->zs);
-                    reply->zs = nullptr;
-                }
-                
-                fclose(reply->file_desc);
-                
-                evhtp_safe_free(reply->buffer, evbuffer_free);
-                evhtp_safe_free(reply, free);
-                
-                // no need for the connection fini hook anymore
-                evhtp_connection_unset_hook(
-                    conn, evhtp_hook_on_connection_fini
-                );
-            }
-        }
-        
-        return EVHTP_RES_OK;
-    }
-    
+    static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg);
     static evhtp_res send_file_fini(
-        struct evhtp_connection* c, void* arg)
-    {
-        struct file_reply* reply = (struct file_reply*)arg;
-
-        if(reply->zs){
-            // if(reply->zs->next_out){
-            //     delete[] reply->zs->next_out;
-            //     reply->zs->next_out = nullptr;
-            // }
-            deflateEnd(reply->zs);
-            reply->zs = nullptr;
-        }
-        
-        fclose(reply->file_desc);
-        evhtp_safe_free(reply->buffer, evbuffer_free);
-        evhtp_safe_free(reply, free);
-        
-        return EVHTP_RES_OK;
-    }
-    
+        struct evhtp_connection* c, void* arg);
 }
 
 class route;
@@ -203,15 +82,21 @@ class response
     
 public:
     
-    response(const sp_app& app, evhtp_request_t* ev_req,
+    response(const sp_app& app,
+        std::shared_ptr<spdlog::logger> log,
+        evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies)
-        : _app(app), _ev_req(ev_req), _cookies(http_cookies),
+        : _id(_next_id()), _app(app), _log(log),
+        _ev_req(ev_req), _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc("")
     {
     }
     
+    uint64_t id() const { return _id;}
     evmvc::sp_app app()const { return _app;}
+    std::shared_ptr<spdlog::logger> log() const { return _log;}
+    
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
     sp_http_cookies shared_cookies() const { return _cookies;}
@@ -483,7 +368,9 @@ public:
         
         // create internal file_reply struct
         mm__alloc_(reply, struct evmvc::_internal::file_reply, {
-            _ev_req, file_desc, evbuffer_new(), nullptr, 0, cb
+            this->shared_from_this(),
+            _ev_req, file_desc, evbuffer_new(), nullptr, 0, cb,
+            this->_log
         });
         
         /* here we set a connection hook of the type `evhtp_hook_on_write`
@@ -602,7 +489,55 @@ public:
         }
     }
     
+    template <typename... Args>
+    void trace(evmvc::string_view f, const Args&... args) const
+    {
+        if(_log) _log->trace(
+            fmt::format(
+                "[req: '{}'] {}",
+                this->_id, f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void debug(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->debug(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void info(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->info(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void warn(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->warn(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void error(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->error(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void critical(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->critical(fmt.data(), args...);
+    }
+    
 private:
+    static uint64_t _next_id()
+    {
+        static uint64_t cur_id = 0;
+        return ++cur_id;
+    }
+
     void _prepare_headers()
     {
         if(_started)
@@ -634,7 +569,9 @@ private:
         evhtp_send_reply_start(_ev_req, _status);
     }
     
+    uint64_t _id;
     sp_app _app;
+    std::shared_ptr<spdlog::logger> _log;
     evhtp_request_t* _ev_req;
     evmvc::sp_request _req;
     sp_http_cookies _cookies;
@@ -643,8 +580,128 @@ private:
     int16_t _status;
     std::string _type;
     std::string _enc;
-    
 };
+
+namespace _internal {
+    static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg)
+    {
+        struct file_reply* reply = (struct file_reply*)arg;
+        char buf[EVMVC_READ_BUF_SIZE];
+        size_t bytes_read;
+        
+        /* try to read EVMVC_READ_BUF_SIZE bytes from the file pointer */
+        bytes_read = fread(buf, 1, sizeof(buf), reply->file_desc);
+        
+        if(bytes_read > 0){
+            // verify if we need to compress data
+            if(reply->zs){
+                reply->zs->next_in = (Bytef*)buf;
+                reply->zs->avail_in = bytes_read;
+                
+                // retrieve the compressed bytes blockwise.
+                int ret;
+                char zbuf[EVMVC_READ_BUF_SIZE];
+                int flush_mode = feof(reply->file_desc) ?
+                    Z_FINISH : Z_SYNC_FLUSH;
+                bytes_read = 0;
+                
+                reply->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
+                reply->zs->avail_out = sizeof(zbuf);
+                
+                ret = deflate(reply->zs, flush_mode);
+                if(reply->zs_size < reply->zs->total_out){
+                    bytes_read += reply->zs->total_out - reply->zs_size;
+                    evbuffer_add(
+                        reply->buffer,
+                        zbuf,
+                        reply->zs->total_out - reply->zs_size
+                    );
+                    reply->zs_size = reply->zs->total_out;
+                }
+                
+                if(ret != Z_OK && ret != Z_STREAM_END){
+                    reply->res->error(
+                        "zlib deflate function returned: '{}'",
+                        ret
+                    );
+                    evhtp_send_reply_chunk_end(reply->request);
+                    return EVHTP_RES_SERVERR;
+                }
+                
+            }else{
+                /* add our data we read from the file into our reply buffer */
+                evbuffer_add(reply->buffer, buf, bytes_read);
+            }
+            
+            if(bytes_read > 0){
+                reply->res->trace(
+                    "Sending {} bytes for '{}'",
+                    bytes_read, reply->request->uri->path->full
+                );
+                
+                /* send the reply buffer as a http chunked message */
+                evhtp_send_reply_chunk(reply->request, reply->buffer);
+                
+                /* we can now drain our reply buffer as to not be a resource
+                * hog.
+                */
+                evbuffer_drain(reply->buffer, bytes_read);
+            }
+        }
+        
+        /* check if we have read everything from the file */
+        if(feof(reply->file_desc)){
+            reply->res->trace(
+                "Sending last chunk for '{}'",
+                reply->request->uri->path->full
+            );
+            
+            /* now that we have read everything from the file, we must
+            * first unset our on_write hook, then inform evhtp to send
+            * this message as the final chunk.
+            */
+            evhtp_connection_unset_hook(conn, evhtp_hook_on_write);
+            evhtp_send_reply_chunk_end(reply->request);
+
+            /* we can now free up our little reply_ structure */
+            {
+                if(reply->zs){
+                    deflateEnd(reply->zs);
+                    reply->zs = nullptr;
+                }
+                
+                fclose(reply->file_desc);
+                
+                evhtp_safe_free(reply->buffer, evbuffer_free);
+                evhtp_safe_free(reply, free);
+                
+                // no need for the connection fini hook anymore
+                evhtp_connection_unset_hook(
+                    conn, evhtp_hook_on_connection_fini
+                );
+            }
+        }
+        
+        return EVHTP_RES_OK;
+    }
+    
+    static evhtp_res send_file_fini(
+        struct evhtp_connection* c, void* arg)
+    {
+        struct file_reply* reply = (struct file_reply*)arg;
+        
+        if(reply->zs){
+            deflateEnd(reply->zs);
+            reply->zs = nullptr;
+        }
+        
+        fclose(reply->file_desc);
+        evhtp_safe_free(reply->buffer, evbuffer_free);
+        evhtp_safe_free(reply, free);
+        
+        return EVHTP_RES_OK;
+    }
+}
 
 
 } //ns evmvc

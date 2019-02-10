@@ -139,8 +139,25 @@ public:
         
         return _retry;
     }
-
-    static std::string color(int16_t code)
+    
+    static evmvc::string_view category(int16_t code)
+    {
+        if(code < 200)
+            return "Info";
+        else if(code < 300)
+            return "Success";
+        else if(code < 400)
+            return "Redirection";
+        else if(code < 500)
+            return "Client error";
+        return "Server error";
+    }
+    static evmvc::string_view category(evmvc::status s)
+    {
+        return category((int16_t)s);
+    }
+    
+    static evmvc::string_view color(int16_t code)
     {
         if(code < 300)
             return "green";
@@ -151,7 +168,7 @@ public:
             
         return "red";
     }
-    static std::string color(evmvc::status s)
+    static evmvc::string_view color(evmvc::status s)
     {
         return color((int16_t)s);
     }

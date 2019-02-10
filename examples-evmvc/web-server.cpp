@@ -44,9 +44,6 @@ struct exit_app_params
 
 void exit_app(int, short, void* arg)
 {
-    //struct event* tev = (struct event*)arg;
-    //struct event_base* ev_base =
-    //    (struct event_base*)arg;// event_get_base(tev);
     struct exit_app_params* params = (struct exit_app_params*)arg;
     struct timeval tv = {1,0};
     event_base_loopexit(params->ev_base, &tv);
@@ -66,8 +63,8 @@ int main(int argc, char** argv)
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
-    opts.log_console_level =
-        opts.log_file_level = spdlog::level::trace;
+    opts.log_console_level = spdlog::level::trace;
+    opts.log_file_level = spdlog::level::off;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
     
@@ -120,9 +117,9 @@ int main(int argc, char** argv)
         
         std::clog << fmt::format("sending file: '{0}'\n", path);
         
-        res->send_file(path, "", [path](evmvc::cb_error err){
+        res->send_file(path, "", [path, res](evmvc::cb_error err){
             if(err)
-                std::cerr << fmt::format(
+                res->log()->error(
                     "send-file for file '{0}', failed!\n{1}\n",
                     path, err.c_str()
                 );
@@ -204,9 +201,10 @@ int main(int argc, char** argv)
         srv.reset();
     });
     
-    srv->add_router(
+    srv->register_router(
         std::static_pointer_cast<evmvc::router>(
             std::make_shared<evmvc::file_router>(
+                srv.get(),
                 EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
                 "/html"
             )
@@ -218,12 +216,6 @@ int main(int argc, char** argv)
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
         res->redirect("/html/login-results.html");
-        
-        // res.error(
-        //     evmvc::status::internal_server_error,
-        //     EVMVC_ERR("Not implemented!")
-        // );
-            
     });
     
     srv->listen(_ev_base);

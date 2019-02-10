@@ -38,34 +38,6 @@ extern "C" {
 
 namespace evmvc {
 
-//    # simple route that will match url "/abc/123" and "/abc/123/"
-//    /abc/123
-//    
-//    # simple route that will match url's "/abc/123", "/abc/123/def",
-//    # "/abc/123/456/" but not "/abc/123/def/other_path"
-//    /abc/123/*
-//    
-//    # simple route that will match url's "/abc/123", "/abc/123/def",
-//    # "/abc/123/456/" and any sub path "/abc/123/def/sub/path/..."
-//    /abc/123/**
-//    
-//    # optional parameter can be defined
-//    # by enclosing the parameter in square brackets
-//    /abc/123/:p1/:[p2]
-//    
-//    # PCRE regex can be use to validate parameter by enclosing
-//    # the rules inside parentheses following the parameter name
-//    /abc/123/:p1(\\d+)/:[p2]
-//    
-//    # regex parameter can be optional as well
-//    /abc/123/:[p1(\\d+)]
-//    
-//    # all parameters following an optional parameter must be optional
-//    /abc/123/:p1(\\d+)/:[p2]/:[p3]
-//    
-
-//typedef std::function<void(boost::system::error_code)> async_cb;
-
 typedef 
     std::function<void(
         const evmvc::sp_request,
@@ -96,8 +68,6 @@ public:
     );
     
     sp_route route;
-    //std::unordered_map<std::string, std::string> params;
-    //evmvc::request::param_map params;
     evmvc::http_params params;
 };
 
@@ -116,8 +86,8 @@ class route
     };
     
 public:
-    route(evmvc::string_view route_path)
-        : _re(nullptr)
+    route(evmvc::sp_app app, evmvc::string_view route_path)
+        : _app(app), _re(nullptr)
     {
         this->_build_route_re(route_path);
     }
@@ -132,7 +102,10 @@ public:
         _re_study = nullptr;
     }
     
-    sp_route add_handler(route_handler_cb cb)
+    evmvc::sp_app app(){ return _app;}
+    std::shared_ptr<spdlog::logger> log() const;
+    
+    sp_route register_handler(route_handler_cb cb)
     {
         _handlers.emplace_back(cb);
         return this->shared_from_this();
@@ -166,7 +139,7 @@ public:
                     (OVECCOUNT/3-1)
                 )
             );
-
+        
         sp_route_result rr = std::make_shared<route_result>(
             this->shared_from_this()
         );
@@ -199,19 +172,13 @@ public:
                 rr->params.emplace_back(
                     std::make_shared<evmvc::http_param>(pname, std::string(dp))
                 );
-                // rr->params.emplace(
-                //     std::make_pair(
-                //         pname,
-                //         std::make_shared<http_param>(std::string(dp))
-                //     )
-                // );
+                
                 free(dp);
             }
             
             tabptr += name_entry_size;
         }
         
-        //pcre_free(name_table);
         return rr;
     }
     
@@ -219,13 +186,13 @@ protected:
     
     void execute(
         const evmvc::http_params& params,
-        //const evmvc::request::param_map& params,
         evhtp_request_t* ev_req,
         evmvc::sp_response res,
         async_cb cb)
     {
         evmvc::sp_request req = std::make_shared<evmvc::request>(
-            res->app(), ev_req, res->shared_cookies(), params
+            res->id(), res->app(), res->log(),
+            ev_req, res->shared_cookies(), params
         );
         res->_req = req;
         _exec(req, res, 0, cb);
@@ -344,12 +311,10 @@ protected:
             &error, &erroffset, nullptr
         );
         if(!_re)
-            throw std::runtime_error(
-                fmt::format(
-                    "PCRE compilation failed for route '{0}', pattern '{1}' "
-                    "at offset {2}: {3}",
-                    route_path.data(), _re_pattern, erroffset, error
-                )
+            throw EVMVC_ERR(
+                "PCRE compilation failed for route '{0}', pattern '{1}' "
+                "at offset {2}: {3}",
+                route_path.data(), _re_pattern, erroffset, error
             );
         
         _re_study = pcre_study(_re, 0, &error);
@@ -357,11 +322,9 @@ protected:
             pcre_free(_re);
             _re = nullptr;
             
-            throw std::runtime_error(
-                fmt::format(
-                    "PCRE study failed for route '{0}' : {1}",
-                    route_path.data(), error
-                )
+            throw EVMVC_ERR(
+                "PCRE study failed for route '{0}' : {1}",
+                route_path.data(), error
             );
         }
     }
@@ -387,6 +350,8 @@ protected:
         
         return "\\/" + rs.re_pattern + _build_route_re(segs, ++seg_idx);
     }
+    
+    evmvc::sp_app _app;
     
     std::vector<std::string> _param_names;
     std::vector<route_handler_cb> _handlers;
@@ -415,16 +380,16 @@ class router
     typedef std::unordered_map<std::string, route_map> verb_map;
     
 public:
-    router()
-        : _parent(nullptr), _path(_norm_path("")),
+    router(evmvc::app* app)
+        : _app(app), _parent(nullptr), _path(_norm_path("")),
         _match_first(boost::indeterminate),
          _match_strict(boost::indeterminate),
           _match_case(boost::indeterminate)
     {
     }
-
-    router(const evmvc::string_view& path)
-        : _parent(nullptr), _path(_norm_path(path)),
+    
+    router(evmvc::app* app, const evmvc::string_view& path)
+        : _app(app), _parent(nullptr), _path(_norm_path(path)),
         _match_first(boost::indeterminate),
          _match_strict(boost::indeterminate),
           _match_case(boost::indeterminate)
@@ -435,11 +400,22 @@ public:
     {
     }
     
+    evmvc::sp_app app() const;
+    std::shared_ptr<spdlog::logger> log() const;
+    
+    std::string full_path() const
+    {
+        if(this->_parent)
+            return this->_path + "/" + this->_parent->full_path();
+        else
+            return this->_path;
+    }
+    
     sp_route resolve_route(
         evmvc::method method,
         const evmvc::string_view& url)
     {
-        evmvc::string_view vs = evmvc::method_to_string(method);
+        evmvc::string_view vs = evmvc::to_string(method);
         return resolve_route(vs, url);
     }
     
@@ -462,7 +438,7 @@ public:
         evmvc::method method,
         const evmvc::string_view& url)
     {
-        evmvc::string_view vs = evmvc::method_to_string(method);
+        evmvc::string_view vs = evmvc::to_string(method);
         return resolve_url(vs, url);
     }
     
@@ -502,82 +478,146 @@ public:
     virtual sp_router all(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_route_handler("ALL", route_path, cb);
+        return register_route_handler("ALL", route_path, cb);
     }
     virtual sp_router options(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::options, route_path, cb);
+        return register_handler(evmvc::method::options, route_path, cb);
     }
     virtual sp_router del(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::del, route_path, cb);
+        return register_handler(evmvc::method::del, route_path, cb);
     }
     virtual sp_router head(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::head, route_path, cb);
+        return register_handler(evmvc::method::head, route_path, cb);
     }
     virtual sp_router get(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::get, route_path, cb);
+        return register_handler(evmvc::method::get, route_path, cb);
     }
     virtual sp_router post(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::post, route_path, cb);
+        return register_handler(evmvc::method::post, route_path, cb);
     }
     virtual sp_router put(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::put, route_path, cb);
+        return register_handler(evmvc::method::put, route_path, cb);
     }
     virtual sp_router connect(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::connect, route_path, cb);
+        return register_handler(evmvc::method::connect, route_path, cb);
     }
     virtual sp_router trace(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::trace, route_path, cb);
+        return register_handler(evmvc::method::trace, route_path, cb);
     }
     virtual sp_router patch(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
-        return add_handler(evmvc::method::patch, route_path, cb);
+        return register_handler(evmvc::method::patch, route_path, cb);
     }
-    // virtual sp_router purge(
-    //   const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return add_handler(evmvc::method::purge, route_path, cb);
-    // }
-    // virtual sp_router link(
-    //   const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return add_handler(evmvc::method::link, route_path, cb);
-    // }
-    // virtual sp_router unlink(
-    //     const evmvc::string_view& route_path, route_handler_cb cb)
-    // {
-    //     return add_handler(evmvc::method::unlink, route_path, cb);
-    // }
     
-    virtual sp_router add_route_handler(
+    virtual sp_router register_route_handler(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        return add_handler(method, route_path, cb);
+        return register_handler(method, route_path, cb);
     }
     
-    virtual sp_router add_router(sp_router router)
+    virtual sp_router register_router(sp_router router)
     {
+        this->trace(
+            "Registering router '{}'",
+            router->_path
+        );
+        
+        router->_app = this->_app;
         router->_parent = this->shared_from_this();
         _routers.emplace(std::make_pair(router->_path, router));
         return this->shared_from_this();
+    }
+    
+    
+    template <typename... Args>
+    void trace(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->trace(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void debug(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->debug(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void info(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->info(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void warn(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->warn(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void error(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->error(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
+    }
+    
+    template <typename... Args>
+    void critical(evmvc::string_view f, const Args&... args) const
+    {
+        if(this->log()) this->log()->critical(
+            fmt::format(
+                "[router: {}] {}",
+                this->full_path(), f.data()
+            ).c_str(),
+            args...
+        );
     }
     
 protected:
@@ -593,51 +633,63 @@ protected:
         return "/" + p;
     }
     
-    virtual sp_router add_handler(
+    virtual sp_router register_handler(
         evmvc::method method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        evmvc::string_view vs = evmvc::method_to_string(method);
-        return add_handler(vs, route_path, cb);
+        evmvc::string_view vs = evmvc::to_string(method);
+        return register_handler(vs, route_path, cb);
     }
     
-    virtual sp_router add_handler(
+    virtual sp_router register_handler(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
+        this->trace(
+            "Registering handler for route [{}] '{}'",
+            method.data(), route_path.data()
+        );
         auto rp = resolve_route(method, route_path);
         if(!rp)
-            rp = add_route(method, route_path);
+            rp = register_route(method, route_path);
         
-        rp->add_handler(cb);
+        rp->register_handler(cb);
         return this->shared_from_this();
     }
 
-    virtual sp_route add_route(
+    virtual sp_route register_route(
         evmvc::method method,
         const evmvc::string_view& route_path)
     {
-        evmvc::string_view vs = evmvc::method_to_string(method);
-        return add_route(vs, route_path);
+        evmvc::string_view vs = evmvc::to_string(method);
+        return register_route(vs, route_path);
     }
     
-    virtual sp_route add_route(
+    virtual sp_route register_route(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path)
     {
+        this->trace(
+            "Registering route [{}] '{}'",
+            method.data(), route_path.data()
+        );
+        
         auto rm = _verbs.find(std::string(method));
         if(rm == _verbs.end()){
             _verbs.emplace(std::make_pair(method, route_map()));
             rm = _verbs.find(std::string(method));
         }
         
-        sp_route r = std::make_shared<evmvc::route>(route_path);
+        sp_route r = std::make_shared<evmvc::route>(
+            this->app(), route_path
+        );
         rm->second.emplace(std::make_pair(route_path, r));
         return r;
     }
     
+    evmvc::app* _app;
     sp_router _parent;
     std::string _path;
     // if the first matching router_path is return
@@ -676,7 +728,8 @@ protected:
         evmvc::sp_response res, async_cb cb)
     {
         evmvc::sp_request req = std::make_shared<evmvc::request>(
-            res->app(), ev_req, res->shared_cookies(), params
+            res->id(), res->app(), res->log(),
+            ev_req, res->shared_cookies(), params
         );
         res->_req = req;
         
@@ -684,7 +737,6 @@ protected:
             res->error(evmvc::status::not_found, EVMVC_ERR(""));
             if(cb)
                 cb(nullptr);
-                //cb(EVMVC_ERR(""));
             return;
         }
         
@@ -700,12 +752,13 @@ class file_router
 {
 public:
     file_router(
+        evmvc::app* app,
         const boost::filesystem::path& base_path,
         const evmvc::string_view& virt_path)
-        : router(virt_path), _base_path(boost::filesystem::absolute(base_path))
+        : router(app, virt_path),
+        _base_path(boost::filesystem::absolute(base_path))
     {
     }
-    
     
     
     sp_route_result resolve_url(
@@ -735,7 +788,7 @@ public:
     
 protected:
     
-    sp_router add_handler(
+    sp_router register_handler(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb)

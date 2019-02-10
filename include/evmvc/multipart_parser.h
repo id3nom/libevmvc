@@ -267,6 +267,7 @@ typedef struct multipart_parser_t
     }
     
     evmvc::app* app;
+    std::shared_ptr<spdlog::logger> log;
     
     multipart_parser_state state;
     
@@ -319,7 +320,8 @@ static std::string get_boundary(const std::string& hdr_val)
     return "";
 }
 
-static std::string get_boundary(evhtp_headers_t* hdr)
+static std::string get_boundary(
+    std::shared_ptr<spdlog::logger> log, evhtp_headers_t* hdr)
 {
     evhtp_kv_t* header = nullptr;
     if((header = evhtp_headers_find_header(
@@ -331,8 +333,9 @@ static std::string get_boundary(evhtp_headers_t* hdr)
             return val;
     }
     
-    std::cerr <<
-        "Invalid multipart/form-data query, boundary wasn't found!\n";
+    log->error(
+        "Invalid multipart/form-data query, boundary wasn't found!"
+        );
     return "";
 }
 
@@ -373,7 +376,7 @@ static bool parse_boundary_header(
     std::string hdr_line(hdr);
     size_t col_idx = hdr_line.find_first_of(":");
     if(col_idx == std::string::npos){
-        std::cerr << "Invalid boundary header format!";
+        mp->log->error("Invalid boundary header format!");
         return false;
     }
     
@@ -487,11 +490,11 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     bool& ended,
     char* line)
 {
-    std::clog << "parse_end_of_section\n";
+    mp->log->trace("parse_end_of_section");
 
     if(mp->current->get_parent()->start_boundary == line){
         ended = true;
-        std::clog << "start boundary detected\n";
+        mp->log->trace("start boundary detected");
 
         mp->state = evmvc::_internal::multipart_parser_state::headers;
         if(auto sp = mp->current->parent.lock()){
@@ -510,7 +513,7 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     
     if(mp->current->get_parent()->end_boundary == line){
         ended = true;
-        std::clog << "end boundary detected\n";
+        mp->log->trace("end boundary detected");
         
         mp->state = evmvc::_internal::multipart_parser_state::headers;
         if(std::shared_ptr<multipart_subcontent> spa = 
@@ -537,7 +540,7 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     }
     
     if(ended && mp->current == mp->root){
-        std::clog << "on_read_file_data transmission is completed!\n";
+        mp->log->trace("on_read_file_data transmission is completed!");
         mp->completed = true;
     }
     
@@ -548,7 +551,7 @@ static evmvc::cb_error/*evhtp_res*/ on_read_form_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
-    std::clog << "on_read_form_data\n";
+    mp->log->trace("on_read_form_data");
     
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
@@ -558,7 +561,7 @@ static evmvc::cb_error/*evhtp_res*/ on_read_form_data(
         return nullptr;
     }
     
-    std::clog << fmt::format("recv: '{}'\n", line);
+    mp->log->trace("recv: '{}'\n", line);
     bool ended = false;
     evmvc::cb_error cberr = parse_end_of_section(mp, ended, line);
     if(cberr || ended){
@@ -578,26 +581,18 @@ static evmvc::cb_error/*evhtp_res*/ on_read_file_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
-    std::clog << "on_read_file_data\n";
+    mp->log->trace("on_read_file_data");
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
     
     auto mf = std::static_pointer_cast<multipart_content_file>(mp->current);
     
     if(line != nullptr){
-        std::clog << fmt::format("recv: '{}'\n", line);
+        mp->log->trace("recv: '{}'\n", line);
         bool ended = false;
         evmvc::cb_error cberr = parse_end_of_section(mp, ended, line);
         if(cberr || ended){
             if(mf->fd != -1){
-                // if(mf->append_crlf && writen(mf->fd, "\r\n", 2) < 0){
-                //     std::cerr << fmt::format(
-                //         "Failed to write to temp file '{}'\nErr: {}",
-                //         mf->temp_path.c_str(), strerror(errno)
-                //     );
-                //     res = EVHTP_RES_SERVERR;
-                // }
-                
                 if(close(mf->fd) < 0){
                     cberr = EVMVC_ERR(
                         "Failed to close temp file '{}'\nErr: {}",
@@ -624,7 +619,8 @@ static evmvc::cb_error/*evhtp_res*/ on_read_file_data(
             
             char buf[buf_size];
             evbuffer_remove(mp->buf, buf, buf_size);
-            std::clog << fmt::format("extracted: '{}'\n",
+            mp->log->trace(
+                "extracted: '{}'",
                 std::string(buf, buf+buf_size)
             );
             if(writen(mf->fd, buf, buf_size) < 0){
@@ -669,8 +665,8 @@ static evhtp_res on_read_multipart_data(
 
     size_t blen = evbuffer_get_length(buf);
     
-    std::clog << fmt::format(
-        "on_read_multipart_data received '{}' bytes\n",
+    mp->log->trace(
+        "on_read_multipart_data received '{}' bytes",
         blen
     );
 
@@ -694,7 +690,7 @@ static evhtp_res on_read_multipart_data(
                     break;
                 }
                 
-                std::clog << fmt::format("recv: '{}'\n", line);
+                mp->log->trace("recv: '{}'", line);
                 if(mp->current->get_parent()->start_boundary != line){
                     free(line);
                     cberr = EVMVC_ERR(
@@ -738,7 +734,7 @@ static evhtp_res on_read_multipart_data(
                     break;
                 }
                 
-                std::clog << fmt::format("recv: '{}'\n", line);
+                mp->log->trace("recv: '{}'", line);
                 if(len == 0){
                     // end of header part
                     free(line);
@@ -827,19 +823,19 @@ cleanup:
 static evhtp_res on_request_fini_multipart_data(
     evhtp_request_t *req, void *arg)
 {
-    std::clog << "on_request_fini_multipart_data\n";
-    
     auto mp = (evmvc::_internal::multipart_parser*)arg;
+    mp->log->trace("on_request_fini_multipart_data");
     delete mp;
     
     return EVHTP_RES_OK;
 }
 
 evhtp_res parse_multipart_data(
+    std::shared_ptr<spdlog::logger> log,
     evhtp_request_t* req, evhtp_headers_t* hdr,
     app* arg, const boost::filesystem::path& temp_dir)
 {
-    std::string boundary = get_boundary(hdr);
+    std::string boundary = get_boundary(log, hdr);
     if(boundary.size() == 0)
         return EVHTP_RES_BADREQ;
     
@@ -847,6 +843,7 @@ evhtp_res parse_multipart_data(
         new evmvc::_internal::multipart_parser();
     
     mp->app = arg;
+    mp->log = log;
     mp->total_size = evmvc::_internal::get_content_length(hdr);
     mp->temp_dir = temp_dir;
     

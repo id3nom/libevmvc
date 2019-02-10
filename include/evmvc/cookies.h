@@ -99,8 +99,10 @@ public:
     
     
     http_cookies() = delete;
-    http_cookies(evhtp_request_t* ev_req)
-        : _ev_req(ev_req), _init(false), _cookies(), _locked(false)
+    http_cookies(
+        std::shared_ptr<spdlog::logger> log,
+        evhtp_request_t* ev_req)
+        : _log(log), _ev_req(ev_req), _init(false), _cookies(), _locked(false)
     {
     }
     
@@ -435,7 +437,7 @@ private:
                 while((size_t)ks <= i && header->val[ks] == ' ')
                     ++ks;
                 if((size_t)ks == i){
-                    std::clog << fmt::format(
+                    _log->warn(
                         "Invalid cookie value: '{0}'", header->val
                     );
                     return;
@@ -443,7 +445,7 @@ private:
                 
                 svk = evmvc::string_view(header->val + ks, i - ks);
                 if(i == header->vlen -1){
-                    std::clog << fmt::format(
+                    _log->warn(
                         "Invalid cookie value: '{0}'", header->val
                     );
                     return;
@@ -488,6 +490,7 @@ private:
         _locked = true;
     }
     
+    std::shared_ptr<spdlog::logger> _log;
     evhtp_request_t* _ev_req;
     mutable bool _init;
     mutable cookie_map _cookies;

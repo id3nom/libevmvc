@@ -44,18 +44,24 @@ class request
 public:
     
     request(
+        uint64_t id,
         const evmvc::sp_app& app,
+        std::shared_ptr<spdlog::logger> log,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies,
         //const param_map& p
         const std::vector<std::shared_ptr<evmvc::http_param>> p
         )
-        : _app(app), _ev_req(ev_req), _cookies(http_cookies),
+        : _id(id), _app(app), _log(log),
+        _ev_req(ev_req), _cookies(http_cookies),
         _rt_params(p)
     {
     }
     
+    uint64_t id() const { return _id;}
     evmvc::sp_app app() const { return _app;}
+    std::shared_ptr<spdlog::logger> log() const { return _log;}
+    
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
     sp_http_cookies shared_cookies() const { return _cookies;}
@@ -179,10 +185,47 @@ public:
         return get("X-Requested-With")->compare_value("XMLHttpRequest");
     }
     
+    template <typename... Args>
+    void trace(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->trace(fmt.data(), args...);
+    }
     
-protected:
+    template <typename... Args>
+    void debug(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->debug(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void info(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->info(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void warn(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->warn(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void error(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->error(fmt.data(), args...);
+    }
+    
+    template <typename... Args>
+    void critical(evmvc::string_view fmt, const Args&... args) const
+    {
+        if(_log) _log->critical(fmt.data(), args...);
+    }
 
+protected:
+    
+    uint64_t _id;
     evmvc::sp_app _app;
+    std::shared_ptr<spdlog::logger> _log;
     evhtp_request_t* _ev_req;
     sp_http_cookies _cookies;
     //param_map _rt_params;

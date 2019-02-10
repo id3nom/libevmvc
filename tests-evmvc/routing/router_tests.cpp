@@ -37,8 +37,11 @@ public:
 TEST_F(router_test, routes)
 {
     try{
+        evmvc::app_options opts;
+        evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
+
         evmvc::sp_router r = 
-            std::make_shared<evmvc::router>();
+            std::make_shared<evmvc::router>(srv.get());
         
         std::string rt_val;
         // // # simple route that will match url "/abc/123" and "/abc/123/"
@@ -134,14 +137,13 @@ TEST_F(router_test, routes)
             next(nullptr);
         });
         
-        evmvc::app_options opts;
-        evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
-        
         evhtp_request_t* ev_req = nullptr;
         evmvc::sp_http_cookies c =
-            std::make_shared<evmvc::http_cookies>(ev_req);
+            std::make_shared<evmvc::http_cookies>(
+                nullptr, ev_req
+            );
         evmvc::sp_response res = std::make_shared<evmvc::response>(
-            srv, ev_req, c
+            srv, srv->log(), ev_req, c
         );
         
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");

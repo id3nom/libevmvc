@@ -26,11 +26,15 @@ SOFTWARE.
 #define _libevmvc_app_h
 
 #include "stable_headers.h"
+#include "app_options.h"
 #include "router.h"
 #include "stack_debug.h"
 #include "multipart_parser.h"
 
 #include <sys/utsname.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #define EVMVC_PCRE_DATE EVMVC_STRING(PCRE_DATE)
 
@@ -44,95 +48,7 @@ enum class app_state
     stopping,
 };
 
-class app_options
-{
-public:
-    app_options()
-        : base_dir(boost::filesystem::current_path()),
-        view_dir(base_dir / "views"),
-        temp_dir(base_dir / "temp"),
-        cache_dir(base_dir / "cache"),
-        log_dir(base_dir / "logs"),
-        secure(false),
-        use_default_logger(true),
-        
-        log_console_level(spdlog::level::level_enum::warn),
-        log_console_enable_color(true),
-        log_file_level(spdlog::level::level_enum::warn),
-        log_file_max_size(1048576 * 5),
-        log_file_max_files(7)
-    {
-    }
-
-    app_options(const boost::filesystem::path& base_directory)
-        : base_dir(base_directory),
-        view_dir(base_dir / "views"),
-        temp_dir(base_dir / "temp"),
-        cache_dir(base_dir / "cache"),
-        log_dir(base_dir / "logs"),
-        secure(false),
-        use_default_logger(true),
-        
-        log_console_level(spdlog::level::level_enum::warn),
-        log_console_enable_color(true),
-        log_file_level(spdlog::level::level_enum::warn),
-        log_file_max_size(1048576 * 5),
-        log_file_max_files(7)
-    {
-    }
-    
-    app_options(const evmvc::app_options& other)
-        : base_dir(other.base_dir), 
-        view_dir(other.view_dir),
-        temp_dir(other.temp_dir),
-        cache_dir(other.cache_dir),
-        log_dir(other.log_dir),
-        secure(other.secure),
-        use_default_logger(other.use_default_logger),
-        
-        log_console_level(other.log_console_level),
-        log_console_enable_color(other.log_console_enable_color),
-        log_file_level(other.log_file_level),
-        log_file_max_size(other.log_file_max_size),
-        log_file_max_files(other.log_file_max_files)
-    {
-    }
-    
-    app_options(evmvc::app_options&& other)
-        : base_dir(std::move(other.base_dir)),
-        view_dir(std::move(other.view_dir)),
-        temp_dir(std::move(other.temp_dir)),
-        cache_dir(std::move(other.cache_dir)),
-        log_dir(std::move(other.log_dir)),
-        secure(other.secure),
-        use_default_logger(other.use_default_logger),
-        
-        log_console_level(other.log_console_level),
-        log_console_enable_color(other.log_console_enable_color),
-        log_file_level(other.log_file_level),
-        log_file_max_size(other.log_file_max_size),
-        log_file_max_files(other.log_file_max_files)
-    {
-    }
-    
-    boost::filesystem::path base_dir;
-    boost::filesystem::path view_dir;
-    boost::filesystem::path temp_dir;
-    boost::filesystem::path cache_dir;
-    boost::filesystem::path log_dir;
-    
-    bool secure;
-    
-    bool use_default_logger;
-    
-    spdlog::level::level_enum log_console_level;
-    bool log_console_enable_color;
-    
-    spdlog::level::level_enum log_file_level;
-    size_t log_file_max_size;
-    size_t log_file_max_files;
-    
-};
+//https://chromium.googlesource.com/external/github.com/ellzey/libevhtp/+/libevhtp2/src/evhtp2/ws/
 
 class app
     : public std::enable_shared_from_this<app>
@@ -145,9 +61,14 @@ public:
         evmvc::app_options&& opts)
         : _status(app_state::stopped),
         _options(std::move(opts)),
-        _router(std::make_shared<router>("/")),
+        _router(),
         _evbase(nullptr), _evhtp(nullptr)
     {
+        _router =
+            std::make_shared<router>(
+                this, "/"
+            );
+        
         _router->_path = "";
         
         // init the default logger
@@ -187,6 +108,11 @@ public:
                 "libevmvc", sinks.begin(), sinks.end()
             );
             _logger->flush_on(spdlog::level::warn);
+            _logger->set_level(
+                std::min(
+                    _options.log_file_level, _options.log_console_level
+                )
+            );
         }
         
         this->info("Starting app\n{}", app::version());
@@ -422,17 +348,17 @@ public:
         return _router->patch(route_path, cb);
     }
     
-    sp_router add_route_handler(
+    sp_router register_route_handler(
         const evmvc::string_view& verb,
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
-        return _router->add_route_handler(verb, route_path, cb);
+        return _router->register_route_handler(verb, route_path, cb);
     }
     
-    sp_router add_router(sp_router router)
+    sp_router register_router(sp_router router)
     {
-        return _router->add_router(router);
+        return _router->register_router(router);
     }
     
 private:
@@ -465,12 +391,31 @@ private:
     std::shared_ptr<spdlog::logger> _logger;
 };
 
+std::shared_ptr<spdlog::logger> route::log() const
+{
+    return _app->log();
+}
+evmvc::sp_app router::app() const
+{
+    return _app->shared_from_this();
+}
+std::shared_ptr<spdlog::logger> router::log() const
+{
+    return _app->log();
+}
+
+
 void _internal::send_error(
     evmvc::app* app, evhtp_request_t *req, int status_code,
     evmvc::string_view msg)
 {
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
-    evmvc::response res(app->shared_from_this(), req, c);
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
+        app->log(), req
+    );
+    evmvc::response res(
+        app->shared_from_this(), app->log(),
+        req, c
+    );
     
     res.error(
         (evmvc::status)status_code,
@@ -482,8 +427,12 @@ void _internal::send_error(
     evmvc::app* app, evhtp_request_t *req, int status_code,
     evmvc::cb_error err)
 {
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
-    evmvc::response res(app->shared_from_this(), req, c);
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
+        app->log(), req
+    );
+    evmvc::response res(
+        app->shared_from_this(), app->log(), req, c
+    );
     
     res.error((evmvc::status)status_code, err);
 }
@@ -494,6 +443,7 @@ evhtp_res _internal::on_headers(
 {
     if(evmvc::_internal::is_multipart_data(req, hdr))
         return evmvc::_internal::parse_multipart_data(
+            ((app*)arg)->log(),
             req, hdr, (app*)arg,
             ((app*)arg)->options().temp_dir
         );
@@ -518,15 +468,17 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
         throw EVMVC_ERR("Unknown method are not implemented!");
         //sv = "";// req-> req.method_string();
     else
-        sv = evmvc::method_to_string(v);
+        sv = evmvc::to_string(v);
     
     auto rr = a->_router->resolve_url(v, req->uri->path->full);
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(req);
+    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
+        a->log(), req
+    );
     evmvc::sp_response res = std::make_shared<evmvc::response>(
-        a->shared_from_this(), req, c
+        a->shared_from_this(), a->log(), req, c
     );
     
     try{
@@ -550,67 +502,32 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
             }
         });
     }catch(const std::exception& err){
-        
-        char* what = evhttp_htmlescape(err.what());
-        std::string err_msg = fmt::format(
-            "<!DOCTYPE html><html><head><title>"
-            "LIBEVMVC Error</title></head><body>"
-            "<table>\n<tr><td style='background-color:{0};font-size:1.1em;'>"
-                "<b>Error summary</b>"
-            "</td></tr>\n"
-            "<tr><td style='color:{0};'><b>Error {1}, {2}</b></td></tr>\n"
-            "<tr><td style='color:{0};'>{3}</td></tr>\n",
-            evmvc::statuses::color(evmvc::status::internal_server_error),
-            (int16_t)evmvc::status::internal_server_error,
-            evmvc::statuses::status(
-                evmvc::status::internal_server_error
-            ).data(),
-            what
-        );
-        free(what);
-        
-        try{
-            auto se = dynamic_cast<const evmvc::stacked_error&>(err);
-            
-            char* file = evhttp_htmlescape(se.file().data());
-            char* func = evhttp_htmlescape(se.func().data());
-            char* stack = evhttp_htmlescape(se.stack().c_str());
-            
-            err_msg += fmt::format(
-                "<tr><td>&nbsp;</td></tr>\n"
-                "<tr><td style='"
-                    "border-bottom: 1px solid black;"
-                    "font-size:1.1em;"
-                    "'>"
-                    "<b>Additional info</b>"
-                "</td></tr>\n"
-                "<tr><td><pre>"
-                "\n\n{}:{}\n{}\n\n{}"
-                "</pre></td></tr>\n",
-                file, se.line(), func, stack
-            );
-            
-            free(file);
-            free(func);
-            free(stack);
-            
-        }catch(...){}
-        
-        err_msg += fmt::format(
-            "<tr><td style='"
-            "border-top: 1px solid black; font-size:0.9em'>{}"
-            "</td></tr>\n",
-            app::html_version()
-        );
-        
-        err_msg += "</table></body></html>";
-        
-        res->status(evmvc::status::internal_server_error).html(err_msg);
+        res->error(evmvc::status::internal_server_error, err);
     }
 }
 
 void response::error(evmvc::status err_status, const cb_error& err)
 {
+    auto con_addr_in = (sockaddr_in*)this->_ev_req->conn->saddr;
+    // char* ip_addr = inet_ntoa(con_addr_in->sin_addr);
+    
+    std::string log_val = fmt::format(
+        "[{}] [{}] [{}{}{}] [Status {} {}, {}]\n{}",
+        inet_ntoa(con_addr_in->sin_addr),
+        to_string((evmvc::method)this->_ev_req->method).data(),
+        
+        this->_ev_req->uri->path->full,
+        this->_ev_req->uri->query_raw ? "?" : "",
+        this->_ev_req->uri->query_raw ?
+            (const char*)this->_ev_req->uri->query_raw : 
+            "",
+        
+        (int16_t)err_status,
+        evmvc::statuses::category(err_status).data(),
+        evmvc::statuses::status(err_status).data(),
+        err.c_str()
+    );
+    
     char* what = evhttp_htmlescape(err.c_str());
     std::string err_msg = fmt::format(
         "<!DOCTYPE html><html><head><title>"
@@ -620,14 +537,19 @@ void response::error(evmvc::status err_status, const cb_error& err)
         "</td></tr>\n"
         "<tr><td style='color:{0};'><b>Error {1}, {2}</b></td></tr>\n"
         "<tr><td style='color:{0};'>{3}</td></tr>\n",
-        evmvc::statuses::color(err_status),
+        evmvc::statuses::color(err_status).data(),
         (int16_t)err_status,
         evmvc::statuses::status(err_status).data(),
         what
     );
     free(what);
     
-    if(err.has_stack()){
+    if(this->_app->options().stack_trace_enabled && err.has_stack()){
+        log_val += fmt::format(
+            "\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
+            err.file(), err.line(), err.func(), err.stack()
+        );
+        
         char* file = evhttp_htmlescape(err.file().c_str());
         char* func = evhttp_htmlescape(err.func().c_str());
         char* stack = evhttp_htmlescape(err.stack().c_str());
@@ -659,6 +581,13 @@ void response::error(evmvc::status err_status, const cb_error& err)
     );
     
     err_msg += "</table></body></html>";
+    
+    if((int16_t)err_status < 400)
+        this->_app->info(log_val);
+    else if((int16_t)err_status < 500)
+        this->_app->warn(log_val);
+    else
+        this->_app->error(log_val);
     
     this->status(err_status).html(err_msg);
 }
