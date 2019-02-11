@@ -140,42 +140,6 @@ public:
         return _logger;
     }
     
-    template <typename... Args>
-    void trace(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->trace(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void debug(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->debug(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void info(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->info(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void warn(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->warn(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void error(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->error(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void critical(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_logger) _logger->critical(fmt.data(), args...);
-    }
-    
     app_state status() const
     {
         return _status;
@@ -393,15 +357,15 @@ private:
 
 std::shared_ptr<spdlog::logger> route::log() const
 {
-    return _app->log();
+    return _app.lock()->log();
 }
 evmvc::sp_app router::app() const
 {
-    return _app->shared_from_this();
+    return _app.lock();
 }
 std::shared_ptr<spdlog::logger> router::log() const
 {
-    return _app->log();
+    return _app.lock()->log();
 }
 
 

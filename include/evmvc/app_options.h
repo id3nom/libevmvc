@@ -26,6 +26,7 @@ SOFTWARE.
 #define _libevmvc_app_options_h
 
 #include "stable_headers.h"
+#include "logging.h"
 
 namespace evmvc {
 
@@ -41,9 +42,9 @@ public:
         secure(false),
         use_default_logger(true),
         
-        log_console_level(spdlog::level::level_enum::warn),
+        log_console_level(log_level::warning),
         log_console_enable_color(true),
-        log_file_level(spdlog::level::level_enum::warn),
+        log_file_level(log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false)
@@ -59,9 +60,9 @@ public:
         secure(false),
         use_default_logger(true),
         
-        log_console_level(spdlog::level::level_enum::warn),
+        log_console_level(log_level::warning),
         log_console_enable_color(true),
-        log_file_level(spdlog::level::level_enum::warn),
+        log_file_level(log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false)
@@ -114,10 +115,10 @@ public:
     
     bool use_default_logger;
     
-    spdlog::level::level_enum log_console_level;
+    log_level log_console_level;
     bool log_console_enable_color;
     
-    spdlog::level::level_enum log_file_level;
+    log_level log_file_level;
     size_t log_file_max_size;
     size_t log_file_max_files;
     

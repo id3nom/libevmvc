@@ -86,7 +86,7 @@ class route
     };
     
 public:
-    route(evmvc::sp_app app, evmvc::string_view route_path)
+    route(evmvc::wp_app app, evmvc::string_view route_path)
         : _app(app), _re(nullptr)
     {
         this->_build_route_re(route_path);
@@ -102,7 +102,7 @@ public:
         _re_study = nullptr;
     }
     
-    evmvc::sp_app app(){ return _app;}
+    evmvc::sp_app app(){ return _app.lock();}
     std::shared_ptr<spdlog::logger> log() const;
     
     sp_route register_handler(route_handler_cb cb)
@@ -351,7 +351,7 @@ protected:
         return "\\/" + rs.re_pattern + _build_route_re(segs, ++seg_idx);
     }
     
-    evmvc::sp_app _app;
+    evmvc::wp_app _app;
     
     std::vector<std::string> _param_names;
     std::vector<route_handler_cb> _handlers;
@@ -380,7 +380,7 @@ class router
     typedef std::unordered_map<std::string, route_map> verb_map;
     
 public:
-    router(evmvc::app* app)
+    router(evmvc::wp_app app)
         : _app(app), _parent(nullptr), _path(_norm_path("")),
         _match_first(boost::indeterminate),
          _match_strict(boost::indeterminate),
@@ -388,7 +388,7 @@ public:
     {
     }
     
-    router(evmvc::app* app, const evmvc::string_view& path)
+    router(evmvc::wp_app app, const evmvc::string_view& path)
         : _app(app), _parent(nullptr), _path(_norm_path(path)),
         _match_first(boost::indeterminate),
          _match_strict(boost::indeterminate),
@@ -689,7 +689,7 @@ protected:
         return r;
     }
     
-    evmvc::app* _app;
+    evmvc::wp_app _app;
     sp_router _parent;
     std::string _path;
     // if the first matching router_path is return

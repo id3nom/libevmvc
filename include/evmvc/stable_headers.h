@@ -31,8 +31,8 @@
 #include <deque>
 #include <vector>
 
-//#include "fmt/format.h"
-#include <spdlog/spdlog.h>
+#include "fmt/format.h"
+//#include <spdlog/spdlog.h>
 
 extern "C" {
 #ifndef EVHTP_DISABLE_REGEX
@@ -86,6 +86,7 @@ typedef nlohmann::json json;
 
 class app;
 typedef std::shared_ptr<app> sp_app;
+typedef std::weak_ptr<app> wp_app;
 
 class http_param;
 typedef std::shared_ptr<http_param> sp_http_param;
@@ -100,6 +101,31 @@ namespace _internal{
     void send_error(
         evmvc::app* app, evhtp_request_t *req, int status_code,
         evmvc::string_view msg = "");
+    
+    
+    /* Write "n" bytes to a descriptor. */
+    ssize_t writen(int fd, const void *vptr, size_t n)
+    {
+        size_t nleft;
+        ssize_t nwritten;
+        const char* ptr;
+        
+        ptr = (const char*)vptr;
+        nleft = n;
+        while(nleft > 0){
+            if((nwritten = write(fd, ptr, nleft)) <= 0){
+                if (errno == EINTR)
+                    nwritten = 0;/* and call write() again */
+                else
+                    return(-1);/* error */
+            }
+            
+            nleft -= nwritten;
+            ptr   += nwritten;
+        }
+        return(n);
+    }
+    /* end writen */
 
 }}//ns evmvc::_internal
 
