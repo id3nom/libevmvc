@@ -38,10 +38,17 @@ TEST_F(router_test, routes)
 {
     try{
         evmvc::app_options opts;
-        evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
+        opts.use_default_logger = false;
+        opts.log_console_level = 
+            opts.log_file_level = evmvc::log_level::off;
+        
+        evmvc::sp_app srv = std::make_shared<evmvc::app>(
+            nullptr,
+            std::move(opts)
+        );
 
         evmvc::sp_router r = 
-            std::make_shared<evmvc::router>(srv.get());
+            std::make_shared<evmvc::router>(srv);
         
         std::string rt_val;
         // // # simple route that will match url "/abc/123" and "/abc/123/"
@@ -138,20 +145,20 @@ TEST_F(router_test, routes)
         });
         
         evhtp_request_t* ev_req = nullptr;
-        evmvc::sp_http_cookies c =
-            std::make_shared<evmvc::http_cookies>(
-                nullptr, ev_req
-            );
-        evmvc::sp_response res = std::make_shared<evmvc::response>(
-            srv, srv->log(), ev_req, c
-        );
+        // evmvc::sp_http_cookies c =
+        //     std::make_shared<evmvc::http_cookies>(
+        //         nullptr, ev_req
+        //     );
+        // evmvc::sp_response res = std::make_shared<evmvc::response>(
+        //     srv, srv->log(), ev_req, c
+        // );
         
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)
             FAIL();
         
-        rr->execute(ev_req, res,
-        [r, &rr, ev_req, &res, &rt_val](auto error){
+        rr->execute(ev_req, //res,
+        [r, &rr, ev_req,/* &res,*/ &rt_val](auto error){
             
             ASSERT_EQ(rt_val, "abc-c");
             
@@ -162,8 +169,8 @@ TEST_F(router_test, routes)
             rr = r->resolve_url(evmvc::method::get, "/abc-g/123/4/arg2/arg3");
             if(!rr)
                 FAIL();
-            rr->execute(ev_req, res,
-            [r, &rr, ev_req, &res, &rt_val](auto error){
+            rr->execute(ev_req, //res,
+            [r, &rr, ev_req,/* &res,*/ &rt_val](auto error){
                 
                 ASSERT_EQ(rt_val, "abc-g");
                 

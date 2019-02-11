@@ -26,6 +26,7 @@ SOFTWARE.
 #define _libevmvc_cookies_h
 
 #include "stable_headers.h"
+#include "logging.h"
 #include "utils.h"
 #include "fields.h"
 
@@ -100,11 +101,19 @@ public:
     
     http_cookies() = delete;
     http_cookies(
-        std::shared_ptr<spdlog::logger> log,
+        uint64_t id,
+        const evmvc::sp_route& rt,
+        evmvc::sp_logger log,
         evhtp_request_t* ev_req)
-        : _log(log), _ev_req(ev_req), _init(false), _cookies(), _locked(false)
+        : _id(id), _rt(rt),
+        _log(log->add_child("cookies-" + evmvc::num_to_str(id, false))),
+        _ev_req(ev_req), _init(false), _cookies(), _locked(false)
     {
     }
+    
+    uint64_t id() const { return _id;}
+    evmvc::sp_route get_route()const { return _rt;}
+
     
     bool exists(evmvc::string_view name) const
     {
@@ -490,7 +499,9 @@ private:
         _locked = true;
     }
     
-    std::shared_ptr<spdlog::logger> _log;
+    uint64_t _id;
+    evmvc::sp_route _rt;
+    evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;
     mutable bool _init;
     mutable cookie_map _cookies;

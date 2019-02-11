@@ -25,17 +25,12 @@
 #define _libevmvc_multipart_parser_h
 
 #include "stable_headers.h"
+#include "logging.h"
 #include "router.h"
 #include "stack_debug.h"
 #include "fields.h"
 #include "http_param.h"
 #include "response.h"
-
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
-#include <cinttypes>
 
 // max content buffer size of 10KiB
 #define EVMVC_MAX_CONTENT_BUF_LEN 10240
@@ -163,12 +158,12 @@ typedef struct multipart_content_file_t
     ~multipart_content_file_t()
     {
         //boost::system::error_code ec;
-        if(!temp_path.empty() && boost::filesystem::exists(temp_path))
-            boost::filesystem::remove(temp_path);
+        if(!temp_path.empty() && bfs::exists(temp_path))
+            bfs::remove(temp_path);
     }
     
     std::string filename;
-    boost::filesystem::path temp_path;
+    bfs::path temp_path;
     
     size_t size;
     int fd;
@@ -242,7 +237,7 @@ typedef struct multipart_parser_t
     }
     
     evmvc::app* app;
-    std::shared_ptr<spdlog::logger> log;
+    evmvc::sp_logger log;
     
     multipart_parser_state state;
     
@@ -253,7 +248,7 @@ typedef struct multipart_parser_t
     
     std::shared_ptr<multipart_subcontent> root;
     std::shared_ptr<multipart_content> current;
-    boost::filesystem::path temp_dir;
+    bfs::path temp_dir;
     bool completed;
     
 } multipart_parser;
@@ -296,7 +291,7 @@ static std::string get_boundary(const std::string& hdr_val)
 }
 
 static std::string get_boundary(
-    std::shared_ptr<spdlog::logger> log, evhtp_headers_t* hdr)
+    evmvc::sp_logger log, evhtp_headers_t* hdr)
 {
     evhtp_kv_t* header = nullptr;
     if((header = evhtp_headers_find_header(
@@ -437,7 +432,7 @@ static bool assign_content_type(evmvc::_internal::multipart_parser* mp)
             );
             
             cc->filename = filename;
-            cc->temp_path = mp->temp_dir / boost::filesystem::unique_path();
+            cc->temp_path = mp->temp_dir / bfs::unique_path();
             cc->fd = open(cc->temp_path.c_str(), O_CREAT | O_WRONLY);
             if(cc->fd == -1)
                 return false;
@@ -806,9 +801,9 @@ static evhtp_res on_request_fini_multipart_data(
 }
 
 evhtp_res parse_multipart_data(
-    std::shared_ptr<spdlog::logger> log,
+    evmvc::sp_logger log,
     evhtp_request_t* req, evhtp_headers_t* hdr,
-    app* arg, const boost::filesystem::path& temp_dir)
+    app* arg, const bfs::path& temp_dir)
 {
     std::string boundary = get_boundary(log, hdr);
     if(boundary.size() == 0)

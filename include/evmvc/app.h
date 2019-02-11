@@ -57,72 +57,51 @@ class app
     
 public:
     
-    app(
+    app(struct event_base* ev_base,
         evmvc::app_options&& opts)
-        : _status(app_state::stopped),
+        : _init_rtr(false), _init_dirs(false), _status(app_state::stopped),
         _options(std::move(opts)),
         _router(),
-        _evbase(nullptr), _evhtp(nullptr)
+        _ev_base(ev_base), _evhtp(nullptr)
     {
-        _router =
-            std::make_shared<router>(
-                this, "/"
-            );
-        
-        _router->_path = "";
-        
         // init the default logger
         if(_options.use_default_logger){
-            //https://github.com/gabime/spdlog
+            std::vector<evmvc::sinks::sp_logger_sink> sinks;
             
-            std::vector<spdlog::sink_ptr> sinks;
-            auto stdout_sink =
-                std::make_shared<spdlog::sinks::stdout_sink_mt>();
-            if(_options.log_console_enable_color)
-                sinks.emplace_back(
-                    std::make_shared<spdlog::sinks::ansicolor_sink>(
-                        stdout_sink
-                    )
-                );
-            else
-                sinks.emplace_back(stdout_sink);
-            
-            sinks[sinks.size()-1]->set_level(
-                _options.log_console_level
+            auto out_sink = std::make_shared<evmvc::sinks::console_sink>(
+                _options.log_console_enable_color
             );
+            out_sink->set_level(_options.log_console_level);
+            sinks.emplace_back(out_sink);
             
-            boost::filesystem::create_directories(_options.log_dir);
-            sinks.emplace_back(
-                std::make_shared<spdlog::sinks::rotating_file_sink_mt>(
-                    (_options.log_dir / "libevmvc").c_str(), "log",
-                    _options.log_file_max_size,
-                    _options.log_file_max_files
-                )
+            bfs::create_directories(_options.log_dir);
+            auto file_sink = std::make_shared<evmvc::sinks::rotating_file_sink>(
+                _ev_base,
+                (_options.log_dir / "libevmvc.log").c_str(),
+                _options.log_file_max_size,
+                _options.log_file_max_files
             );
+            file_sink->set_level(_options.log_file_level);
+            sinks.emplace_back(file_sink);
             
-            sinks[sinks.size()-1]->set_level(
-                _options.log_file_level
-            );
-            
-            _logger = std::make_shared<spdlog::logger>(
+            _log = std::make_shared<evmvc::logger>(
                 "libevmvc", sinks.begin(), sinks.end()
             );
-            _logger->flush_on(spdlog::level::warn);
-            _logger->set_level(
-                std::min(
+            _log->set_level(
+                std::max(
                     _options.log_file_level, _options.log_console_level
                 )
             );
-        }
+        }else
+            _log = _internal::default_logger()->add_child(
+                "libevmvc"
+            );
         
-        this->info("Starting app\n{}", app::version());
+        this->_log->info("Starting app\n{}", app::version());
     }
     
     ~app()
     {
-        if(_logger)
-            _logger->flush();
-        
         _router.reset();
         
         if(this->running())
@@ -131,13 +110,13 @@ public:
     
     app_options& options(){ return _options;}
     
-    void replace_logger(std::shared_ptr<spdlog::logger> logger)
+    void replace_logger(evmvc::sp_logger l)
     {
-        _logger = logger;
+        _log = l;
     }
-    std::shared_ptr<spdlog::logger> log()
+    evmvc::sp_logger log()
     {
-        return _logger;
+        return _log;
     }
     
     app_state status() const
@@ -198,21 +177,6 @@ public:
     }
     
     void listen(
-        event_base* evbase,
-        uint16_t port = 8080,
-        const evmvc::string_view& address = "0.0.0.0",
-        int backlog = -1)
-    {
-        if(!stopped())
-            throw std::runtime_error(
-                "app must be in stopped state to start listening again"
-            );
-        
-        _evbase = evbase;
-        listen(port, address);
-    }
-    
-    void listen(
         uint16_t port = 8080,
         const evmvc::string_view& address = "0.0.0.0",
         int backlog = -1)
@@ -223,9 +187,9 @@ public:
             );
         _status = app_state::starting;
         
-        this->_init();
+        this->_init_directories();
         
-        _evhtp = evhtp_new(_evbase, NULL);
+        _evhtp = evhtp_new(_ev_base, NULL);
         //evhtp_set_gencb(_evhtp, _internal::on_app_request, this);
         evhtp_callback_t* cb = evhtp_set_glob_cb(
             _evhtp, "*", _internal::on_app_request, this
@@ -240,7 +204,7 @@ public:
         
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
         
-        this->info(
+        this->_log->info(
             "EVMVC is listening at '{}://{}:{}'\n",
             _options.secure ? "https" : "http",
             address.data(), port
@@ -264,51 +228,61 @@ public:
     sp_router all(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->all(route_path, cb);
     }
     sp_router options(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->options(route_path, cb);
     }
     sp_router del(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->del(route_path, cb);
     }
     sp_router head(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->head(route_path, cb);
     }
     sp_router get(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->get(route_path, cb);
     }
     sp_router post(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->post(route_path, cb);
     }
     sp_router put(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->put(route_path, cb);
     }
     sp_router connect(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->connect(route_path, cb);
     }
     sp_router trace(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->trace(route_path, cb);
     }
     sp_router patch(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
+        this->_init_router();
         return _router->patch(route_path, cb);
     }
     
@@ -317,71 +291,122 @@ public:
         const evmvc::string_view& route_path,
         route_handler_cb cb)
     {
+        this->_init_router();
         return _router->register_route_handler(verb, route_path, cb);
     }
     
     sp_router register_router(sp_router router)
     {
+        this->_init_router();
         return _router->register_router(router);
     }
     
 private:
     
-    void _init()
+    inline void _init_router()
     {
-        if(boost::filesystem::create_directories(_options.base_dir))
-            this->info(
-                "Creating base directory '{}'\n", _options.base_dir.c_str()
+        if(_init_rtr)
+            return;
+        _init_rtr = true;
+        
+        _router =
+            std::make_shared<router>(
+                this->shared_from_this(), "/"
             );
-        if(boost::filesystem::create_directories(_options.temp_dir))
-            this->info(
-                "Creating temp directory '{}'\n", _options.temp_dir.c_str()
-            );
-        if(boost::filesystem::create_directories(_options.view_dir))
-            this->info(
-                "Creating view directory '{}'\n", _options.view_dir.c_str()
-            );
-        if(boost::filesystem::create_directories(_options.cache_dir))
-            this->info(
-                "Creating cache directory '{}'\n", _options.cache_dir.c_str()
-            );
+        _router->_path = "";
     }
     
+    inline void _init_directories()
+    {
+        if(_init_dirs)
+            return;
+        _init_dirs = true;
+        
+        if(bfs::create_directories(_options.base_dir))
+            this->_log->info(
+                "Creating base directory '{}'\n", _options.base_dir.c_str()
+            );
+        if(bfs::create_directories(_options.temp_dir))
+            this->_log->info(
+                "Creating temp directory '{}'\n", _options.temp_dir.c_str()
+            );
+        if(bfs::create_directories(_options.view_dir))
+            this->_log->info(
+                "Creating view directory '{}'\n", _options.view_dir.c_str()
+            );
+        if(bfs::create_directories(_options.cache_dir))
+            this->_log->info(
+                "Creating cache directory '{}'\n", _options.cache_dir.c_str()
+            );
+        
+        this->_init_router();
+    }
+    
+    bool _init_rtr;
+    bool _init_dirs;
     app_state _status;
     app_options _options;
     sp_router _router;
-    struct event_base* _evbase;
+    struct event_base* _ev_base;
     struct evhtp* _evhtp;
-    std::shared_ptr<spdlog::logger> _logger;
-};
+    evmvc::sp_logger _log;
+};//evmvc::app
 
-std::shared_ptr<spdlog::logger> route::log() const
+sp_response response::null(
+    wp_app a,
+    evhtp_request_t* ev_req)
 {
-    return _app.lock()->log();
+    auto res = _internal::create_http_response(
+        a, ev_req, http_params()
+    );
+    
+    return res;
 }
-evmvc::sp_app router::app() const
+
+evmvc::sp_logger route::log() const
 {
-    return _app.lock();
+    if(!_log)
+        _log = _rtr.lock()->log()->add_child(this->_rp);
+    return _log;
 }
-std::shared_ptr<spdlog::logger> router::log() const
+
+router::router(evmvc::wp_app app)
+    : _app(app), 
+    _path(_norm_path("")),
+    _log(_app.lock()->log()->add_child(_path)),
+    _parent(nullptr)
+    /*,
+    _match_first(boost::indeterminate),
+    _match_strict(boost::indeterminate),
+    _match_case(boost::indeterminate)
+    */
 {
-    return _app.lock()->log();
 }
+
+router::router(evmvc::wp_app app, const evmvc::string_view& path)
+    : _app(app),
+    _path(_norm_path(path)),
+    _log(_app.lock()->log()->add_child(_path)),
+    _parent(nullptr)
+    /*,
+    _match_first(boost::indeterminate),
+    _match_strict(boost::indeterminate),
+    _match_case(boost::indeterminate)
+    */
+{
+}
+
 
 
 void _internal::send_error(
     evmvc::app* app, evhtp_request_t *req, int status_code,
     evmvc::string_view msg)
 {
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
-        app->log(), req
-    );
-    evmvc::response res(
-        app->shared_from_this(), app->log(),
-        req, c
+    auto res = _internal::create_http_response(
+        app->shared_from_this(), req, http_params()
     );
     
-    res.error(
+    res->error(
         (evmvc::status)status_code,
         EVMVC_ERR(msg.data())
     );
@@ -391,16 +416,12 @@ void _internal::send_error(
     evmvc::app* app, evhtp_request_t *req, int status_code,
     evmvc::cb_error err)
 {
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
-        app->log(), req
-    );
-    evmvc::response res(
-        app->shared_from_this(), app->log(), req, c
+    auto res = _internal::create_http_response(
+        app->shared_from_this(), req, http_params()
     );
     
-    res.error((evmvc::status)status_code, err);
+    res->error((evmvc::status)status_code, err);
 }
-
 
 evhtp_res _internal::on_headers(
     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
@@ -418,7 +439,7 @@ void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     _internal::on_app_request(req, mp->app);
-    mp->app->trace("_internal::on_multipart_request");
+    mp->app->log()->trace("_internal::on_multipart_request");
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)
@@ -438,42 +459,38 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
-    evmvc::sp_http_cookies c = std::make_shared<evmvc::http_cookies>(
-        a->log(), req
-    );
-    evmvc::sp_response res = std::make_shared<evmvc::response>(
-        a->shared_from_this(), a->log(), req, c
-    );
-    
     try{
         if(!rr){
-            res->error(
+            response::null(a->shared_from_this(), req)->error(
                 evmvc::status::not_found,
                 EVMVC_ERR(
                     "Unable to find ressource at '{}'",
                     req->uri->path->full
                 )
             );
-            //res.send_status(evmvc::status::not_found);
             return;
         }
         
-        rr->execute(req, res,
-        [&rr, req, res](auto error){
+        rr->execute(req,
+        [a, &rr, req/*, res*/](auto error){
             if(error){
-                res->error(evmvc::status::internal_server_error, error);
+                response::null(a->shared_from_this(), req)->error(
+                    evmvc::status::internal_server_error, error
+                );
                 return;
             }
         });
     }catch(const std::exception& err){
-        res->error(evmvc::status::internal_server_error, err);
+        response::null(a->shared_from_this(), req)->error(
+            evmvc::status::internal_server_error,
+            EVMVC_ERR(err.what())
+        );
     }
 }
 
 void response::error(evmvc::status err_status, const cb_error& err)
 {
     auto con_addr_in = (sockaddr_in*)this->_ev_req->conn->saddr;
-    // char* ip_addr = inet_ntoa(con_addr_in->sin_addr);
     
     std::string log_val = fmt::format(
         "[{}] [{}] [{}{}{}] [Status {} {}, {}]\n{}",
@@ -508,7 +525,10 @@ void response::error(evmvc::status err_status, const cb_error& err)
     );
     free(what);
     
-    if(this->_app->options().stack_trace_enabled && err.has_stack()){
+    evmvc::sp_app a = this->get_route()->get_router()->get_app();
+    if(a->options()
+        .stack_trace_enabled && err.has_stack()
+    ){
         log_val += fmt::format(
             "\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
             err.file(), err.line(), err.func(), err.stack()
@@ -547,14 +567,68 @@ void response::error(evmvc::status err_status, const cb_error& err)
     err_msg += "</table></body></html>";
     
     if((int16_t)err_status < 400)
-        this->_app->info(log_val);
+        this->log()->info(log_val);
     else if((int16_t)err_status < 500)
-        this->_app->warn(log_val);
+        this->log()->warn(log_val);
     else
-        this->_app->error(log_val);
+        this->log()->error(log_val);
     
     this->status(err_status).html(err_msg);
 }
 
-} // ns evmvc
+sp_route& route::null(wp_app a)
+{
+    static sp_route rt = std::make_shared<route>(
+        router::null(a), "null"
+    );
+    
+    return rt;
+}
+
+sp_router& router::null(wp_app a)
+{
+    static sp_router rtr = std::make_shared<router>(
+        a.lock(), "null"
+    );
+    
+    return rtr;
+}
+
+
+namespace _internal{
+    inline evmvc::sp_response create_http_response(
+        wp_app a,
+        evhtp_request_t* ev_req,
+        const evmvc::http_params& params = http_params()
+        )
+    {
+        return _internal::create_http_response(
+            a.lock()->log(), ev_req, evmvc::route::null(a), params
+        );
+    }
+    
+    inline evmvc::sp_response create_http_response(
+        sp_logger log,
+        evhtp_request_t* ev_req,
+        sp_route rt,
+        const evmvc::http_params& params = http_params()
+        )
+    {
+        static uint64_t cur_id = 0;
+        uint64_t rid = ++cur_id;
+        
+        evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
+            rid, rt, log, ev_req
+        );
+        evmvc::sp_response res = std::make_shared<evmvc::response>(
+            rid, rt, log, ev_req, cks
+        );
+        evmvc::sp_request req = std::make_shared<evmvc::request>(
+            rid, rt, log, ev_req, cks, params
+        );
+        res->_req = req;
+        return res;
+    }
+}// ns: evmvc::internal
+}// ns evmvc
 #endif //_libevmvc_app_h

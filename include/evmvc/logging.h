@@ -50,16 +50,16 @@ enum class log_level
 evmvc::string_view to_string(log_level lvl)
 {
     switch(lvl){
-        case log_level::audit_failed: return std::string("AUDIT-FAILED");
-        case log_level::audit_succeeded: return std::string("AUDIT-SUCCEEDED");
-        case log_level::fatal: return std::string("FATAL");
-        case log_level::error: return std::string("ERROR");
-        case log_level::warning: return std::string("WARNING");
-        case log_level::info: return std::string("INFO");
-        case log_level::debug: return std::string("DEBUG");
-        case log_level::trace: return std::string("TRACE");
-        case log_level::off: return std::string("OFF");
-        default: return std::string("N/A");
+        case log_level::audit_failed: return "AUDIT-FAILED";
+        case log_level::audit_succeeded: return "AUDIT-SUCCEEDED";
+        case log_level::fatal: return "FATAL";
+        case log_level::error: return "ERROR";
+        case log_level::warning: return "WARNING";
+        case log_level::info: return "INFO";
+        case log_level::debug: return "DEBUG";
+        case log_level::trace: return "TRACE";
+        case log_level::off: return "OFF";
+        default: return "N/A";
     }
 }
 
@@ -72,18 +72,18 @@ namespace sinks{
     {
     public:
         logger_sink(log_level lvl)
-            : _lvl(lvl)
+            : _lvl(lvl), _flush_on_lvl(evmvc::log_level::warning)
         {
         }
         
-        bool should_log(log_level lvl)
+        bool should_log(log_level lvl) const
         {
-            return lvl >= _lvl;
+            return lvl <= _lvl;
         }
         
         virtual void log(
             evmvc::string_view log_path, log_level lvl,
-            evmvc::string_view msg) = 0;
+            evmvc::string_view msg) const = 0;
         
         void set_level(log_level lvl)
         {
@@ -95,8 +95,16 @@ namespace sinks{
             return _lvl;
         }
         
+        virtual void flush() const {}
+        
+        void flush_on(log_level lvl)
+        {
+            _flush_on_lvl = lvl;
+        }
+        
     protected:
         log_level _lvl;
+        log_level _flush_on_lvl;
     };
 } // ns: evmvc::sinks
 
@@ -106,8 +114,6 @@ namespace _internal{
     
 } // ns: evmvc::_internal
 
-class logger;
-typedef std::shared_ptr<logger> sp_logger;
 
 class logger
     : public std::enable_shared_from_this<logger>,
@@ -115,7 +121,7 @@ class logger
 {
 private:
     
-    logger(sp_logger parent, evmvc::string_view path)
+    logger(const std::shared_ptr<const logger>& parent, evmvc::string_view path)
         : sinks::logger_sink(parent->_lvl),
         _parent(parent),
         _path(parent->_path + "/" + std::string(path.data()))
@@ -124,26 +130,30 @@ private:
     
 public:
 
-    logger()
-        : sinks::logger_sink(log_level::info), _parent(), _path("")
+    logger(evmvc::string_view path, log_level lvl = log_level::info)
+        : sinks::logger_sink(lvl), _parent(), _path(path.data())
     {
     }
     
-    logger(log_level lvl)
-        : sinks::logger_sink(lvl), _parent(), _path("")
+    template<class IT>
+    logger(evmvc::string_view path, IT _begin, IT _end,
+        log_level lvl = log_level::info)
+        : sinks::logger_sink(lvl), _parent(), _path(path.data()),
+        _sinks(_begin, _end)
     {
     }
+    
+    bool is_child() const { return (bool)_parent;}
     
     std::string path() const
     {
         return _path;
     }
     
-    sp_logger add_path(evmvc::string_view path)
+    sp_logger add_child(evmvc::string_view path) const
     {
-        return std::make_shared<logger>(
-            this->shared_from_this(), path
-        );
+        auto p = this->shared_from_this();
+        return sp_logger(new logger(p, (_path + "/" + path.data()).c_str()));
     }
     
     void register_sink(evmvc::sinks::sp_logger_sink sink)
@@ -152,73 +162,89 @@ public:
     }
     
     void log(
-        evmvc::string_view log_path, log_level lvl, evmvc::string_view msg)
+        evmvc::string_view log_path,
+        log_level lvl, evmvc::string_view msg) const
     {
+        if(this->_parent)
+            return this->_parent->log(log_path, lvl, msg);
+        
         for(auto& sink : _sinks){
             if(sink->should_log(lvl))
                 sink->log(log_path, lvl, msg);
         }
     }
     
+    void flush() const
+    {
+        if(this->_parent)
+            this->_parent->flush();
+        
+        for(auto& sink : _sinks)
+            sink->flush();
+    }
+    
     template <typename... Args>
     void trace(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::trace))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::trace, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void debug(evmvc::string_view fmt, const Args&... args) const
+    void debug(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::debug))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::debug, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void info(evmvc::string_view fmt, const Args&... args) const
+    void info(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::info))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::info, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void warn(evmvc::string_view fmt, const Args&... args) const
+    void warn(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::warning))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::warning, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void error(evmvc::string_view fmt, const Args&... args) const
+    void error(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::error))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::error, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void fatal(evmvc::string_view fmt, const Args&... args) const
+    void fatal(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::fatal))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::fatal, fmt::format(f.data(), args...));
     }
     
     template <typename... Args>
-    void success(evmvc::string_view fmt, const Args&... args) const
+    void success(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::audit_succeeded))
-            log(_path, lvl, fmt::format(f, args...));
+            log(
+                _path, log_level::audit_succeeded,
+                fmt::format(f.data(), args...)
+            );
     }
 
     template <typename... Args>
-    void fail(evmvc::string_view fmt, const Args&... args) const
+    void fail(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::audit_failed))
-            log(_path, lvl, fmt::format(f, args...));
+            log(_path, log_level::audit_failed, fmt::format(f.data(), args...));
     }
     
 private:
     
-    sp_logger _parent;
+    std::shared_ptr<const logger> _parent;
     std::string _path;
     std::vector<sinks::sp_logger_sink> _sinks;
 };
@@ -235,7 +261,7 @@ namespace sinks{
         
         void log(
             evmvc::string_view log_path,
-            log_level lvl, evmvc::string_view msg)
+            log_level lvl, evmvc::string_view msg) const
         {
             std::clog <<
                 _gen_header(color, log_path, lvl) <<
@@ -275,7 +301,7 @@ namespace sinks{
         {
             if(color)
                 return fmt::format(
-                    "\x1b[{}m[{}] [{}-{}]\x1b[0m\n",
+                    "\x1b[{}m[{}] [{}:{}]\x1b[0m\n",
                     _level_color(lvl).data(),
                     _internal::get_timestamp(),
                     to_string(lvl).data(),
@@ -283,7 +309,7 @@ namespace sinks{
                 );
             else
                 return fmt::format(
-                    "[{}] [{}-{}]\n",
+                    "[{}] [{}:{}]\n",
                     _internal::get_timestamp(),
                     to_string(lvl).data(),
                     log_path.data()
@@ -306,50 +332,173 @@ namespace sinks{
         : public logger_sink
     {
     public:
-        rotating_file_sink(boost::filesystem::path base_filename,
+        rotating_file_sink(
+            event_base* ev_base,
+            bfs::path base_filename,
             size_t max_size, size_t backlog_size)
-            : logger_sink(log_level::info), 
+            : logger_sink(log_level::info),
+            _ev_base(ev_base),
+            _ifd(-1), _wfd(-1), _fd(-1), _wev(nullptr),
             _base_filename(base_filename),
             _max_size(max_size),
             _backlog_size(backlog_size),
-            _flush_on_lvl(log_level::error)
+            _rotating(false)
         {
+            _open_log();
+        }
+        
+        ~rotating_file_sink()
+        {
+            if(_ifd > -1){
+                close(_ifd);
+            }
+            
+            if(_fd > -1){
+                flush();
+                close(_fd);
+            }
         }
         
         void log(
             evmvc::string_view log_path,
-            log_level lvl, evmvc::string_view msg)
+            log_level lvl, evmvc::string_view msg) const
         {
+            if(_fd < 0)
+                return;
             
+            std::string log_str =
+                _gen_header(log_path, lvl) + msg.data() + "\n";
+            evmvc::_internal::writen(_fd, log_str.c_str(), log_str.size());
         }
         
-        void flush()
+        void flush() const
         {
-            
+            if(_fd < 0)
+                return;
+            fsync(_fd);
         }
-        
-        void flush_on(log_level lvl)
-        {
-            _flush_on_lvl = lvl;
-        }
-        
+
     private:
+        
+        static void _on_inotify(int fd, short events, void* arg)
+        {
+            if((events & IN_IGNORED) == IN_IGNORED)
+                return;
+            
+            rotating_file_sink* self = (rotating_file_sink*)arg;
+            if(self->_rotating)
+                return;
+            
+            struct stat sb;
+            fstat(self->_fd, &sb);
+            if((size_t)sb.st_size > self->_max_size)
+                self->_rotate_log();
+        }
+        
+        void _open_log()
+        {
+            _fd = open(
+                _base_filename.c_str(),
+                O_APPEND | O_CREAT | O_WRONLY,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP//ug+wr
+            );
+            _notify_start();
+        }
+        
+        void _rotate_log()
+        {
+            if(_rotating)
+                return;
+            _rotating = true;
+            
+            _notify_close();
+            
+            auto pp = _base_filename;
+            for(size_t i = _backlog_size -1; i > 0; --i){
+                auto blf = pp/("." + evmvc::num_to_str(i, false));
+                if(!bfs::exists(blf) || !bfs::is_regular_file(blf))
+                    continue;
+                
+                if(i == _backlog_size -1)
+                    bfs::remove(blf);
+                else
+                    bfs::rename(blf, pp/("." + evmvc::num_to_str(i+1, false)));
+            }
+            bfs::rename(_base_filename, pp/".1");
+            
+            int tfd = _fd;
+            _fd = open(
+                _base_filename.c_str(), O_APPEND | O_CREAT | O_WRONLY
+            );
+            fsync(tfd);
+            close(tfd);
+            
+            _notify_start();
+            _rotating = false;
+        }
+        
+        void _close_log()
+        {
+            _notify_close();
+            fsync(_fd);
+            close(_fd);
+        }
+        
+        void _notify_start()
+        {
+            _ifd = inotify_init1(IN_NONBLOCK);
+            _wfd = inotify_add_watch(
+                _ifd, _base_filename.c_str(), IN_ATTRIB | IN_MODIFY
+            );
+            
+            _wev = event_new(
+                _ev_base, _wfd,
+                EV_READ | EV_PERSIST, _on_inotify,
+                this
+            );
+            
+            //struct timeval tv = {5,0};
+            if(event_add(_wev, nullptr) == -1){
+                event_free(_wev);
+                _wev = nullptr;
+                throw EVMVC_ERR("event_add failed!");//&tv);
+            }
+        }
+        
+        void _notify_close()
+        {
+            if(_wev){
+                event_del(_wev);
+                event_free(_wev);
+                _wev = nullptr;
+            }
+            
+            inotify_rm_watch(_ifd, _wfd);
+            
+            close(_wfd);
+            close(_ifd);
+        }
         
         static std::string _gen_header(
             evmvc::string_view log_path, log_level lvl)
         {
             return fmt::format(
-                "[{}] [{}-{}] ",
+                "[{}] [{}:{}] ",
                 _internal::get_timestamp(),
                 to_string(lvl).data(),
                 log_path.data()
             );
         }
         
-        boost::filesystem::path _base_filename;
+        event_base* _ev_base;
+        int _ifd;
+        int _wfd;
+        int _fd;
+        event* _wev;
+        bfs::path _base_filename;
         size_t _max_size;
         size_t _backlog_size;
-        log_level _flush_on_lvl;
+        bool _rotating;
     };
     
 } // ns: evmvc::sinks
@@ -393,71 +542,88 @@ namespace _internal{
         // return ss.str();
     }
     
-} // ns: evmvc::_internal
-
-
 
 evmvc::sp_logger& default_logger()
 {
     static evmvc::sp_logger _default_logger =
-        std::make_shared<evmvc::logger>();
+        std::make_shared<evmvc::logger>("/");
     return _default_logger;
 }
+
+} // ns: evmvc::_internal
 
 template <typename... Args>
 void trace(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::trace))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::trace))
+        _internal::default_logger()->log(
+            "/", log_level::trace, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void debug(evmvc::string_view fmt, const Args&... args)
+void debug(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::debug))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::debug))
+        _internal::default_logger()->log(
+            "/", log_level::debug, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void info(evmvc::string_view fmt, const Args&... args)
+void info(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::info))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::info))
+        _internal::default_logger()->log(
+            "/", log_level::info, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void warn(evmvc::string_view fmt, const Args&... args)
+void warn(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::warning))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::warning))
+        _internal::default_logger()->log(
+            "/", log_level::warning, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void error(evmvc::string_view fmt, const Args&... args)
+void error(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::error))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::error))
+        _internal::default_logger()->log(
+            "/", log_level::error, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void fatal(evmvc::string_view fmt, const Args&... args)
+void fatal(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::fatal))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::fatal))
+        _internal::default_logger()->log(
+            "/", log_level::fatal, fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void success(evmvc::string_view fmt, const Args&... args)
+void success(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::audit_succeeded))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::audit_succeeded))
+        _internal::default_logger()->log(
+            "/", log_level::audit_succeeded,
+            fmt::format(f.data(), args...)
+        );
 }
 
 template <typename... Args>
-void fail(evmvc::string_view fmt, const Args&... args)
+void fail(evmvc::string_view f, const Args&... args)
 {
-    if(default_logger()->should_log(log_level::audit_failed))
-        default_logger()->log(_path, lvl, fmt::format(f, args...));
+    if(_internal::default_logger()->should_log(log_level::audit_failed))
+        _internal::default_logger()->log(
+            "/", log_level::audit_failed,
+            fmt::format(f.data(), args...)
+        );
 }
 
 

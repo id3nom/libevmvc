@@ -63,10 +63,14 @@ int main(int argc, char** argv)
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
-    opts.log_console_level = spdlog::level::trace;
-    opts.log_file_level = spdlog::level::off;
+    opts.stack_trace_enabled = true;
+    opts.log_console_level = evmvc::log_level::trace;
+    opts.log_file_level = evmvc::log_level::error;
     
-    evmvc::sp_app srv = std::make_shared<evmvc::app>(std::move(opts));
+    evmvc::sp_app srv = std::make_shared<evmvc::app>(
+        _ev_base,
+        std::move(opts)
+    );
     
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
@@ -204,7 +208,7 @@ int main(int argc, char** argv)
     srv->register_router(
         std::static_pointer_cast<evmvc::router>(
             std::make_shared<evmvc::file_router>(
-                srv.get(),
+                srv,
                 EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
                 "/html"
             )
@@ -218,7 +222,7 @@ int main(int argc, char** argv)
         res->redirect("/html/login-results.html");
     });
     
-    srv->listen(_ev_base);
+    srv->listen();
     
     event_base_loop(_ev_base, 0);
     

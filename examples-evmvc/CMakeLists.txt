@@ -20,7 +20,6 @@ set (EVMVC_EXAMPLES_LIBRARIES
     ${OPENSSL_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${ICU_LIBRARIES}
-    spdlog::spdlog
     pthread
     tz
     fmt

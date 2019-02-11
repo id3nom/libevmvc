@@ -19,6 +19,14 @@
 
 #include "evmvc_config.h"
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <sys/inotify.h>
+
+#include <fcntl.h>
+#include <unistd.h>
+#include <cinttypes>
+
 #include <cstdint>
 #include <cstddef>
 #include <iostream>
@@ -62,6 +70,7 @@ extern "C" {
 #pragma GCC diagnostic pop
 
 namespace evmvc {
+namespace bfs = boost::filesystem;
 
 #ifdef EVENT_MVC_USE_STD_STRING_VIEW
     /// The type of string view used by the library
@@ -83,17 +92,43 @@ namespace evmvc {
 
 typedef nlohmann::json json;
 
+class logger;
+typedef std::shared_ptr<logger> sp_logger;
 
 class app;
 typedef std::shared_ptr<app> sp_app;
 typedef std::weak_ptr<app> wp_app;
 
+class route_result;
+typedef std::shared_ptr<route_result> sp_route_result;
+
+class route;
+typedef std::shared_ptr<route> sp_route;
+
+class router;
+typedef std::shared_ptr<router> sp_router;
+
 class http_param;
 typedef std::shared_ptr<http_param> sp_http_param;
-
 typedef std::vector<sp_http_param> http_params;
 
+class response;
+typedef std::shared_ptr<evmvc::response> sp_response;
+
+// evmvc::_internal namespace
 namespace _internal{
+    
+    evmvc::sp_response create_http_response(
+        wp_app a,
+        evhtp_request_t* ev_req,
+        const evmvc::http_params& params
+    );
+    
+    evmvc::sp_response create_http_response(
+        sp_logger log, evhtp_request_t* ev_req, sp_route rt,
+        const evmvc::http_params& params
+    );
+    
     evhtp_res on_headers(
         evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
     void on_app_request(evhtp_request_t* req, void* arg);

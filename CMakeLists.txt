@@ -81,8 +81,8 @@ if (ICU_FOUND)
     include_directories(${ICU_INCLUDE_DIRS})
 endif()
 
-# find spdlog
-find_package(spdlog CONFIG REQUIRED)
+# # find spdlog
+# find_package(spdlog CONFIG REQUIRED)
 
 
 # # libevent
@@ -266,7 +266,6 @@ target_link_libraries(evmvc
     ${OPENSSL_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${ICU_LIBRARIES}
-    spdlog::spdlog
     pthread
     tz
     fmt

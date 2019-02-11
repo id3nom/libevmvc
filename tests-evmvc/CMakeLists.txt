@@ -26,7 +26,6 @@ target_link_libraries(libevmvc_tests
     ${OPENSSL_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${ICU_LIBRARIES}
-    spdlog::spdlog
     pthread
     tz
     fmt

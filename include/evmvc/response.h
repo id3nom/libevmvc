@@ -26,6 +26,7 @@ SOFTWARE.
 #define _libevmvc_response_h
 
 #include "stable_headers.h"
+#include "logging.h"
 #include "statuses.h"
 #include "headers.h"
 #include "fields.h"
@@ -47,9 +48,6 @@ SOFTWARE.
 #define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
 
 namespace evmvc {
-    
-class response;
-typedef std::shared_ptr<evmvc::response> sp_response;
 
 namespace _internal {
     struct file_reply {
@@ -60,7 +58,7 @@ namespace _internal {
         z_stream* zs;
         uLong zs_size;
         evmvc::async_cb cb;
-        std::shared_ptr<spdlog::logger> log;
+        evmvc::sp_logger log;
     };
     
     static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg);
@@ -68,38 +66,44 @@ namespace _internal {
         struct evhtp_connection* c, void* arg);
 }
 
-class route;
-class file_route_result;
-
-class response;
-typedef std::shared_ptr<response> sp_response;
 
 class response
     : public std::enable_shared_from_this<response>
 {
-    friend class evmvc::route;
-    friend class evmvc::file_route_result;
+    friend evmvc::sp_response _internal::create_http_response(
+        wp_app a, evhtp_request_t* ev_req, const evmvc::http_params& params
+    );    
+    friend evmvc::sp_response _internal::create_http_response(
+        sp_logger log, evhtp_request_t* ev_req, sp_route rt,
+        const evmvc::http_params& params
+    );
     
 public:
     
-    response(const sp_app& app,
-        std::shared_ptr<spdlog::logger> log,
+    response(
+        uint64_t id,
+        const sp_route& rt,
+        evmvc::sp_logger log,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies)
-        : _id(_next_id()), _app(app), _log(log),
+        : _id(id), _rt(rt),
+        _log(log->add_child("res-" + evmvc::num_to_str(id, false))),
         _ev_req(ev_req), _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc("")
     {
     }
     
+    static sp_response null(wp_app a, evhtp_request_t* ev_req);
+    
     uint64_t id() const { return _id;}
-    evmvc::sp_app app()const { return _app;}
-    std::shared_ptr<spdlog::logger> log() const { return _log;}
+    evmvc::sp_route get_route()const { return _rt;}
+    evmvc::sp_logger log() const { return _log;}
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
-    sp_http_cookies shared_cookies() const { return _cookies;}
+    evmvc::sp_request req() const { return _req;}
+    //sp_http_cookies shared_cookies() const { return _cookies;}
     
     bool started(){ return _started;};
     bool ended(){ return _ended;}
@@ -355,7 +359,7 @@ public:
     
     
     void send_file(
-        const boost::filesystem::path filepath,
+        const bfs::path filepath,
         const evmvc::string_view& enc = "utf-8", 
         async_cb cb = evmvc::noop_cb)
     {
@@ -489,54 +493,7 @@ public:
         }
     }
     
-    template <typename... Args>
-    void trace(evmvc::string_view f, const Args&... args) const
-    {
-        if(_log) _log->trace(
-            fmt::format(
-                "[req: '{}'] {}",
-                this->_id, f.data()
-            ).c_str(),
-            args...
-        );
-    }
-    
-    template <typename... Args>
-    void debug(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_log) _log->debug(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void info(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_log) _log->info(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void warn(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_log) _log->warn(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void error(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_log) _log->error(fmt.data(), args...);
-    }
-    
-    template <typename... Args>
-    void critical(evmvc::string_view fmt, const Args&... args) const
-    {
-        if(_log) _log->critical(fmt.data(), args...);
-    }
-    
 private:
-    static uint64_t _next_id()
-    {
-        static uint64_t cur_id = 0;
-        return ++cur_id;
-    }
 
     void _prepare_headers()
     {
@@ -570,8 +527,8 @@ private:
     }
     
     uint64_t _id;
-    sp_app _app;
-    std::shared_ptr<spdlog::logger> _log;
+    sp_route _rt;
+    evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;
     evmvc::sp_request _req;
     sp_http_cookies _cookies;
@@ -620,7 +577,7 @@ namespace _internal {
                 }
                 
                 if(ret != Z_OK && ret != Z_STREAM_END){
-                    reply->res->error(
+                    reply->res->log()->error(
                         "zlib deflate function returned: '{}'",
                         ret
                     );
@@ -634,7 +591,7 @@ namespace _internal {
             }
             
             if(bytes_read > 0){
-                reply->res->trace(
+                reply->res->log()->trace(
                     "Sending {} bytes for '{}'",
                     bytes_read, reply->request->uri->path->full
                 );
@@ -651,7 +608,7 @@ namespace _internal {
         
         /* check if we have read everything from the file */
         if(feof(reply->file_desc)){
-            reply->res->trace(
+            reply->res->log()->trace(
                 "Sending last chunk for '{}'",
                 reply->request->uri->path->full
             );

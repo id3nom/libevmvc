@@ -34,7 +34,7 @@ class app_options
 {
 public:
     app_options()
-        : base_dir(boost::filesystem::current_path()),
+        : base_dir(bfs::current_path()),
         view_dir(base_dir / "views"),
         temp_dir(base_dir / "temp"),
         cache_dir(base_dir / "cache"),
@@ -51,7 +51,7 @@ public:
     {
     }
 
-    app_options(const boost::filesystem::path& base_directory)
+    app_options(const bfs::path& base_directory)
         : base_dir(base_directory),
         view_dir(base_dir / "views"),
         temp_dir(base_dir / "temp"),
@@ -105,11 +105,11 @@ public:
     {
     }
     
-    boost::filesystem::path base_dir;
-    boost::filesystem::path view_dir;
-    boost::filesystem::path temp_dir;
-    boost::filesystem::path cache_dir;
-    boost::filesystem::path log_dir;
+    bfs::path base_dir;
+    bfs::path view_dir;
+    bfs::path temp_dir;
+    bfs::path cache_dir;
+    bfs::path log_dir;
     
     bool secure;
     
