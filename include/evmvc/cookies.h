@@ -85,7 +85,6 @@ public:
             site(o.site), enc(o.enc)
         {
         }
-        //options(options&&) = default;
         
         boost::optional<date::sys_seconds> expires;
         
@@ -113,7 +112,6 @@ public:
     
     uint64_t id() const { return _id;}
     evmvc::sp_route get_route()const { return _rt;}
-
     
     bool exists(evmvc::string_view name) const
     {

@@ -85,7 +85,7 @@ public:
             sinks.emplace_back(file_sink);
             
             _log = std::make_shared<evmvc::logger>(
-                "libevmvc", sinks.begin(), sinks.end()
+                "/", sinks.begin(), sinks.end()
             );
             _log->set_level(
                 std::max(
@@ -94,7 +94,7 @@ public:
             );
         }else
             _log = _internal::default_logger()->add_child(
-                "libevmvc"
+                "/"
             );
         
         this->_log->info("Starting app\n{}", app::version());
@@ -426,11 +426,13 @@ void _internal::send_error(
 evhtp_res _internal::on_headers(
     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
 {
+    app* a = (app*)arg;
+    
     if(evmvc::_internal::is_multipart_data(req, hdr))
         return evmvc::_internal::parse_multipart_data(
-            ((app*)arg)->log(),
-            req, hdr, (app*)arg,
-            ((app*)arg)->options().temp_dir
+            a->log(),
+            req, hdr, a,
+            a->options().temp_dir
         );
     return EVHTP_RES_OK;
 }

@@ -124,7 +124,7 @@ private:
     logger(const std::shared_ptr<const logger>& parent, evmvc::string_view path)
         : sinks::logger_sink(parent->_lvl),
         _parent(parent),
-        _path(parent->_path + "/" + std::string(path.data()))
+        _path(path.data())
     {
     }
     
@@ -150,10 +150,18 @@ public:
         return _path;
     }
     
-    sp_logger add_child(evmvc::string_view path) const
+    sp_logger add_child(const std::string& path) const
     {
+        std::string np;
+        if(_path[_path.size() -1] != '/' && path[0] != '/')
+            np = _path + "/" + path;
+        else if(_path[_path.size() -1] == '/' && path[0] == '/')
+            np = _path + path.substr(1);
+        else
+            np = _path + path;
+        
         auto p = this->shared_from_this();
-        return sp_logger(new logger(p, (_path + "/" + path.data()).c_str()));
+        return sp_logger(new logger(p, np.c_str()));
     }
     
     void register_sink(evmvc::sinks::sp_logger_sink sink)
@@ -507,32 +515,31 @@ namespace _internal{
     
     static std::string get_timestamp()
     {
-        return date::format(
-            "%F %H:%M%S.%s",
-            std::chrono::system_clock::now()
+        const auto currentTime = std::chrono::system_clock::now();
+        time_t time = std::chrono::system_clock::to_time_t(currentTime);
+        auto currentTimeRounded = std::chrono::system_clock::from_time_t(time);
+        if( currentTimeRounded > currentTime ) {
+            --time;
+            currentTimeRounded -= std::chrono::seconds( 1 );
+        }
+        //const tm *values = localtime( &time );
+        struct tm t;
+        localtime_r(&time, &t);
+        int hours = t.tm_hour;
+        int minutes = t.tm_min;
+        int seconds = t.tm_sec;
+        // etc.
+        int milliseconds =
+            std::chrono::duration_cast<std::chrono::duration<int,std::milli>>(
+                currentTime - currentTimeRounded
+            ).count();
+        
+        return fmt::format(
+            "{0:04}-{0:02}-{0:02} "
+            "{0:02}:{0:02}:{0:02}.{0:03}",
+            t.tm_year, t.tm_mon, t.tm_mday,
+            hours, minutes, seconds, milliseconds
         );
-        
-        // const auto currentTime = std::chrono::system_clock::now();
-        // time_t time = std::chrono::system_clock::to_time_t(currentTime);
-        // auto currentTimeRounded = std::chrono::system_clock::from_time_t(time);
-        // if( currentTimeRounded > currentTime ) {
-        //     --time;
-        //     currentTimeRounded -= std::chrono::seconds( 1 );
-        // }
-        // //const tm *values = localtime( &time );
-        // struct tm t;
-        // localtime_r(&time, &t);
-        // int hours = t.tm_hour;
-        // int minutes = t.tm_min;
-        // int seconds = t.tm_sec;
-        // // etc.
-        // int milliseconds =
-        //     std::chrono::duration_cast<std::chrono::duration<int,std::milli> >( currentTime - currentTimeRounded ).count( );
-        
-        // return fmt::format(
-        //     "",
-        //     hours, minutes, seconds, milliseconds
-        // );
         
         // std::stringstream ss;
         // ss << boost::format("%|02|")%hours << ":" << 

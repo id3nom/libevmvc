@@ -56,6 +56,17 @@ public:
         _ev_req(ev_req), _cookies(http_cookies),
         _rt_params(p)
     {
+        if(_log->should_log(log_level::trace)){
+            std::string hdrs;
+            evhtp_kv_t * kv;
+            TAILQ_FOREACH(kv, ev_req->headers_in, next){
+                hdrs += kv->key;
+                hdrs += ": ";
+                hdrs += kv->val;
+                hdrs += "\n";
+            }
+            _log->trace(hdrs);
+        }
     }
     
     uint64_t id() const { return _id;}

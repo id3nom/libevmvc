@@ -372,10 +372,12 @@ public:
         
         // create internal file_reply struct
         mm__alloc_(reply, struct evmvc::_internal::file_reply, {
-            this->shared_from_this(),
+            sp_response(),
             _ev_req, file_desc, evbuffer_new(), nullptr, 0, cb,
-            this->_log
+            sp_logger()
         });
+        reply->res = this->shared_from_this();
+        reply->log = this->_log;
         
         /* here we set a connection hook of the type `evhtp_hook_on_write`
         *
