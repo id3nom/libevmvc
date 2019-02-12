@@ -138,6 +138,15 @@ public:
         evhtp_callback_t* cb = evhtp_set_glob_cb(
             _evhtp, "*", _internal::on_app_request, this
         );
+        
+        
+        // htparser* p;
+        // htparse_hooks h;
+        // h.method = [](htparser * p, const char * s, size_t l) -> int {
+        //
+        // };
+        
+        
         evhtp_callback_set_hook(
             cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
         );
