@@ -36,16 +36,6 @@ SOFTWARE.
 
 #include <boost/filesystem.hpp>
 
-// file read buffer size of 10KiB
-#define EVMVC_READ_BUF_SIZE 10240
-
-// http://www.zlib.net/manual.html#Advanced
-#define EVMVC_COMPRESSION_NOT_SUPPORTED (-MAX_WBITS - 1000)
-#define EVMVC_ZLIB_DEFLATE_WSIZE (-MAX_WBITS)
-#define EVMVC_ZLIB_ZLIB_WSIZE MAX_WBITS
-#define EVMVC_ZLIB_GZIP_WSIZE (MAX_WBITS | 16)
-#define EVMVC_ZLIB_MEM_LEVEL 8
-#define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
 
 namespace evmvc {
 

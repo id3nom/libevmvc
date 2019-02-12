@@ -42,6 +42,22 @@ struct exit_app_params
     event* ev;
 };
 
+void _on_event_log(int severity, const char *msg)
+{
+    if(severity == _EVENT_LOG_DEBUG)
+        evmvc::_internal::default_logger()->debug(msg);
+    else
+        evmvc::_internal::default_logger()->error(msg);
+}
+
+void _on_event_fatal_error(int err)
+{
+    evmvc::_internal::default_logger()->fatal(
+        "Exiting because libevent send a fatal error: '{}'",
+        err
+    );
+}
+
 void exit_app(int, short, void* arg)
 {
     struct exit_app_params* params = (struct exit_app_params*)arg;
@@ -59,6 +75,9 @@ int main(int argc, char** argv)
         "Starting evmvc_web_server, pid: {}\n\n",
         pid
     );
+    
+    event_set_log_callback(_on_event_log);
+    event_set_fatal_callback(_on_event_fatal_error);
     
     struct event_base* _ev_base = event_base_new();
     

@@ -57,6 +57,101 @@ namespace _internal {
    
 }//ns evmvc::_internal
 
+
+class cb_error
+{
+    friend std::ostream& operator<<(std::ostream& s, const cb_error& v);
+public:
+    static cb_error no_err;
+    
+    cb_error(): _has_err(false), _msg(""), _has_stack(false)
+    {}
+    
+    cb_error(nullptr_t /*np*/): _has_err(false), _msg(""), _has_stack(false)
+    {}
+    
+    cb_error(const std::exception& err):
+        _err(err), _has_err(true)
+    {
+        _msg = std::string(err.what());
+        
+        try{
+            auto se = dynamic_cast<const evmvc::stacked_error&>(err);
+            _stack = se.stack();
+            _file = se.file().data();
+            _line = se.line();
+            _func = se.func().data();
+            _has_stack = true;
+            
+        }catch(...){
+            _has_stack = false;
+        }
+    }
+    
+    // cb_error(const std::exception& err): _err(err), _has_err(true)
+    // {
+    //     _msg = std::string(err.what());
+    // }
+    
+    virtual ~cb_error()
+    {
+    }
+    
+    const std::exception& error() const { return _err;}
+    
+    explicit operator bool() const
+    {
+        return _has_err;
+    }
+    
+    explicit operator const char*() const
+    {
+        if(!_has_err)
+            return "No error assigned!";
+        return _msg.c_str();
+    }
+    
+    const char* c_str() const
+    {
+        if(!_has_err)
+            return "No error assigned!";
+        return _msg.c_str();
+    }
+    
+    bool has_stack() const { return _has_stack;}
+    std::string stack() const { return _stack;}
+    std::string file() const { return _file;}
+    int line() const { return _line;}
+    std::string func() const { return _func;}
+    
+private:
+    std::exception _err;
+    bool _has_err;
+    std::string _msg;
+    
+    bool _has_stack;
+    std::string _stack;
+    std::string _file;
+    int _line;
+    std::string _func;
+};
+
+std::ostream& operator<<(std::ostream& s, const cb_error& v)
+{
+    s << std::string(v.c_str());
+    return s;
+}
+
+// Report a failure
+inline void fail(cb_error err, char const* what)
+{
+    std::cerr << what << ": " << err << "\n";
+}
+
+typedef std::function<void()> void_cb;
+typedef std::function<void(const cb_error& err)> async_cb;
+
+
 inline bool to_bool(evmvc::string_view val)
 {
     return
@@ -357,6 +452,229 @@ std::string base64_decode(evmvc::string_view encoded_string)
     return ret;
 }
 
+
+namespace _internal{
+    struct gzip_file{
+        event* ev;
+        int fd_in;
+        int fd_out;
+        z_stream* zs;
+        uLong zs_size;
+        evmvc::async_cb cb;
+    };
+    
+    struct gzip_file* new_gzip_file()
+    {
+        struct evmvc::_internal::gzip_file* gzf = nullptr;
+        mm__alloc_(gzf, struct evmvc::_internal::gzip_file, {
+            nullptr, -1, -1, nullptr, 0, nullptr
+        });
+        
+        gzf->zs = (z_stream*)malloc(sizeof(*gzf->zs));
+        memset(gzf->zs, 0, sizeof(*gzf->zs));
+        return gzf;
+    }
+    
+    void free_gzip_file(struct evmvc::_internal::gzip_file* gzf)
+    {
+        deflateEnd(gzf->zs);
+        event_del(gzf->ev);
+        event_free(gzf->ev);
+        close(gzf->fd_in);
+        close(gzf->fd_out);
+        free(gzf->zs);
+        free(gzf);
+    }
+    
+    void gzip_file_on_read(int fd, short events, void* arg)
+    {
+        if((events & IN_IGNORED) == IN_IGNORED)
+            return;
+        
+        gzip_file* gzf = (gzip_file*)arg;
+        
+        char buf[EVMVC_READ_BUF_SIZE];
+        /* try to read EVMVC_READ_BUF_SIZE bytes from the file pointer */
+        do{
+            ssize_t bytes_read = read(gzf->fd_in, buf, sizeof(buf));
+            
+            if(bytes_read == -1){
+                int terr = errno;
+                if(terr == EAGAIN || terr == EWOULDBLOCK)
+                    return;
+                auto cb = gzf->cb;
+                free_gzip_file(gzf);
+                cb(EVMVC_ERR(
+                    "read function returned: '{}'",
+                    terr
+                ));
+            }
+            
+            if(bytes_read > 0){
+                gzf->zs->next_in = (Bytef*)buf;
+                gzf->zs->avail_in = bytes_read;
+                
+                // retrieve the compressed bytes blockwise.
+                int ret;
+                char zbuf[EVMVC_READ_BUF_SIZE];
+                bytes_read = 0;
+                
+                gzf->zs->next_out = reinterpret_cast<Bytef*>(zbuf);
+                gzf->zs->avail_out = sizeof(zbuf);
+                
+                ret = deflate(gzf->zs, Z_SYNC_FLUSH);
+                if(ret != Z_OK && ret != Z_STREAM_END){
+                    auto cb = gzf->cb;
+                    free_gzip_file(gzf);
+                    cb(EVMVC_ERR(
+                        "zlib deflate function returned: '{}'",
+                        ret
+                    ));
+                    return;
+                }
+                
+                if(gzf->zs_size < gzf->zs->total_out){
+                    bytes_read += gzf->zs->total_out - gzf->zs_size;
+                    writen(
+                        gzf->fd_out,
+                        zbuf,
+                        gzf->zs->total_out - gzf->zs_size
+                    );
+                    gzf->zs_size = gzf->zs->total_out;
+                }
+                
+            }else{
+                int ret = deflate(gzf->zs, Z_FINISH);
+                if(ret != Z_OK && ret != Z_STREAM_END){
+                    auto cb = gzf->cb;
+                    free_gzip_file(gzf);
+                    cb(EVMVC_ERR(
+                        "zlib deflate function returned: '{}'",
+                        ret
+                    ));
+                    return;
+                }
+                
+                if(gzf->zs_size < gzf->zs->total_out){
+                    bytes_read += gzf->zs->total_out - gzf->zs_size;
+                    writen(
+                        gzf->fd_out,
+                        gzf->zs->next_out,
+                        gzf->zs->total_out - gzf->zs_size
+                    );
+                    gzf->zs_size = gzf->zs->total_out;
+                }
+
+                auto cb = gzf->cb;
+                free_gzip_file(gzf);
+                cb(nullptr);
+                return;
+            }
+        }while(true);
+    }
+    
+}// _internal
+void gzip_file(
+    event_base* ev_base,
+    evmvc::string_view src,
+    evmvc::string_view dest,
+    evmvc::async_cb cb)
+{
+    struct evmvc::_internal::gzip_file* gzf = _internal::new_gzip_file();
+    if(deflateInit2(
+        gzf->zs,
+        Z_DEFAULT_COMPRESSION,
+        Z_DEFLATED,
+        EVMVC_ZLIB_GZIP_WSIZE,
+        EVMVC_ZLIB_MEM_LEVEL,
+        EVMVC_ZLIB_STRATEGY
+        ) != Z_OK
+    ){
+        free(gzf->zs);
+        free(gzf);
+        cb(EVMVC_ERR("deflateInit2 failed!"));
+        return;
+    }
+    
+    gzf->fd_in = open(src.data(), O_NONBLOCK | O_RDONLY);
+    gzf->fd_out = open(
+        dest.data(),
+        O_CREAT | O_WRONLY, 
+        S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP//ug+wr
+    );
+    gzf->cb = cb;
+    
+    gzf->ev = event_new(
+        ev_base, gzf->fd_in, EV_READ | EV_PERSIST,
+        _internal::gzip_file_on_read, gzf
+    );
+    if(event_add(gzf->ev, nullptr) == -1){
+        _internal::free_gzip_file(gzf);
+        cb(EVMVC_ERR("evmvc::gzip_file::event_add failed!"));
+    }
+}
+
+void gzip_file(
+    evmvc::string_view src, evmvc::string_view dest)
+{
+    z_stream zs;
+    memset(&zs, 0, sizeof(zs));
+    if(deflateInit2(
+        &zs,
+        Z_DEFAULT_COMPRESSION,
+        Z_DEFLATED,
+        EVMVC_ZLIB_GZIP_WSIZE,
+        EVMVC_ZLIB_MEM_LEVEL,
+        EVMVC_ZLIB_STRATEGY
+        ) != Z_OK
+    ){
+        throw EVMVC_ERR(
+            "deflateInit2 failed!"
+        );
+    }
+    std::ifstream fin(
+        src.data(), std::ios::binary
+    );
+    std::ostringstream ostrm;
+    ostrm << fin.rdbuf();
+    std::string inf_data = ostrm.str();
+    fin.close();
+    
+    std::string def_data;
+    zs.next_in = (Bytef*)inf_data.data();
+    zs.avail_in = inf_data.size();
+    int ret;
+    char outbuffer[32768];
+    
+    do{
+        zs.next_out =
+            reinterpret_cast<Bytef*>(outbuffer);
+        zs.avail_out = sizeof(outbuffer);
+        ret = deflate(&zs, Z_FINISH);
+        if (def_data.size() < zs.total_out) {
+            // append the block to the output string
+            def_data.append(
+                outbuffer,
+                zs.total_out - def_data.size()
+            );
+        }
+    }while(ret == Z_OK);
+    
+    deflateEnd(&zs);
+    if(ret != Z_STREAM_END){
+        throw EVMVC_ERR(
+            "Error while log compression: ({}) {}",
+            ret, zs.msg
+        );
+    }
+    
+    std::ofstream fout(
+        dest.data(), std::ios::binary
+    );
+    fout.write(def_data.c_str(), def_data.size());
+    fout.flush();
+    fout.close();
+}
 
 
 } //ns evmvc

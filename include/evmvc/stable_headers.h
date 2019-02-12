@@ -69,6 +69,7 @@ extern "C" {
     #include "nlohmann/json.hpp"
 #pragma GCC diagnostic pop
 
+// EVMVC namespace start
 namespace evmvc {
 namespace bfs = boost::filesystem;
 
@@ -117,6 +118,7 @@ typedef std::shared_ptr<evmvc::response> sp_response;
 
 // evmvc::_internal namespace
 namespace _internal{
+    evmvc::sp_logger& default_logger();
     
     evmvc::sp_response create_http_response(
         wp_app a,
@@ -174,6 +176,18 @@ namespace _internal{
 
 #define __EVMVC_STRING(s) #s
 #define EVMVC_STRING(s) __EVMVC_STRING(s)
+
+// file read buffer size of 10KiB
+#define EVMVC_READ_BUF_SIZE 10240
+
+// http://www.zlib.net/manual.html#Advanced
+#define EVMVC_COMPRESSION_NOT_SUPPORTED (-MAX_WBITS - 1000)
+#define EVMVC_ZLIB_DEFLATE_WSIZE (-MAX_WBITS)
+#define EVMVC_ZLIB_ZLIB_WSIZE MAX_WBITS
+#define EVMVC_ZLIB_GZIP_WSIZE (MAX_WBITS | 16)
+#define EVMVC_ZLIB_MEM_LEVEL 8
+#define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
+
 
 namespace evmvc {
     

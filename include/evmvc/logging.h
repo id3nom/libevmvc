@@ -134,6 +134,13 @@ public:
         : sinks::logger_sink(lvl), _parent(), _path(path.data())
     {
     }
+
+    logger(evmvc::string_view path, evmvc::sinks::sp_logger_sink snk,
+        log_level lvl = log_level::info)
+        : sinks::logger_sink(lvl), _parent(), _path(path.data()),
+        _sinks{snk}
+    {
+    }
     
     template<class IT>
     logger(evmvc::string_view path, IT _begin, IT _end,
@@ -231,6 +238,9 @@ public:
     {
         if(should_log(log_level::fatal))
             log(_path, log_level::fatal, fmt::format(f.data(), args...));
+        
+        // exit app on fatal call.
+        exit(-1);
     }
     
     template <typename... Args>
@@ -402,12 +412,12 @@ namespace sinks{
             if((size_t)sb.st_size > self->_max_size)
                 self->_rotate_log();
             else{
-                struct timeval tv = {10,0};
-                if(event_add(self->_wev, &tv) == -1){
-                    event_free(self->_wev);
-                    self->_wev = nullptr;
-                    throw EVMVC_ERR("event_add failed!");//&tv);
-                }
+                // struct timeval tv = {10,0};
+                // if(event_add(self->_wev, &tv) == -1){
+                //     event_free(self->_wev);
+                //     self->_wev = nullptr;
+                //     throw EVMVC_ERR("event_add failed!");//&tv);
+                // }
             }
         }
         
@@ -430,25 +440,136 @@ namespace sinks{
             _notify_close();
             
             auto pp = _base_filename;
+            size_t gz_backlog_size = std::max(
+                (size_t)std::floor((float)_backlog_size / 2.0f),
+                (size_t)2
+            );
             for(size_t i = _backlog_size -1; i > 0; --i){
-                auto blf = pp/("." + evmvc::num_to_str(i, false));
-                if(!bfs::exists(blf) || !bfs::is_regular_file(blf))
-                    continue;
+                bool is_gz = false;
+                std::string cur_ext = ("." + evmvc::num_to_str(i, false));
+                
+                auto blf = pp.string() + cur_ext;
+                if(!bfs::exists(blf) || !bfs::is_regular_file(blf)){
+                    blf = pp.string() + cur_ext + ".gz";
+                    if(!bfs::exists(blf) || !bfs::is_regular_file(blf))
+                        continue;
+                    is_gz = true;
+                }
                 
                 if(i == _backlog_size -1)
                     bfs::remove(blf);
-                else
-                    bfs::rename(
-                        blf,
-                        pp.string() + ("." + evmvc::num_to_str(i+1, false))
-                    );
+                else{
+                    std::string new_ext = ("." + evmvc::num_to_str(i+1, false));
+                    if(i < gz_backlog_size)
+                        bfs::rename(
+                            blf,
+                            pp.string() + new_ext + (is_gz ? ".gz" : "")
+                        );
+                    else{
+                        auto new_blf = pp.string() + new_ext + ".gz";
+                        bfs::rename(
+                            blf,
+                            pp.string() + new_ext + ".gz"
+                        );
+                        
+                        try{
+                            //evmvc::gzip_file(new_blf, new_blf);
+                            std::string tmp_log = 
+                                (pp.parent_path()/bfs::unique_path()).string();
+                            
+                            evmvc::gzip_file(
+                                this->_ev_base,
+                                new_blf, tmp_log,
+                            [new_blf, tmp_log](evmvc::cb_error err){
+                                if(err){
+                                    bfs::remove(tmp_log);
+                                    bfs::remove(new_blf);
+                                    _internal::default_logger()->warn(
+                                        err.c_str()
+                                    );
+                                    return;
+                                }
+                                
+                                bfs::remove(new_blf);
+                                bfs::rename(tmp_log, new_blf);
+                            });
+                        }catch(const std::exception& err){
+                            _internal::default_logger()->warn(err.what());
+                        }
+                        
+                        // if(!is_gz){
+                        //     z_stream zs;
+                        //     memset(&zs, 0, sizeof(zs));
+                        //     if(deflateInit2(
+                        //         &zs,
+                        //         Z_DEFAULT_COMPRESSION,
+                        //         Z_DEFLATED,
+                        //         EVMVC_ZLIB_GZIP_WSIZE,
+                        //         EVMVC_ZLIB_MEM_LEVEL,
+                        //         EVMVC_ZLIB_STRATEGY
+                        //         ) != Z_OK
+                        //     ){
+                        //         _internal::default_logger()->warn(
+                        //             "deflateInit2 failed!"
+                        //         );
+                        //         continue;
+                        //     }
+                        //     std::ifstream fin(
+                        //         new_blf.c_str(), std::ios::binary
+                        //     );
+                        //     std::ostringstream ostrm;
+                        //     ostrm << fin.rdbuf();
+                        //     std::string inf_data = ostrm.str();
+                        //     fin.close();
+                            
+                        //     std::string def_data;
+                        //     zs.next_in = (Bytef*)inf_data.data();
+                        //     zs.avail_in = inf_data.size();
+                        //     int ret;
+                        //     char outbuffer[32768];
+                            
+                        //     do{
+                        //         zs.next_out =
+                        //             reinterpret_cast<Bytef*>(outbuffer);
+                        //         zs.avail_out = sizeof(outbuffer);
+                        //         ret = deflate(&zs, Z_FINISH);
+                        //         if (def_data.size() < zs.total_out) {
+                        //             // append the block to the output string
+                        //             def_data.append(
+                        //                 outbuffer,
+                        //                 zs.total_out - def_data.size()
+                        //             );
+                        //         }
+                        //     }while(ret == Z_OK);
+                            
+                        //     deflateEnd(&zs);
+                        //     if(ret != Z_STREAM_END){
+                        //         _internal::default_logger()->warn(
+                        //             "Error while log compression: ({}) {}",
+                        //             ret, zs.msg
+                        //         );
+                        //         continue;
+                        //     }
+                            
+                        //     std::ofstream fout(
+                        //         new_blf.c_str(), std::ios::binary
+                        //     );
+                        //     fout.write(def_data.c_str(), def_data.size());
+                        //     fout.flush();
+                        //     fout.close();
+                        // }
+                    }
+                }
             }
             bfs::rename(_base_filename, pp.string() + ".1");
             
             int tfd = _fd;
             _fd = open(
-                _base_filename.c_str(), O_APPEND | O_CREAT | O_WRONLY
+                _base_filename.c_str(),
+                O_APPEND | O_CREAT | O_WRONLY,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP//ug+wr
             );
+            
             fsync(tfd);
             close(tfd);
             
@@ -471,8 +592,8 @@ namespace sinks{
             );
             
             _wev = event_new(
-                _ev_base, _wfd,
-                EV_READ, _on_inotify,
+                _ev_base, _ifd,
+                EV_READ | EV_PERSIST, _on_inotify,
                 this
             );
             
@@ -480,7 +601,7 @@ namespace sinks{
             if(event_add(_wev, &tv) == -1){
                 event_free(_wev);
                 _wev = nullptr;
-                throw EVMVC_ERR("event_add failed!");//&tv);
+                throw EVMVC_ERR("event_add failed!");
             }
         }
         
@@ -493,8 +614,7 @@ namespace sinks{
             }
             
             inotify_rm_watch(_ifd, _wfd);
-            
-            close(_wfd);
+            _wfd = -1;
             close(_ifd);
         }
         
@@ -551,22 +671,17 @@ namespace _internal{
             t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
             hours, minutes, seconds, milliseconds
         );
-        
-        // std::stringstream ss;
-        // ss << boost::format("%|02|")%hours << ":" << 
-        //     boost::format("%|02|")%minutes << ":" << 
-        //     boost::format("%|02|")%seconds << "." << 
-        //     boost::format("%|03|")%milliseconds;
-        // return ss.str();
     }
-    
 
-evmvc::sp_logger& default_logger()
-{
-    static evmvc::sp_logger _default_logger =
-        std::make_shared<evmvc::logger>("/");
-    return _default_logger;
-}
+    evmvc::sp_logger& default_logger()
+    {
+        static auto out_snk = std::make_shared<evmvc::sinks::console_sink>(
+            true
+        );
+        static evmvc::sp_logger _default_logger =
+            std::make_shared<evmvc::logger>("/", out_snk);
+        return _default_logger;
+    }
 
 } // ns: evmvc::_internal
 
@@ -622,6 +737,9 @@ void fatal(evmvc::string_view f, const Args&... args)
         _internal::default_logger()->log(
             "/", log_level::fatal, fmt::format(f.data(), args...)
         );
+    
+    // exit app on fatal call.
+    exit(-1);
 }
 
 template <typename... Args>

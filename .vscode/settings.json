@@ -3,6 +3,9 @@
     "C_Cpp.autocomplete": "Default",
     "C_Cpp.intelliSenseEngineFallback": "Enabled",
     // "C_Cpp.configurationWarnings": "Disabled",
+    "editor.autoClosingBrackets": "never",
+    "editor.acceptSuggestionOnCommitCharacter": false,
+    "editor.autoClosingQuotes": "never",
     
     "files.associations": {
         "*.hbs": "handlebars",
