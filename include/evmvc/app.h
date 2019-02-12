@@ -31,13 +31,6 @@ SOFTWARE.
 #include "stack_debug.h"
 #include "multipart_parser.h"
 
-#include <sys/utsname.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-
-#define EVMVC_PCRE_DATE EVMVC_STRING(PCRE_DATE)
-
 namespace evmvc {
 
 enum class app_state
@@ -96,8 +89,6 @@ public:
             _log = _internal::default_logger()->add_child(
                 "/"
             );
-        
-        this->_log->info("Starting app\n{}", app::version());
     }
     
     ~app()
@@ -129,53 +120,6 @@ public:
     bool running() const { return _status == app_state::running;}
     bool stopping() const { return _status == app_state::stopping;}
     
-    static std::string version()
-    {
-        static std::string ver;
-        static bool version_init = false;
-        if(!version_init){
-            version_init = true;
-            
-            struct utsname uts;
-            uname(&uts);
-            
-            ver = fmt::format(
-                "{}\n  built with gcc v{}.{}.{} "
-                "({} {} {} {}) {}\n"
-                "    Boost v{}\n"
-                "    {}\n" //openssl
-                "    zlib v{}\n"
-                "    libpcre v{}.{} {}\n"
-                "    libevent v{}\n"
-                "    libicu v{}\n"
-                "    libevhtp v{}\n",
-                EVMVC_VERSION_NAME,
-                __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
-                uts.sysname, uts.release, uts.version, uts.machine,
-                __DATE__,
-                BOOST_LIB_VERSION,
-                OPENSSL_VERSION_TEXT,
-                ZLIB_VERSION,
-                PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
-                EVMVC_ICU_VERSION,
-                _EVENT_VERSION,
-                EVHTP_VERSION
-            );
-        }
-        
-        return ver;
-    }
-    
-    static std::string html_version()
-    {
-        static std::string ver =
-            evmvc::replace_substring_copy(
-                evmvc::replace_substring_copy(version(), "\n", "<br/>"),
-                " ", "&nbsp;"
-            );
-        return ver;
-    }
-    
     void listen(
         uint16_t port = 8080,
         const evmvc::string_view& address = "0.0.0.0",
@@ -190,7 +134,7 @@ public:
         this->_init_directories();
         
         _evhtp = evhtp_new(_ev_base, NULL);
-        //evhtp_set_gencb(_evhtp, _internal::on_app_request, this);
+        
         evhtp_callback_t* cb = evhtp_set_glob_cb(
             _evhtp, "*", _internal::on_app_request, this
         );
@@ -199,8 +143,16 @@ public:
         );
         
         evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
-        /* create 1 listener, 4 acceptors */
-        evhtp_use_threads_wexit(_evhtp, NULL, NULL, 8, NULL);
+        
+        if(_options.worker_count > 1){
+            this->_log->info(
+                "Creating 1 listener, and {} acceptors",
+                _options.worker_count
+            );
+            evhtp_use_threads_wexit(_evhtp,
+                NULL, NULL, _options.worker_count, NULL
+            );
+        }
         
         evhtp_bind_socket(_evhtp, address.data(), port, backlog);
         
@@ -427,7 +379,19 @@ evhtp_res _internal::on_headers(
     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
 {
     app* a = (app*)arg;
+    auto con_addr_in = (sockaddr_in*)req->conn->saddr;
     
+    char addr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
+    
+    a->log()->success(
+        "recv: [{}] [{}{}{}] from: [{}]",
+        to_string((evmvc::method)req->method),
+        req->uri->path->full,
+        req->uri->query_raw ? "?" : "",
+        req->uri->query_raw ? (const char*)req->uri->query_raw : "",
+        addr
+    );
     if(evmvc::_internal::is_multipart_data(req, hdr))
         return evmvc::_internal::parse_multipart_data(
             a->log(),
@@ -440,8 +404,8 @@ evhtp_res _internal::on_headers(
 void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
     auto mp = (evmvc::_internal::multipart_parser*)arg;
+    mp->app->log()->trace("Multipart parser task completed!");
     _internal::on_app_request(req, mp->app);
-    mp->app->log()->trace("_internal::on_multipart_request");
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)
@@ -563,7 +527,7 @@ void response::error(evmvc::status err_status, const cb_error& err)
         "<tr><td style='"
         "border-top: 1px solid black; font-size:0.9em'>{}"
         "</td></tr>\n",
-        app::html_version()
+        evmvc::html_version()
     );
     
     err_msg += "</table></body></html>";

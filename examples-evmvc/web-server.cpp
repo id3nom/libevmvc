@@ -69,13 +69,6 @@ void exit_app(int, short, void* arg)
 
 int main(int argc, char** argv)
 {
-    // show app pid
-    pid_t pid = getpid();
-    std::clog << fmt::format(
-        "Starting evmvc_web_server, pid: {}\n\n",
-        pid
-    );
-    
     event_set_log_callback(_on_event_log);
     event_set_fatal_callback(_on_event_fatal_error);
     
@@ -85,12 +78,20 @@ int main(int argc, char** argv)
     opts.stack_trace_enabled = true;
     opts.log_console_level = evmvc::log_level::trace;
     opts.log_file_level = evmvc::log_level::trace;
-    opts.log_file_max_size = 10000;
+    //opts.log_file_max_size = 10000;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
         std::move(opts)
     );
+    
+    // show app pid
+    pid_t pid = getpid();
+    srv->log()->info(
+        "Starting evmvc_web_server, pid: {}",
+        pid
+    );
+    srv->log()->info(evmvc::version());
     
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){

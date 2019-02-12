@@ -47,7 +47,8 @@ public:
         log_file_level(log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
-        stack_trace_enabled(false)
+        stack_trace_enabled(false),
+        worker_count(get_nprocs_conf())
     {
     }
 
@@ -65,7 +66,8 @@ public:
         log_file_level(log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
-        stack_trace_enabled(false)
+        stack_trace_enabled(false),
+        worker_count(get_nprocs_conf())
     {
     }
     
@@ -83,7 +85,8 @@ public:
         log_file_level(other.log_file_level),
         log_file_max_size(other.log_file_max_size),
         log_file_max_files(other.log_file_max_files),
-        stack_trace_enabled(other.stack_trace_enabled)
+        stack_trace_enabled(other.stack_trace_enabled),
+        worker_count(other.worker_count)
     {
     }
     
@@ -101,7 +104,8 @@ public:
         log_file_level(other.log_file_level),
         log_file_max_size(other.log_file_max_size),
         log_file_max_files(other.log_file_max_files),
-        stack_trace_enabled(other.stack_trace_enabled)
+        stack_trace_enabled(other.stack_trace_enabled),
+        worker_count(other.worker_count)
     {
     }
     
@@ -123,6 +127,7 @@ public:
     size_t log_file_max_files;
     
     bool stack_trace_enabled;
+    int worker_count;
 };
 
 } // ns: evmvmc

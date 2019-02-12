@@ -28,10 +28,6 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "logging.h"
 
-extern "C" {
-#include <pcre.h>
-}
-
 #include "cb_def.h"
 #include "methods.h"
 #include "request.h"

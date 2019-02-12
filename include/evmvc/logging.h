@@ -178,7 +178,8 @@ public:
     
     void log(
         evmvc::string_view log_path,
-        log_level lvl, evmvc::string_view msg) const
+        log_level lvl,
+        evmvc::string_view msg) const
     {
         if(this->_parent)
             return this->_parent->log(log_path, lvl, msg);
@@ -187,6 +188,20 @@ public:
             if(sink->should_log(lvl))
                 sink->log(log_path, lvl, msg);
         }
+    }
+    
+    void log(
+        evmvc::string_view log_path,
+        log_level lvl,
+        evmvc::cb_error err) const
+    {
+        std::string log_val = err.c_str();
+        if(err.has_stack())
+            log_val += fmt::format(
+                "\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
+                err.file(), err.line(), err.func(), err.stack()
+            );
+        log(log_path, lvl, log_val);
     }
     
     void flush() const
@@ -204,12 +219,22 @@ public:
         if(should_log(log_level::trace))
             log(_path, log_level::trace, fmt::format(f.data(), args...));
     }
+    void trace(evmvc::cb_error err)
+    {
+        if(should_log(log_level::trace))
+            log(_path, log_level::trace, err);
+    }
     
     template <typename... Args>
     void debug(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::debug))
             log(_path, log_level::debug, fmt::format(f.data(), args...));
+    }
+    void debug(evmvc::cb_error err)
+    {
+        if(should_log(log_level::debug))
+            log(_path, log_level::debug, err);
     }
     
     template <typename... Args>
@@ -218,6 +243,11 @@ public:
         if(should_log(log_level::info))
             log(_path, log_level::info, fmt::format(f.data(), args...));
     }
+    void info(evmvc::cb_error err)
+    {
+        if(should_log(log_level::info))
+            log(_path, log_level::info, err);
+    }
     
     template <typename... Args>
     void warn(evmvc::string_view f, const Args&... args) const
@@ -225,12 +255,22 @@ public:
         if(should_log(log_level::warning))
             log(_path, log_level::warning, fmt::format(f.data(), args...));
     }
+    void warn(evmvc::cb_error err)
+    {
+        if(should_log(log_level::warning))
+            log(_path, log_level::warning, err);
+    }
     
     template <typename... Args>
     void error(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::error))
             log(_path, log_level::error, fmt::format(f.data(), args...));
+    }
+    void error(evmvc::cb_error err)
+    {
+        if(should_log(log_level::error))
+            log(_path, log_level::error, err);
     }
     
     template <typename... Args>
@@ -242,6 +282,11 @@ public:
         // exit app on fatal call.
         exit(-1);
     }
+    void fatal(evmvc::cb_error err)
+    {
+        if(should_log(log_level::fatal))
+            log(_path, log_level::fatal, err);
+    }
     
     template <typename... Args>
     void success(evmvc::string_view f, const Args&... args) const
@@ -252,12 +297,22 @@ public:
                 fmt::format(f.data(), args...)
             );
     }
+    void success(evmvc::cb_error err)
+    {
+        if(should_log(log_level::audit_succeeded))
+            log(_path, log_level::audit_succeeded, err);
+    }
 
     template <typename... Args>
     void fail(evmvc::string_view f, const Args&... args) const
     {
         if(should_log(log_level::audit_failed))
             log(_path, log_level::audit_failed, fmt::format(f.data(), args...));
+    }
+    void fail(evmvc::cb_error err)
+    {
+        if(should_log(log_level::audit_failed))
+            log(_path, log_level::audit_failed, err);
     }
     
 private:
@@ -411,14 +466,6 @@ namespace sinks{
             fstat(self->_fd, &sb);
             if((size_t)sb.st_size > self->_max_size)
                 self->_rotate_log();
-            else{
-                // struct timeval tv = {10,0};
-                // if(event_add(self->_wev, &tv) == -1){
-                //     event_free(self->_wev);
-                //     self->_wev = nullptr;
-                //     throw EVMVC_ERR("event_add failed!");//&tv);
-                // }
-            }
         }
         
         void _open_log()
@@ -473,7 +520,8 @@ namespace sinks{
                         );
                         
                         try{
-                            //evmvc::gzip_file(new_blf, new_blf);
+                            evmvc::gzip_file(new_blf, new_blf);
+                            /*
                             std::string tmp_log = 
                                 (pp.parent_path()/bfs::unique_path()).string();
                             
@@ -493,71 +541,12 @@ namespace sinks{
                                 bfs::remove(new_blf);
                                 bfs::rename(tmp_log, new_blf);
                             });
+                            */
                         }catch(const std::exception& err){
-                            _internal::default_logger()->warn(err.what());
+                            _internal::default_logger()->warn(
+                                cb_error(err)
+                            );
                         }
-                        
-                        // if(!is_gz){
-                        //     z_stream zs;
-                        //     memset(&zs, 0, sizeof(zs));
-                        //     if(deflateInit2(
-                        //         &zs,
-                        //         Z_DEFAULT_COMPRESSION,
-                        //         Z_DEFLATED,
-                        //         EVMVC_ZLIB_GZIP_WSIZE,
-                        //         EVMVC_ZLIB_MEM_LEVEL,
-                        //         EVMVC_ZLIB_STRATEGY
-                        //         ) != Z_OK
-                        //     ){
-                        //         _internal::default_logger()->warn(
-                        //             "deflateInit2 failed!"
-                        //         );
-                        //         continue;
-                        //     }
-                        //     std::ifstream fin(
-                        //         new_blf.c_str(), std::ios::binary
-                        //     );
-                        //     std::ostringstream ostrm;
-                        //     ostrm << fin.rdbuf();
-                        //     std::string inf_data = ostrm.str();
-                        //     fin.close();
-                            
-                        //     std::string def_data;
-                        //     zs.next_in = (Bytef*)inf_data.data();
-                        //     zs.avail_in = inf_data.size();
-                        //     int ret;
-                        //     char outbuffer[32768];
-                            
-                        //     do{
-                        //         zs.next_out =
-                        //             reinterpret_cast<Bytef*>(outbuffer);
-                        //         zs.avail_out = sizeof(outbuffer);
-                        //         ret = deflate(&zs, Z_FINISH);
-                        //         if (def_data.size() < zs.total_out) {
-                        //             // append the block to the output string
-                        //             def_data.append(
-                        //                 outbuffer,
-                        //                 zs.total_out - def_data.size()
-                        //             );
-                        //         }
-                        //     }while(ret == Z_OK);
-                            
-                        //     deflateEnd(&zs);
-                        //     if(ret != Z_STREAM_END){
-                        //         _internal::default_logger()->warn(
-                        //             "Error while log compression: ({}) {}",
-                        //             ret, zs.msg
-                        //         );
-                        //         continue;
-                        //     }
-                            
-                        //     std::ofstream fout(
-                        //         new_blf.c_str(), std::ios::binary
-                        //     );
-                        //     fout.write(def_data.c_str(), def_data.size());
-                        //     fout.flush();
-                        //     fout.close();
-                        // }
                     }
                 }
             }

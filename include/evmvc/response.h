@@ -77,7 +77,10 @@ public:
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies)
         : _id(id), _rt(rt),
-        _log(log->add_child("res-" + evmvc::num_to_str(id, false))),
+        _log(log->add_child(
+            "res-" + evmvc::num_to_str(id, false) + 
+            ev_req->uri->path->full
+        )),
         _ev_req(ev_req), _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc("")

@@ -105,7 +105,10 @@ public:
         evmvc::sp_logger log,
         evhtp_request_t* ev_req)
         : _id(id), _rt(rt),
-        _log(log->add_child("cookies-" + evmvc::num_to_str(id, false))),
+        _log(log->add_child(
+            "cookies-" + evmvc::num_to_str(id, false) + 
+            ev_req->uri->path->full
+        )),
         _ev_req(ev_req), _init(false), _cookies(), _locked(false)
     {
     }

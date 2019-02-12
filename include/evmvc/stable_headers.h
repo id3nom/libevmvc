@@ -22,6 +22,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/inotify.h>
+#include <sys/sysinfo.h>
+#include <sys/utsname.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include <aio.h>
+#include <signal.h>
 
 #include <fcntl.h>
 #include <unistd.h>
@@ -48,6 +56,9 @@ extern "C" {
 #endif
 #include <event2/http.h>
 #include <evhtp/evhtp.h>
+
+#include <pcre.h>
+
 }
 #include <zlib.h>
 
@@ -82,13 +93,14 @@ namespace bfs = boost::filesystem;
     using basic_string_view = std::basic_string_view<CharT, Traits>;
 
 #else
+    
     /// The type of string view used by the library
     using string_view = boost::string_view;
     
     /// The type of basic string view used by the library
     template<class CharT, class Traits>
     using basic_string_view = boost::basic_string_view<CharT, Traits>;
-
+    
 #endif
 
 typedef nlohmann::json json;
@@ -188,9 +200,48 @@ namespace _internal{
 #define EVMVC_ZLIB_MEM_LEVEL 8
 #define EVMVC_ZLIB_STRATEGY Z_DEFAULT_STRATEGY
 
+#define EVMVC_PCRE_DATE EVMVC_STRING(PCRE_DATE)
+
 
 namespace evmvc {
+
+inline std::string version()
+{
+    static std::string ver;
+    static bool version_init = false;
+    if(!version_init){
+        version_init = true;
+        
+        struct utsname uts;
+        uname(&uts);
+        
+        ver = fmt::format(
+            "{}\n  built with gcc v{}.{}.{} "
+            "({} {} {} {}) {}\n"
+            "    Boost v{}\n"
+            "    {}\n" //openssl
+            "    zlib v{}\n"
+            "    libpcre v{}.{} {}\n"
+            "    libevent v{}\n"
+            "    libicu v{}\n"
+            "    libevhtp v{}\n",
+            EVMVC_VERSION_NAME,
+            __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
+            uts.sysname, uts.release, uts.version, uts.machine,
+            __DATE__,
+            BOOST_LIB_VERSION,
+            OPENSSL_VERSION_TEXT,
+            ZLIB_VERSION,
+            PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
+            EVMVC_ICU_VERSION,
+            _EVENT_VERSION,
+            EVHTP_VERSION
+        );
+    }
     
+    return ver;
+}
+
 class stacked_error : public std::runtime_error 
 {
 public:
@@ -226,5 +277,23 @@ private:
     evmvc::string_view _func;
 };
 } //ns evmvc
+
+#ifdef EVENT_MVC_USE_STD_STRING_VIEW
+    
+#else
+namespace fmt {
+    template <>
+    struct formatter<evmvc::string_view> {
+        template <typename ParseContext>
+        constexpr auto parse(ParseContext &ctx) { return ctx.begin(); }
+
+        template <typename FormatContext>
+        auto format(const evmvc::string_view &s, FormatContext &ctx) {
+            return format_to(ctx.out(), "{}", s.data());
+        }
+    };
+}
+    
+#endif
 
 #endif //_libevmvc_stable_headers_h

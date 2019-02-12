@@ -307,6 +307,17 @@ inline std::string replace_substring_copy(
     return s;
 }
 
+inline std::string html_version()
+{
+    static std::string ver =
+        evmvc::replace_substring_copy(
+            evmvc::replace_substring_copy(version(), "\n", "<br/>"),
+            " ", "&nbsp;"
+        );
+    return ver;
+}
+
+
 //std::string hex_to_str(const uint8_t* data, int len);
 constexpr char hexmap[] = {
     '0', '1', '2', '3', '4', '5', '6', '7',
@@ -580,6 +591,10 @@ void gzip_file(
     evmvc::string_view dest,
     evmvc::async_cb cb)
 {
+    cb(EVMVC_ERR(
+        "file async IO Not working with EPOLL!\n"
+        "Should be reimplement with aio or thread pool!"
+    ));
     struct evmvc::_internal::gzip_file* gzf = _internal::new_gzip_file();
     if(deflateInit2(
         gzf->zs,
