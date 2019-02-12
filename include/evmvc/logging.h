@@ -535,9 +535,9 @@ namespace _internal{
             ).count();
         
         return fmt::format(
-            "{0:04}-{0:02}-{0:02} "
-            "{0:02}:{0:02}:{0:02}.{0:03}",
-            t.tm_year, t.tm_mon, t.tm_mday,
+            "{0:04}-{1:02}-{2:02} "
+            "{3:02}:{4:02}:{5:02}.{6:03}",
+            t.tm_year + 1900, t.tm_mon + 1, t.tm_mday,
             hours, minutes, seconds, milliseconds
         );
         

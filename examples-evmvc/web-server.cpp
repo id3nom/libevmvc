@@ -65,7 +65,7 @@ int main(int argc, char** argv)
     evmvc::app_options opts;
     opts.stack_trace_enabled = true;
     opts.log_console_level = evmvc::log_level::trace;
-    opts.log_file_level = evmvc::log_level::error;
+    opts.log_file_level = evmvc::log_level::trace;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
