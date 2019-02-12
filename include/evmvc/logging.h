@@ -401,6 +401,14 @@ namespace sinks{
             fstat(self->_fd, &sb);
             if((size_t)sb.st_size > self->_max_size)
                 self->_rotate_log();
+            else{
+                struct timeval tv = {10,0};
+                if(event_add(self->_wev, &tv) == -1){
+                    event_free(self->_wev);
+                    self->_wev = nullptr;
+                    throw EVMVC_ERR("event_add failed!");//&tv);
+                }
+            }
         }
         
         void _open_log()
@@ -430,9 +438,12 @@ namespace sinks{
                 if(i == _backlog_size -1)
                     bfs::remove(blf);
                 else
-                    bfs::rename(blf, pp/("." + evmvc::num_to_str(i+1, false)));
+                    bfs::rename(
+                        blf,
+                        pp.string() + ("." + evmvc::num_to_str(i+1, false))
+                    );
             }
-            bfs::rename(_base_filename, pp/".1");
+            bfs::rename(_base_filename, pp.string() + ".1");
             
             int tfd = _fd;
             _fd = open(
@@ -461,12 +472,12 @@ namespace sinks{
             
             _wev = event_new(
                 _ev_base, _wfd,
-                EV_READ | EV_PERSIST, _on_inotify,
+                EV_READ, _on_inotify,
                 this
             );
             
-            //struct timeval tv = {5,0};
-            if(event_add(_wev, nullptr) == -1){
+            struct timeval tv = {10,0};
+            if(event_add(_wev, &tv) == -1){
                 event_free(_wev);
                 _wev = nullptr;
                 throw EVMVC_ERR("event_add failed!");//&tv);
