@@ -130,7 +130,7 @@ TEST_F(router_test, routes)
             ASSERT_EQ(p1val, 4);
             
             if(req->route_param("p2")){
-                auto p2val = req->route_param_as<std::string>("p2");
+                auto p2val = req->get_route_param<std::string>("p2");
                 ASSERT_STREQ(p2val.c_str(), "arg2");
                 
                 if(req->route_param("p3")){
@@ -144,6 +144,7 @@ TEST_F(router_test, routes)
             next(nullptr);
         });
         
+        _internal::app_request* ar = nullptr;
         evhtp_request_t* ev_req = nullptr;
         // evmvc::sp_http_cookies c =
         //     std::make_shared<evmvc::http_cookies>(
@@ -157,8 +158,8 @@ TEST_F(router_test, routes)
         if(!rr)
             FAIL();
         
-        rr->execute(ev_req, //res,
-        [r, &rr, ev_req,/* &res,*/ &rt_val](auto error){
+        rr->execute(ar, ev_req, //res,
+        [ar, r, &rr, ev_req,/* &res,*/ &rt_val](auto error){
             
             ASSERT_EQ(rt_val, "abc-c");
             
@@ -169,7 +170,7 @@ TEST_F(router_test, routes)
             rr = r->resolve_url(evmvc::method::get, "/abc-g/123/4/arg2/arg3");
             if(!rr)
                 FAIL();
-            rr->execute(ev_req, //res,
+            rr->execute(ar, ev_req, //res,
             [r, &rr, ev_req,/* &res,*/ &rt_val](auto error){
                 
                 ASSERT_EQ(rt_val, "abc-g");

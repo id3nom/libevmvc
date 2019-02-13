@@ -30,7 +30,7 @@
 #include "stack_debug.h"
 #include "fields.h"
 #include "http_param.h"
-#include "response.h"
+//#include "response.h"
 
 // max content buffer size of 10KiB
 #define EVMVC_MAX_CONTENT_BUF_LEN 10240
@@ -252,6 +252,13 @@ typedef struct multipart_parser_t
     bool completed;
     
 } multipart_parser;
+
+typedef struct app_request_t
+{
+    bool is_multipart;
+    evmvc::app* app;
+    evmvc::_internal::multipart_parser* mp;
+} app_request;
 
 bool is_multipart_data(evhtp_request_t* req, evhtp_headers_t* hdr)
 {

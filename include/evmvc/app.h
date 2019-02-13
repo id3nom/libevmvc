@@ -55,7 +55,7 @@ public:
         : _init_rtr(false), _init_dirs(false), _status(app_state::stopped),
         _options(std::move(opts)),
         _router(),
-        _ev_base(ev_base), _evhtp(nullptr)
+        _ev_base(ev_base), _evhtp(nullptr), _ar(nullptr)
     {
         // init the default logger
         if(_options.use_default_logger){
@@ -135,8 +135,11 @@ public:
         
         _evhtp = evhtp_new(_ev_base, NULL);
         
+        mm__alloc_(_ar, evmvc::_internal::app_request, {
+            false, this, nullptr
+        });
         evhtp_callback_t* cb = evhtp_set_glob_cb(
-            _evhtp, "*", _internal::on_app_request, this
+            _evhtp, "*", _internal::on_app_request, _ar
         );
         
         
@@ -183,6 +186,11 @@ public:
         this->_status = app_state::stopping;
         evhtp_unbind_socket(_evhtp);
         evhtp_free(_evhtp);
+        
+        if(_ar)
+            free(_ar);
+        _ar = nullptr;
+        
         this->_status = app_state::stopped;
     }
     
@@ -311,6 +319,7 @@ private:
     struct event_base* _ev_base;
     struct evhtp* _evhtp;
     evmvc::sp_logger _log;
+    evmvc::_internal::app_request* _ar;
 };//evmvc::app
 
 sp_response response::null(
@@ -389,7 +398,6 @@ evhtp_res _internal::on_headers(
 {
     app* a = (app*)arg;
     auto con_addr_in = (sockaddr_in*)req->conn->saddr;
-    
     char addr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
     
@@ -401,6 +409,7 @@ evhtp_res _internal::on_headers(
         req->uri->query_raw ? (const char*)req->uri->query_raw : "",
         addr
     );
+    
     if(evmvc::_internal::is_multipart_data(req, hdr))
         return evmvc::_internal::parse_multipart_data(
             a->log(),
@@ -414,12 +423,22 @@ void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     mp->app->log()->trace("Multipart parser task completed!");
-    _internal::on_app_request(req, mp->app);
+
+    evmvc::_internal::app_request* ar = nullptr;
+    mm__alloc_(ar, evmvc::_internal::app_request, {
+        true, mp->app, mp
+    });
+    
+    _internal::on_app_request(req, ar);
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)
 {
-    app* a = (app*)arg;
+    evmvc::_internal::app_request* ar = (evmvc::_internal::app_request*)arg;
+    // mm__alloc_(ar, evmvc::_internal::app_request, {
+    //     false, this, nullptr
+    // });
+    app* a = ar->app;
     
     evmvc::method v = (evmvc::method)req->method;
     evmvc::string_view sv;
@@ -446,7 +465,7 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
             return;
         }
         
-        rr->execute(req,
+        rr->execute(ar, req,
         [a, &rr, req/*, res*/](auto error){
             if(error){
                 response::null(a->shared_from_this(), req)->error(
@@ -578,12 +597,13 @@ namespace _internal{
         )
     {
         return _internal::create_http_response(
-            a.lock()->log(), ev_req, evmvc::route::null(a), params
+            a.lock()->log(), nullptr, ev_req, evmvc::route::null(a), params
         );
     }
     
     inline evmvc::sp_response create_http_response(
         sp_logger log,
+        app_request* ar,
         evhtp_request_t* ev_req,
         sp_route rt,
         const evmvc::http_params& params = http_params()
@@ -592,6 +612,8 @@ namespace _internal{
         static uint64_t cur_id = 0;
         uint64_t rid = ++cur_id;
         
+        _internal::multipart_parser* mp = ar->mp;
+        
         evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
             rid, rt, log, ev_req
         );
@@ -599,9 +621,15 @@ namespace _internal{
             rid, rt, log, ev_req, cks
         );
         evmvc::sp_request req = std::make_shared<evmvc::request>(
-            rid, rt, log, ev_req, cks, params
+            rid, rt, log, ev_req, cks, params, mp
         );
         res->_req = req;
+        
+        if(ar && ar->is_multipart){
+            free(ar->mp);
+            free(ar);
+        }
+        
         return res;
     }
 }// ns: evmvc::internal

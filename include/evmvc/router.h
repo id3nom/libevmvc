@@ -56,6 +56,7 @@ public:
     }
     
     virtual evmvc::sp_response execute(
+        _internal::app_request* ar,
         evhtp_request_t* req,
         async_cb cb
     );
@@ -380,10 +381,10 @@ evmvc::sp_logger route_result::log()
 }
 
 evmvc::sp_response route_result::execute(
-    evhtp_request_t* ev_req, async_cb cb)
+    _internal::app_request* ar, evhtp_request_t* ev_req, async_cb cb)
 {
     auto res = _internal::create_http_response(
-        this->log(), ev_req, this->_route, params
+        this->log(), ar, ev_req, this->_route, params
     );
     
     _route->_exec(res->req(), res, 0, cb);
@@ -670,15 +671,14 @@ public:
     
 protected:
     
-    evmvc::sp_response execute(evhtp_request_t* ev_req, async_cb cb)
+    evmvc::sp_response execute(
+        _internal::app_request* ar, evhtp_request_t* ev_req, async_cb cb)
     {
         auto rt = sp_route( new route(_rtr));
         rt->_rp = _rtr->path().to_string() + "/" + _local_url;
         
         auto res = _internal::create_http_response(
-            this->_rtr->log(), ev_req,
-            rt,
-            params
+            this->_rtr->log(), ar, ev_req, rt, params
         );
         
         if(_not_found){

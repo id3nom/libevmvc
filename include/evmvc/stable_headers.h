@@ -128,8 +128,14 @@ typedef std::vector<sp_http_param> http_params;
 class response;
 typedef std::shared_ptr<evmvc::response> sp_response;
 
+class request;
+typedef std::shared_ptr<evmvc::request> sp_request;
+
+
 // evmvc::_internal namespace
 namespace _internal{
+    struct app_request_t;
+    
     evmvc::sp_logger& default_logger();
     
     evmvc::sp_response create_http_response(
@@ -139,7 +145,8 @@ namespace _internal{
     );
     
     evmvc::sp_response create_http_response(
-        sp_logger log, evhtp_request_t* ev_req, sp_route rt,
+        sp_logger log, struct app_request_t* ar,
+        evhtp_request_t* ev_req, sp_route rt,
         const evmvc::http_params& params
     );
     
@@ -175,7 +182,7 @@ namespace _internal{
         return(n);
     }
     /* end writen */
-
+    
 }}//ns evmvc::_internal
 
 #include "stack_debug.h"

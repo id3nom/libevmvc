@@ -96,7 +96,7 @@ int main(int argc, char** argv)
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
-            req->query_param_as<std::string>("val", "testing 1, 2...")
+            req->get_query_param<std::string>("val", "testing 1, 2...")
         );
         nxt(nullptr);
     });
@@ -105,14 +105,14 @@ int main(int argc, char** argv)
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok)
             .download("the file path",
-            req->route_param_as<std::string>("filename", "test.txt"));
+            req->get_route_param<std::string>("filename", "test.txt"));
         nxt(nullptr);
     });
     
     srv->get("/echo/:val",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
-            req->route_param_as<std::string>("val")
+            req->get_route_param<std::string>("val")
         );
         nxt(nullptr);
     });
@@ -138,7 +138,7 @@ int main(int argc, char** argv)
     
     srv->get("/send-file",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        auto path = req->query_param_as<std::string>("path");
+        auto path = req->get_query_param<std::string>("path");
         
         std::clog << fmt::format("sending file: '{0}'\n", path);
         
@@ -163,10 +163,10 @@ int main(int argc, char** argv)
         res->cookies().set("cookie-a", "abc", opts);
         
         opts = {};
-        opts.path = req->route_param_as<std::string>("path", "/");
+        opts.path = req->get_route_param<std::string>("path", "/");
         res->cookies().set(
-            req->route_param_as<std::string>("name", "cookie-b"),
-            req->route_param_as<std::string>("val", "def"),
+            req->get_route_param<std::string>("name", "cookie-b"),
+            req->get_route_param<std::string>("val", "def"),
             opts
         );
         
@@ -181,9 +181,9 @@ int main(int argc, char** argv)
             fmt::format("route: {}\ncookie-a: {}, {}: {}", 
                 "/cookies/get/:[name]",
                 res->cookies().get<std::string>("cookie-a"),
-                req->route_param_as<std::string>("name", "cookie-b"),
+                req->get_route_param<std::string>("name", "cookie-b"),
                 res->cookies().get<std::string>(
-                    req->route_param_as<std::string>("name", "cookie-b"),
+                    req->get_route_param<std::string>("name", "cookie-b"),
                     "do not exists!"
                 )
             )
@@ -193,10 +193,10 @@ int main(int argc, char** argv)
     srv->get("/cookies/clear/:[name]/:[path]",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         evmvc::http_cookies::options opts;
-        opts.path = req->route_param_as<std::string>("path", "");
+        opts.path = req->get_route_param<std::string>("path", "");
         
         res->cookies().clear(
-            req->route_param_as<std::string>("name", "cookie-b"),
+            req->get_route_param<std::string>("name", "cookie-b"),
             opts
         );
         res->status(evmvc::status::ok).send(

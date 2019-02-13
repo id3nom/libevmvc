@@ -33,11 +33,10 @@ SOFTWARE.
 #include "methods.h"
 #include "cookies.h"
 #include "http_param.h"
+#include "files.h"
+#include "multipart_parser.h"
 
 namespace evmvc {
-
-class request;
-typedef std::shared_ptr<request> sp_request;
 
 class request
     : public std::enable_shared_from_this<request>
@@ -49,7 +48,8 @@ public:
         evmvc::sp_logger log,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies,
-        const std::vector<std::shared_ptr<evmvc::http_param>> p
+        const std::vector<std::shared_ptr<evmvc::http_param>> p,
+        _internal::multipart_parser* mp
         )
         : _id(id), _rt(rt),
         _log(log->add_child(
@@ -57,7 +57,7 @@ public:
             ev_req->uri->path->full
         )),
         _ev_req(ev_req), _cookies(http_cookies),
-        _rt_params(p)
+        _rt_params(p), _body_params(), _files()
     {
         if(_log->should_log(log_level::trace)){
             std::string hdrs;
@@ -70,6 +70,10 @@ public:
             }
             _log->trace(hdrs);
         }
+        
+        if(!mp)
+            return;
+        _load_multipart_params(mp->root);
     }
     
     uint64_t id() const { return _id;}
@@ -78,36 +82,29 @@ public:
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     http_cookies& cookies() const { return *(_cookies.get());}
-    sp_http_cookies shared_cookies() const { return _cookies;}
+    //sp_http_cookies shared_cookies() const { return _cookies;}
+    http_files& files() const { return *(_files.get());}
     
     sp_http_param route_param(
         evmvc::string_view pname) const noexcept
     {
         for(auto& ele : _rt_params)
-            if(strcmp(ele->name(), pname.data()) == 0)
+            if(strcasecmp(ele->name(), pname.data()) == 0)
                 return ele;
         
         return sp_http_param();
-        // auto p = _rt_params.find(pname.to_string());
-        // if(p == _rt_params.end())
-        //     return std::shared_ptr<evmvc::http_param>();
-        // return p->second;
     }
     
     template<typename ParamType>
-    ParamType route_param_as(
+    ParamType get_route_param(
         const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
         for(auto& ele : _rt_params)
-            if(strcmp(ele->name(), pname.data()) == 0)
+            if(strcasecmp(ele->name(), pname.data()) == 0)
                 return ele->get<ParamType>();
         
         return default_val;
-        // auto p = _rt_params.find(pname.to_string());
-        // if(p == _rt_params.end())
-        //     return default_val;
-        // return p->second->get<ParamType>();
     }
     
     std::shared_ptr<evmvc::http_param> query_param(
@@ -138,7 +135,7 @@ public:
     }
 
     template<typename ParamType>
-    ParamType query_param_as(
+    ParamType get_query_param(
         const evmvc::string_view& pname,
         ParamType default_val = ParamType()) const
     {
@@ -199,8 +196,68 @@ public:
         return get("X-Requested-With")->compare_value("XMLHttpRequest");
     }
     
+    sp_http_param body_param(
+        evmvc::string_view pname) const noexcept
+    {
+        for(auto& ele : _body_params)
+            if(strcasecmp(ele->name(), pname.data()) == 0)
+                return ele;
+        
+        return sp_http_param();
+    }
+    
+    template<typename ParamType>
+    ParamType get_body_param(
+        const evmvc::string_view& pname,
+        ParamType default_val = ParamType()) const
+    {
+        for(auto& ele : _body_params)
+            if(strcasecmp(ele->name(), pname.data()) == 0)
+                return ele->get<ParamType>();
+        
+        return default_val;
+    }
+    
 
 protected:
+    
+    void _load_multipart_params(
+        std::shared_ptr<_internal::multipart_subcontent> ms)
+    {
+        for(auto ct : ms->contents){
+            //std::shared_ptr<_internal::multipart_content> ct;
+            if(ct->type == _internal::multipart_content_type::subcontent){
+                _load_multipart_params(
+                    std::static_pointer_cast<
+                        _internal::multipart_subcontent
+                    >(ct)
+                );
+                
+            }else if(ct->type == _internal::multipart_content_type::file){
+                std::shared_ptr<_internal::multipart_content_file> mcf = 
+                    std::static_pointer_cast<
+                        _internal::multipart_content_file
+                    >(ct);
+                _files->_files.emplace_back(
+                    std::make_shared<http_file>(
+                        mcf->name, mcf->filename,
+                        mcf->mime_type, mcf->temp_path,
+                        mcf->size
+                    )
+                );
+            }else if(ct->type == _internal::multipart_content_type::form){
+                std::shared_ptr<_internal::multipart_content_form> mcf = 
+                    std::static_pointer_cast<
+                        _internal::multipart_content_form
+                    >(ct);
+                _body_params.emplace_back(
+                    std::make_shared<http_param>(
+                        mcf->name, mcf->value
+                    )
+                );
+            }
+        }
+    }
     
     uint64_t _id;
     evmvc::sp_route _rt;
@@ -209,7 +266,8 @@ protected:
     sp_http_cookies _cookies;
     //param_map _rt_params;
     evmvc::http_params _rt_params;
-    
+    evmvc::http_params _body_params;
+    evmvc::sp_http_files _files;
 };
 
 
