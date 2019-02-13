@@ -37,7 +37,8 @@
         "cstddef": "cpp",
         "cstring": "cpp",
         "ctime": "cpp",
-        "cwctype": "cpp"
+        "cwctype": "cpp",
+        "functional": "cpp"
     },
     "C_Cpp.dimInactiveRegions": false,
     "editor.tokenColorCustomizations": {

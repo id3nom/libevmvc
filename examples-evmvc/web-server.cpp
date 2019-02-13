@@ -236,12 +236,21 @@ int main(int argc, char** argv)
         )
     );
     
+    evmvc::filter_policy pol = srv->new_filter_policy();
+    pol->accepts("jpg", "txt");
+    pol->accepts("html");
+    pol->accepts_clr();
+    
+    srv->filter("/forms/login", pol);
+    
     srv->post("/forms/login",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
+        
+        
         res->redirect("/html/login-results.html");
-    });
+    }, pol);
     
     srv->listen();
     

@@ -56,7 +56,11 @@ public:
             "req-" + evmvc::num_to_str(id, false) + 
             ev_req->uri->path->full
         )),
-        _ev_req(ev_req), _cookies(http_cookies),
+        _ev_req(ev_req),
+        _headers(std::make_shared<evmvc::request_headers>(
+            ev_req->headers_in
+        )),
+        _cookies(http_cookies),
         _rt_params(p), _body_params(), _files()
     {
         if(_log->should_log(log_level::trace)){
@@ -81,8 +85,8 @@ public:
     evmvc::sp_logger log() const { return _log;}
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
+    evmvc::request_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
-    //sp_http_cookies shared_cookies() const { return _cookies;}
     http_files& files() const { return *(_files.get());}
     
     sp_http_param route_param(
@@ -150,50 +154,10 @@ public:
         return (evmvc::method)_ev_req->method;
     }
     
-    evmvc::sp_header get(evmvc::field header_name) const
-    {
-        return get(to_string(header_name));
-    }
-    
-    evmvc::sp_header get(evmvc::string_view header_name) const
-    {
-        evhtp_kv_t* header = nullptr;
-        if((header = evhtp_headers_find_header(
-            _ev_req->headers_in, header_name.data()
-        )) != nullptr)
-            return std::make_shared<evmvc::header>(
-                header->key,
-                header->val
-            );
-        return nullptr;
-    }
-    
-    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
-    {
-        return list(to_string(header_name));
-    }
-    
-    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
-    {
-        std::vector<evmvc::sp_header> vals;
-        
-        evhtp_kv_t* kv;
-        TAILQ_FOREACH(kv, _ev_req->headers_in, next){
-            if(strcmp(kv->key, header_name.data()) == 0)
-                vals.emplace_back(
-                    std::make_shared<evmvc::header>(
-                        kv->key,
-                        kv->val
-                    )
-                );
-        }
-        
-        return vals;
-    }
-    
     bool is_ajax()
     {
-        return get("X-Requested-With")->compare_value("XMLHttpRequest");
+        return this->headers().get("X-Requested-With")
+            ->compare_value("XMLHttpRequest");
     }
     
     sp_http_param body_param(
@@ -263,6 +227,7 @@ protected:
     evmvc::sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;
+    evmvc::sp_request_headers _headers;
     sp_http_cookies _cookies;
     //param_map _rt_params;
     evmvc::http_params _rt_params;

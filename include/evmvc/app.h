@@ -120,6 +120,11 @@ public:
     bool running() const { return _status == app_state::running;}
     bool stopping() const { return _status == app_state::stopping;}
     
+    filter_policy new_filter_policy() const
+    {
+        return filter_policy(new filter_policy_t());
+    }
+    
     void listen(
         uint16_t port = 8080,
         const evmvc::string_view& address = "0.0.0.0",
@@ -194,6 +199,13 @@ public:
         this->_status = app_state::stopped;
     }
     
+    sp_router filter(
+        const evmvc::string_view& route_path, filter_policy pol)
+    {
+        this->_init_router();
+        return _router->filter(route_path, pol);
+    }
+    
     sp_router all(
         const evmvc::string_view& route_path, route_handler_cb cb)
     {
@@ -225,10 +237,11 @@ public:
         return _router->get(route_path, cb);
     }
     sp_router post(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        filter_policy pol = filter_policy())
     {
         this->_init_router();
-        return _router->post(route_path, cb);
+        return _router->post(route_path, cb, pol);
     }
     sp_router put(
         const evmvc::string_view& route_path, route_handler_cb cb)

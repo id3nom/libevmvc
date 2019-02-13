@@ -82,9 +82,13 @@ public:
             "res-" + evmvc::num_to_str(id, false) + 
             ev_req->uri->path->full
         )),
-        _ev_req(ev_req), _cookies(http_cookies),
+        _ev_req(ev_req), 
+        _headers(std::make_shared<response_headers>(
+            ev_req->headers_out
+        )),
+        _cookies(http_cookies),
         _started(false), _ended(false),
-        _status(-1), _type(""), _enc("")
+        _status(-1), _type(""), _enc(""), _paused(false)
     {
     }
     
@@ -95,9 +99,25 @@ public:
     evmvc::sp_logger log() const { return _log;}
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
+    evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
     evmvc::sp_request req() const { return _req;}
-    //sp_http_cookies shared_cookies() const { return _cookies;}
+    
+    void pause()
+    {
+        if(_paused)
+            return;
+        _paused = true;
+        evhtp_request_pause(_ev_req);
+    }
+    
+    void resume()
+    {
+        if(!_paused)
+            return;
+        evhtp_request_resume(_ev_req);
+        _paused = false;
+    }
     
     bool started(){ return _started;};
     bool ended(){ return _ended;}
@@ -110,119 +130,7 @@ public:
         _ended = true;
     }
     
-    template<class K, class V,
-        typename std::enable_if<
-            (std::is_same<K, std::string>::value ||
-                std::is_same<K, evmvc::field>::value) &&
-            std::is_same<V, std::string>::value
-        , int32_t>::type = -1
-    >
-    response& set(
-        const std::map<K, V>& m,
-        bool clear_existing = true)
-    {
-        for(const auto& it = m.begin(); it < m.end(); ++it)
-            this->set(it->first, it->second, clear_existing);
-        return *this;
-    }
-    
-    
-    template<
-        typename T, 
-        typename std::enable_if<
-            std::is_same<T, evmvc::json>::value,
-            int32_t
-        >::type = -1
-    >
-    response& set(
-        const T& key_val,
-        bool clear_existing = true)
-    {
-        for(const auto& el : key_val.items())
-            this->set(el.key(), el.value(), clear_existing);
-        return *this;
-    }
-    
-    response& set(
-        evmvc::field header_name, evmvc::string_view header_val,
-        bool clear_existing = true)
-    {
-        return set(to_string(header_name), header_val, clear_existing);
-    }
-    
-    response& set(
-        evmvc::string_view header_name, evmvc::string_view header_val,
-        bool clear_existing = true)
-    {
-        evhtp_kv_t* header = nullptr;
-        if(clear_existing)
-            while((header = evhtp_headers_find_header(
-                _ev_req->headers_out, header_name.data()
-            )) != nullptr)
-                evhtp_header_rm_and_free(_ev_req->headers_out, header);
-        
-        header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
-        evhtp_headers_add_header(_ev_req->headers_out, header);
-        
-        return *this;
-    }
-    
-    evmvc::sp_header get(evmvc::field header_name) const
-    {
-        return get(to_string(header_name));
-    }
-    
-    evmvc::sp_header get(evmvc::string_view header_name) const
-    {
-        evhtp_kv_t* header = nullptr;
-        if((header = evhtp_headers_find_header(
-            _ev_req->headers_out, header_name.data()
-        )) != nullptr)
-            return std::make_shared<evmvc::header>(
-                header->key,
-                header->val
-            );
-        return nullptr;
-    }
-    
-    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
-    {
-        return list(to_string(header_name));
-    }
-    
-    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
-    {
-        std::vector<evmvc::sp_header> vals;
-        
-        evhtp_kv_t* kv;
-        TAILQ_FOREACH(kv, _ev_req->headers_out, next){
-            if(strcmp(kv->key, header_name.data()) == 0)
-                vals.emplace_back(
-                    std::make_shared<evmvc::header>(
-                        kv->key,
-                        kv->val
-                    )
-                );
-        }
-        
-        return vals;
-    }
-    
-    response& remove_header(evmvc::field header_name)
-    {
-        return remove_header(to_string(header_name));
-    }
-    
-    response& remove_header(evmvc::string_view header_name)
-    {
-        evhtp_kv_t* header = nullptr;
-        while((header = evhtp_headers_find_header(
-            _ev_req->headers_out, header_name.data()
-        )) != nullptr)
-            evhtp_header_rm_and_free(_ev_req->headers_out, header);
-        
-        return *this;
-    }
+
     
     int16_t get_status()
     {
@@ -266,7 +174,7 @@ public:
         std::string ct = _type;
         if(!_enc.empty())
             ct += "; charset=" + _enc;
-        this->set(evmvc::field::content_type, ct);
+        this->headers().set(evmvc::field::content_type, ct);
         
         return *this;
     }
@@ -291,7 +199,9 @@ public:
         struct evbuffer* b = evbuffer_new();
         
         int len = evbuffer_add_printf(b, "%s", body.data());
-        this->set(evmvc::field::content_length, evmvc::num_to_str(len));
+        this->headers().set(
+            evmvc::field::content_length, evmvc::num_to_str(len)
+        );
         
         _start_reply();
         evhtp_send_reply_body(_ev_req, b);
@@ -332,7 +242,7 @@ public:
         if(!this->has_encoding())
             this->encoding("utf-8");
         if(!this->has_type()){
-            this->set("X-Content-Type-Options", "nosniff");
+            this->headers().set("X-Content-Type-Options", "nosniff");
             this->type("text/javascript");
         }
         
@@ -347,7 +257,7 @@ public:
     
     void download(evmvc::string_view path, evmvc::string_view filename)
     {
-        this->set(evmvc::field::content_disposition, filename);
+        this->headers().set(evmvc::field::content_disposition, filename);
         this->send(path);
     }
     
@@ -394,7 +304,7 @@ public:
         // set file content-type
         auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
         if(evmvc::mime::compressible(mime_type)){
-            sp_header hdr = _req->get(
+            sp_header hdr = _req->headers().get(
                 evmvc::field::accept_encoding
             );
             
@@ -435,7 +345,7 @@ public:
                         throw EVMVC_ERR("deflateInit2 failed!");
                     }
                     
-                    this->set(
+                    this->headers().set(
                         evmvc::field::content_encoding, 
                         wsize == EVMVC_ZLIB_GZIP_WSIZE ? "gzip" : "deflate"
                     );
@@ -478,7 +388,7 @@ public:
             case evmvc::status::multiple_choices:
             case evmvc::status::not_modified:
                 
-                this->set(evmvc::field::location, new_location);
+                this->headers().set(evmvc::field::location, new_location);
                 this->send_status(redir_status);
                 break;
             
@@ -507,7 +417,7 @@ private:
             evmvc::trim(con_val);
             evmvc::lower_case(con_val);
             if(con_val == "keep-alive"){
-                this->set(evmvc::field::connection, "keep-alive");
+                this->headers().set(evmvc::field::connection, "keep-alive");
                 evhtp_request_set_keepalive(_ev_req, 1);
             } else
                 evhtp_request_set_keepalive(_ev_req, 0);
@@ -526,6 +436,7 @@ private:
     sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;
+    evmvc::sp_response_headers _headers;
     evmvc::sp_request _req;
     sp_http_cookies _cookies;
     bool _started;
@@ -533,6 +444,7 @@ private:
     int16_t _status;
     std::string _type;
     std::string _enc;
+    bool _paused;
 };
 
 namespace _internal {

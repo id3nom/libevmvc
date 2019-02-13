@@ -46,6 +46,7 @@
 #include <algorithm>
 #include <deque>
 #include <vector>
+#include <initializer_list>
 
 #include "fmt/format.h"
 //#include <spdlog/spdlog.h>

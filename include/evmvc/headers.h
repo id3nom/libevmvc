@@ -21,7 +21,7 @@
 #define _libevmvc_headers_h
 
 #include "stable_headers.h"
-#include "router.h"
+//#include "router.h"
 #include "stack_debug.h"
 #include "fields.h"
 #include "utils.h"
@@ -44,6 +44,14 @@ struct accept_encoding
 
 class header;
 typedef std::shared_ptr<header> sp_header;
+
+template<bool READ_ONLY>
+class http_headers;
+using request_headers = http_headers<true>;
+using response_headers = http_headers<false>;
+
+typedef std::shared_ptr<request_headers> sp_request_headers;
+typedef std::shared_ptr<response_headers> sp_response_headers;
 
 class header
 {
@@ -244,6 +252,159 @@ private:
     const evmvc::string_view _hdr_name;
     const evmvc::string_view _hdr_value;
 };
+
+template<bool READ_ONLY>
+class http_headers
+{
+public:
+    http_headers(evhtp_headers_t* hdrs)
+        : _hdrs(hdrs)
+    {
+    }
+    
+    evmvc::sp_header get(evmvc::field header_name) const
+    {
+        return get(to_string(header_name));
+    }
+    
+    evmvc::sp_header get(evmvc::string_view header_name) const
+    {
+        evhtp_kv_t* header = nullptr;
+        if((header = evhtp_headers_find_header(
+            _hdrs, header_name.data()
+        )) != nullptr)
+            return std::make_shared<evmvc::header>(
+                header->key,
+                header->val
+            );
+        return nullptr;
+    }
+    
+    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
+    {
+        return list(to_string(header_name));
+    }
+    
+    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
+    {
+        std::vector<evmvc::sp_header> vals;
+        
+        evhtp_kv_t* kv;
+        TAILQ_FOREACH(kv, _hdrs, next){
+            if(strcmp(kv->key, header_name.data()) == 0)
+                vals.emplace_back(
+                    std::make_shared<evmvc::header>(
+                        kv->key,
+                        kv->val
+                    )
+                );
+        }
+        
+        return vals;
+    }
+    
+    template<class K, class V,
+        bool CAN_WRITE = !READ_ONLY,
+        typename std::enable_if<
+            (std::is_same<K, std::string>::value ||
+                std::is_same<K, evmvc::field>::value) &&
+            std::is_same<V, std::string>::value
+        , int32_t>::type = -1
+    >
+    typename std::enable_if<
+        CAN_WRITE, http_headers<READ_ONLY>
+    >::type& set(
+        const std::map<K, V>& m,
+        bool clear_existing = true)
+    {
+        for(const auto& it = m.begin(); it < m.end(); ++it)
+            this->set(it->first, it->second, clear_existing);
+        return *this;
+    }
+    
+    
+    template<
+        typename T, 
+        bool CAN_WRITE = !READ_ONLY,
+        typename std::enable_if<
+            std::is_same<T, evmvc::json>::value,
+            int32_t
+        >::type = -1
+    >
+    typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& set(
+        const T& key_val,
+        bool clear_existing = true)
+    {
+        for(const auto& el : key_val.items())
+            this->set(el.key(), el.value(), clear_existing);
+        return *this;
+    }
+    
+    template<bool CAN_WRITE = !READ_ONLY>
+    typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& set(
+        evmvc::field header_name, evmvc::string_view header_val,
+        bool clear_existing = true)
+    {
+        // static_assert(
+        //     std::integral_constant<bool, !CAN_WRITE>::value,
+        //     "Unable to edit READ_ONLY headers"
+        // );
+        
+        return set(to_string(header_name), header_val, clear_existing);
+    }
+    
+    
+    template<bool CAN_WRITE = !READ_ONLY>
+    typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& set(
+        evmvc::string_view header_name, evmvc::string_view header_val,
+        bool clear_existing = true)
+    {
+        evhtp_kv_t* header = nullptr;
+        if(clear_existing)
+            while((header = evhtp_headers_find_header(
+                _hdrs, header_name.data()
+            )) != nullptr)
+                evhtp_header_rm_and_free(_hdrs, header);
+        
+        header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
+        evhtp_headers_add_header(_hdrs, header);
+        
+        return *this;
+    }
+    
+    
+    template<bool CAN_WRITE = !READ_ONLY>
+    typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& remove(
+        evmvc::field header_name)
+    {
+        return remove(to_string(header_name));
+    }
+    
+    template<bool CAN_WRITE = !READ_ONLY>
+    typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type remove(
+        evmvc::string_view header_name)
+    {
+        evhtp_kv_t* header = nullptr;
+        while((header = evhtp_headers_find_header(
+            _hdrs, header_name.data()
+        )) != nullptr)
+            evhtp_header_rm_and_free(_hdrs, header);
+        
+        return *this;
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+private:
+    evhtp_headers_t* _hdrs;
+};
+
 
 }//ns evmvc
 #endif //_libevmvc_headers_h

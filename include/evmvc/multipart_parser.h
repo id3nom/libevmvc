@@ -30,7 +30,6 @@
 #include "stack_debug.h"
 #include "fields.h"
 #include "http_param.h"
-//#include "response.h"
 
 // max content buffer size of 10KiB
 #define EVMVC_MAX_CONTENT_BUF_LEN 10240
