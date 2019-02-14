@@ -36,13 +36,6 @@ extern "C" {
 #include <sys/types.h>
 #include <unistd.h>
 
-struct ev_args
-{
-    event_base* ev_base;
-    event* ev;
-    evmvc::sp_response res;
-    evmvc::async_cb nxt;
-};
 
 void _on_event_log(int severity, const char *msg)
 {
@@ -60,15 +53,6 @@ void _on_event_fatal_error(int err)
     );
 }
 
-void exit_app(int, short, void* arg)
-{
-    struct ev_args* args = (struct ev_args*)arg;
-    struct timeval tv = {1,0};
-    event_base_loopexit(args->ev_base, &tv);
-    event_free(args->ev);
-    delete(args);
-}
-
 int main(int argc, char** argv)
 {
     event_set_log_callback(_on_event_log);
@@ -81,6 +65,7 @@ int main(int argc, char** argv)
     opts.log_console_level = evmvc::log_level::trace;
     opts.log_file_level = evmvc::log_level::trace;
     //opts.log_file_max_size = 10000;
+    opts.worker_count = 0;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
@@ -216,17 +201,19 @@ int main(int argc, char** argv)
     srv->get("/exit",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        
         res->send_status(evmvc::status::ok);
-        struct timeval tv = {1,0};
-        struct ev_args* args = new ev_args();
-        args->ev_base = _ev_base;
-        args->ev = event_new(_ev_base, -1, 0, exit_app, args);
         
-        event_add(args->ev, &tv);
+        evmvc::set_timeout(
+            [&_ev_base](auto ev){
+                struct timeval tv = {1,0};
+                event_base_loopexit(_ev_base, &tv);
+            },
+            1000
+        );
         
         srv.reset();
     });
+    
     
     srv->register_router(
         std::static_pointer_cast<evmvc::router>(
@@ -242,46 +229,57 @@ int main(int argc, char** argv)
     // pol->accepts("jpg", "txt");
     // pol->accepts("html");
     
-    //srv->filter("/forms/login", pol);
+    //srv->add_policy("/forms/login", pol);
     srv->post("/forms/login",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
-        
-        
         res->redirect("/html/login-results.html");
     }, pol);
     
-    
-    srv->get("/async-response/:[timeout(\\d+)]",
-    [&_ev_base, &srv](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    srv->get("/set_timeout/:[timeout(\\d+)]",
+    [&srv](
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+    ){
         res->pause();
         
-        struct timeval tv = {
-            req->get_route_param<long>("timeout", 3),
-            0
-        };
-        struct ev_args* args = new ev_args();
-        args->ev_base = _ev_base;
-        args->res = res;
-        args->nxt = nxt;
+        evmvc::set_timeout(
+            [req, res](auto ew){
+                res->resume();
+                res->status(evmvc::status::ok).send(
+                    "route: /set_timeout/:[timeout(\\d+)]"
+                );
+            },
+            req->get_route_param<size_t>("timeout", 3000)
+        );
+    });
+    
+    srv->get("/set_interval/:[name]/:[interval(\\d+)]",
+    [](
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+    ){
+        res->status(evmvc::status::ok).send(
+            "route: /set_interval/:[name]/:[interval(\\d+)]"
+        );
+        evmvc::set_interval(
+            req->get_route_param<std::string>("name", "abc"),
+            [name = req->get_route_param<std::string>("name", "abc")](auto ew){
+                evmvc::info("'{}' interval reached!", name);
+            },
+            req->get_route_param<size_t>("interval", 3000)
+        );
+    });
+    srv->get("/clear_interval/:[name]",
+    [](
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+    ){
+        evmvc::clear_interval(
+            req->get_route_param<std::string>("name", "abc")
+        );
         
-        args->ev = event_new(_ev_base, -1, 0, 
-        [](int, short, void* arg)->void{
-            struct ev_args* args = (struct ev_args*)arg;
-            
-            event_free(args->ev);
-            
-            args->res->resume();
-            args->res->status(evmvc::status::ok).send(
-                "route: /async-response/:[timeout(\\d+)]"
-            );
-            
-            delete(args);
-        }, args);
-        
-        event_add(args->ev, &tv);
+        res->status(evmvc::status::ok).send(
+            "route: /clear_interval/:[name]"
+        );
     });
     
     

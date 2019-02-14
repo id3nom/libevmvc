@@ -198,7 +198,7 @@ public:
         std::string log_val = err.c_str();
         if(err.has_stack())
             log_val += fmt::format(
-                "\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
+                "\n\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
                 err.file(), err.line(), err.func(), err.stack()
             );
         log(log_path, lvl, log_val);

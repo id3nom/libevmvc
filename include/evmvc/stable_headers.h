@@ -47,6 +47,7 @@
 #include <deque>
 #include <vector>
 #include <initializer_list>
+#include <pthread.h>
 
 #include "fmt/format.h"
 //#include <spdlog/spdlog.h>
@@ -284,6 +285,19 @@ private:
     int _line;
     evmvc::string_view _func;
 };
+
+
+struct event_base** ev_base()
+{
+    static struct event_base* __ev_base = nullptr;
+    return &__ev_base;
+}
+struct event_base** thread_ev_base()
+{
+    static thread_local struct event_base* _trd_ev_base = nullptr;
+    return &_trd_ev_base;
+}
+
 } //ns evmvc
 
 #ifdef EVENT_MVC_USE_STD_STRING_VIEW

@@ -45,6 +45,10 @@ public:
             std::is_same<int32_t, ParamType>::value ||
             std::is_same<int64_t, ParamType>::value ||
 
+            std::is_same<uint16_t, ParamType>::value ||
+            std::is_same<uint32_t, ParamType>::value ||
+            std::is_same<uint64_t, ParamType>::value ||
+            
             std::is_same<float, ParamType>::value ||
             std::is_same<double, ParamType>::value)
         , int32_t>::type = -1
@@ -63,6 +67,10 @@ public:
             std::is_same<int16_t, ParamType>::value ||
             std::is_same<int32_t, ParamType>::value ||
             std::is_same<int64_t, ParamType>::value ||
+
+            std::is_same<uint16_t, ParamType>::value ||
+            std::is_same<uint32_t, ParamType>::value ||
+            std::is_same<uint64_t, ParamType>::value ||
 
             std::is_same<float, ParamType>::value ||
             std::is_same<double, ParamType>::value

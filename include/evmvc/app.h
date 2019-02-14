@@ -27,11 +27,22 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "app_options.h"
+#include "events.h"
 #include "router.h"
 #include "stack_debug.h"
 #include "multipart_parser.h"
 
 namespace evmvc {
+
+// class event_wrapper
+// {
+// public:
+//    
+// protected:
+//     virtual run() = 0;
+// };
+
+
 
 enum class app_state
 {
@@ -57,6 +68,12 @@ public:
         _router(),
         _ev_base(ev_base), _evhtp(nullptr), _ar(nullptr)
     {
+        // force get_field_table initialization
+        evmvc::detail::get_field_table();
+        
+        *evmvc::ev_base() = ev_base;
+        *evmvc::thread_ev_base() = ev_base;
+        
         // init the default logger
         if(_options.use_default_logger){
             std::vector<evmvc::sinks::sp_logger_sink> sinks;
@@ -85,6 +102,7 @@ public:
                     _options.log_file_level, _options.log_console_level
                 )
             );
+            _internal::default_logger() = _log;
         }else
             _log = _internal::default_logger()->add_child(
                 "/"
@@ -93,6 +111,7 @@ public:
     
     ~app()
     {
+        evmvc::clear_events();
         _router.reset();
         
         if(this->running())
@@ -125,6 +144,7 @@ public:
         return filter_policy(new filter_policy_t());
     }
     
+    
     void listen(
         uint16_t port = 8080,
         const evmvc::string_view& address = "0.0.0.0",
@@ -147,13 +167,11 @@ public:
             _evhtp, "*", _internal::on_app_request, _ar
         );
         
-        
         // htparser* p;
         // htparse_hooks h;
         // h.method = [](htparser * p, const char * s, size_t l) -> int {
         //
         // };
-        
         
         evhtp_callback_set_hook(
             cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
@@ -167,7 +185,18 @@ public:
                 _options.worker_count
             );
             evhtp_use_threads_wexit(_evhtp,
-                NULL, NULL, _options.worker_count, NULL
+                // called on init
+                [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
+                    evmvc::info("Loading thread '{}'", ::pthread_self());
+                    *evmvc::thread_ev_base() = evthr_get_base(thread);
+                },
+                
+                // called on exit
+                [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
+                    evmvc::info("Exiting thread '{}'", ::pthread_self());
+                },
+                
+                _options.worker_count, NULL
             );
         }
         
@@ -495,6 +524,25 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
     }
 }
 
+
+evmvc::sp_app request::get_app() const
+{
+    return this->get_router()->get_app();
+}
+evmvc::sp_router request::get_router() const
+{
+    return this->get_route()->get_router();
+}
+
+evmvc::sp_app response::get_app() const
+{
+    return this->get_router()->get_app();
+}
+evmvc::sp_router response::get_router() const
+{
+    return this->get_route()->get_router();
+}
+
 void response::error(evmvc::status err_status, const cb_error& err)
 {
     auto con_addr_in = (sockaddr_in*)this->_ev_req->conn->saddr;
@@ -625,7 +673,7 @@ namespace _internal{
         static uint64_t cur_id = 0;
         uint64_t rid = ++cur_id;
         
-        _internal::multipart_parser* mp = ar->mp;
+        _internal::multipart_parser* mp = ar ? ar->mp : nullptr;
         
         evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
             rid, rt, log, ev_req

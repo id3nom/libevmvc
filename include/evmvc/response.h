@@ -95,6 +95,9 @@ public:
     static sp_response null(wp_app a, evhtp_request_t* ev_req);
     
     uint64_t id() const { return _id;}
+    
+    evmvc::sp_app get_app() const;
+    evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
     
@@ -107,6 +110,7 @@ public:
     {
         if(_paused)
             return;
+        this->log()->debug("Connection paused");
         _paused = true;
         evhtp_request_pause(_ev_req);
     }
@@ -116,6 +120,7 @@ public:
         if(!_paused)
             return;
         evhtp_request_resume(_ev_req);
+        this->log()->debug("Connection resumed");
         _paused = false;
     }
     
@@ -193,6 +198,7 @@ public:
     
     void send(evmvc::string_view body)
     {
+        this->resume();
         if(_type.empty())
             this->type("txt", "utf-8");
         
@@ -255,18 +261,30 @@ public:
         this->send(sv);
     }
     
-    void download(evmvc::string_view path, evmvc::string_view filename)
-    {
-        this->headers().set(evmvc::field::content_disposition, filename);
-        this->send(path);
-    }
-    
-    
-    void send_file(
-        const bfs::path filepath,
+    void download(const bfs::path& filepath,
+        evmvc::string_view filename = "",
         const evmvc::string_view& enc = "utf-8", 
         async_cb cb = evmvc::noop_cb)
     {
+        this->headers().set(
+            evmvc::field::content_disposition,
+            fmt::format(
+                "attachment; filename={}",
+                filename.size() == 0 ?
+                    filepath.filename().c_str() :
+                    filename.data()
+            )
+        );
+        this->send_file(filepath, enc, cb);
+    }
+    
+    void send_file(
+        const bfs::path& filepath,
+        const evmvc::string_view& enc = "utf-8", 
+        async_cb cb = evmvc::noop_cb)
+    {
+        this->resume();
+        
         FILE* file_desc = nullptr;
         struct evmvc::_internal::file_reply* reply = nullptr;
         

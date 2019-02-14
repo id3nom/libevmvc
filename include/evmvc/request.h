@@ -81,6 +81,8 @@ public:
     }
     
     uint64_t id() const { return _id;}
+    evmvc::sp_app get_app() const;
+    evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
     

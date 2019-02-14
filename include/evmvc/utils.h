@@ -37,6 +37,40 @@ SOFTWARE.
 #include <chrono>
 
 
+#define EVMVC_ENUM_FLAGS(t) \
+inline constexpr t operator&(t x, t y) \
+{ \
+    return static_cast<t>(static_cast<int>(x) & static_cast<int>(y)); \
+} \
+inline constexpr t operator|(t x, t y) \
+{ \
+    return static_cast<t>(static_cast<int>(x) | static_cast<int>(y)); \
+} \
+inline constexpr t operator^(t x, t y) \
+{ \
+    return static_cast<t>(static_cast<int>(x) ^ static_cast<int>(y)); \
+} \
+inline constexpr t operator~(t x) \
+{ \
+    return static_cast<t>(~static_cast<int>(x)); \
+} \
+inline t& operator&=(t & x, t y) \
+{ \
+    x = x & y; \
+    return x; \
+} \
+inline t& operator|=(t & x, t y) \
+{ \
+    x = x | y; \
+    return x; \
+} \
+inline t& operator^=(t & x, t y) \
+{ \
+    x = x ^ y; \
+    return x; \
+}
+
+
 
 // #define mm__alloc_(type, ...)
 //     (type*)evmvc::_internal::mm__dup_((type[]) {__VA_ARGS__ }, sizeof(type))
