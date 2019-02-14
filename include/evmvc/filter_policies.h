@@ -32,6 +32,7 @@ SOFTWARE.
 #include "fields.h"
 #include "methods.h"
 #include "cookies.h"
+#include "multipart_parser.h"
 
 namespace evmvc {
 
@@ -48,31 +49,42 @@ typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
 
 class filter_rule_t
 {
+    static size_t _nxt_id()
+    {
+        static size_t _id = 0;
+        return ++_id;
+    }
+    
 public:
     filter_rule_t()
     {
     }
     
-    virtual void validate(filter_rule_ctx ctx, validation_cb cb) = 0;
+    size_t id() const { return _id;}
+    
+    virtual void validate(filter_rule_ctx& ctx, validation_cb cb) = 0;
+    
+private:
+    size_t _id;
 };
 typedef std::shared_ptr<filter_rule_t> filter_rule;
 
 
 typedef std::function<
     void(filter_rule_ctx ctx, validation_cb cb)
-    > custom_validation_cb;
+    > user_validation_cb;
 
-class custom_filter_rule_t
+class user_filter_rule_t
     : public filter_rule_t
 {
 public:
-    custom_filter_rule_t(custom_validation_cb vcb)
+    user_filter_rule_t(user_validation_cb vcb)
         : cb(vcb)
     {
     }
-    custom_validation_cb cb;
+    user_validation_cb cb;
 };
-typedef std::shared_ptr<custom_filter_rule_t> custom_filter_rule;
+typedef std::shared_ptr<user_filter_rule_t> user_filter_rule;
 
 
 
@@ -107,6 +119,25 @@ public:
     void add_rule(filter_rule rule)
     {
         _rules.emplace_back(rule);
+    }
+    
+    void remove_rule(filter_rule rule)
+    {
+        for(auto it = _rules.begin(); it != _rules.end(); ++it)
+            if((*it)->id() == rule->id()){
+                _rules.erase(it);
+                return;
+            }
+    }
+    
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    {
+        for(size_t i = 0; i < _rules.size(); ++i){
+            auto rule = _rules[i];
+            rule->validate(ctx, [cb](const cb_error& err, bool is_valid){
+                cb(err, is_valid);
+            });
+        }
     }
     
     const std::vector<filter_rule>& rules() const { return _rules;}

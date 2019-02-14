@@ -36,10 +36,12 @@ extern "C" {
 #include <sys/types.h>
 #include <unistd.h>
 
-struct exit_app_params
+struct ev_args
 {
     event_base* ev_base;
     event* ev;
+    evmvc::sp_response res;
+    evmvc::async_cb nxt;
 };
 
 void _on_event_log(int severity, const char *msg)
@@ -60,11 +62,11 @@ void _on_event_fatal_error(int err)
 
 void exit_app(int, short, void* arg)
 {
-    struct exit_app_params* params = (struct exit_app_params*)arg;
+    struct ev_args* args = (struct ev_args*)arg;
     struct timeval tv = {1,0};
-    event_base_loopexit(params->ev_base, &tv);
-    event_free(params->ev);
-    delete(params);
+    event_base_loopexit(args->ev_base, &tv);
+    event_free(args->ev);
+    delete(args);
 }
 
 int main(int argc, char** argv)
@@ -217,11 +219,11 @@ int main(int argc, char** argv)
         
         res->send_status(evmvc::status::ok);
         struct timeval tv = {1,0};
-        struct exit_app_params* params = new exit_app_params();
-        params->ev_base = _ev_base;
-        params->ev = event_new(_ev_base, -1, 0, exit_app, params);
+        struct ev_args* args = new ev_args();
+        args->ev_base = _ev_base;
+        args->ev = event_new(_ev_base, -1, 0, exit_app, args);
         
-        event_add(params->ev, &tv);
+        event_add(args->ev, &tv);
         
         srv.reset();
     });
@@ -237,12 +239,10 @@ int main(int argc, char** argv)
     );
     
     evmvc::filter_policy pol = srv->new_filter_policy();
-    pol->accepts("jpg", "txt");
-    pol->accepts("html");
-    pol->accepts_clr();
+    // pol->accepts("jpg", "txt");
+    // pol->accepts("html");
     
-    srv->filter("/forms/login", pol);
-    
+    //srv->filter("/forms/login", pol);
     srv->post("/forms/login",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
@@ -251,6 +251,40 @@ int main(int argc, char** argv)
         
         res->redirect("/html/login-results.html");
     }, pol);
+    
+    
+    srv->get("/async-response/:[timeout(\\d+)]",
+    [&_ev_base, &srv](
+        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->pause();
+        
+        struct timeval tv = {
+            req->get_route_param<long>("timeout", 3),
+            0
+        };
+        struct ev_args* args = new ev_args();
+        args->ev_base = _ev_base;
+        args->res = res;
+        args->nxt = nxt;
+        
+        args->ev = event_new(_ev_base, -1, 0, 
+        [](int, short, void* arg)->void{
+            struct ev_args* args = (struct ev_args*)arg;
+            
+            event_free(args->ev);
+            
+            args->res->resume();
+            args->res->status(evmvc::status::ok).send(
+                "route: /async-response/:[timeout(\\d+)]"
+            );
+            
+            delete(args);
+        }, args);
+        
+        event_add(args->ev, &tv);
+    });
+    
+    
     
     srv->listen();
     
