@@ -139,11 +139,6 @@ public:
     bool running() const { return _status == app_state::running;}
     bool stopping() const { return _status == app_state::stopping;}
     
-    filter_policy new_filter_policy() const
-    {
-        return filter_policy(new filter_policy_t());
-    }
-    
     
     void listen(
         uint16_t port = 8080,
@@ -228,82 +223,114 @@ public:
         this->_status = app_state::stopped;
     }
     
-    sp_router filter(
-        const evmvc::string_view& route_path, filter_policy pol)
-    {
-        this->_init_router();
-        return _router->filter(route_path, pol);
-    }
-    
     sp_router all(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->all(route_path, cb);
+        return _router->all(route_path, cb, pol);
     }
     sp_router options(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->options(route_path, cb);
+        return _router->options(route_path, cb, pol);
     }
     sp_router del(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->del(route_path, cb);
+        return _router->del(route_path, cb, pol);
     }
     sp_router head(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->head(route_path, cb);
+        return _router->head(route_path, cb, pol);
     }
     sp_router get(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->get(route_path, cb);
+        return _router->get(route_path, cb, pol);
     }
     sp_router post(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->post(route_path, cb, pol);
     }
     sp_router put(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->put(route_path, cb);
+        return _router->put(route_path, cb, pol);
     }
     sp_router connect(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->connect(route_path, cb);
+        return _router->connect(route_path, cb, pol);
     }
     sp_router trace(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->trace(route_path, cb);
+        return _router->trace(route_path, cb, pol);
     }
     sp_router patch(
-        const evmvc::string_view& route_path, route_handler_cb cb)
+        const evmvc::string_view& route_path, route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->patch(route_path, cb);
+        return _router->patch(route_path, cb, pol);
     }
     
     sp_router register_route_handler(
         const evmvc::string_view& verb,
         const evmvc::string_view& route_path,
-        route_handler_cb cb)
+        route_handler_cb cb,
+        policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
-        return _router->register_route_handler(verb, route_path, cb);
+        return _router->register_route_handler(verb, route_path, cb, pol);
+    }
+    
+    
+    sp_router register_policy(policies::filter_policy pol)
+    {
+        return _router->register_policy(pol);
+    }
+    
+    // is called after headers are received & for each multipart file
+    sp_router register_policy(
+        const evmvc::string_view& route_path, policies::filter_policy pol)
+    {
+        return _router->register_policy(route_path, pol);
+    }
+    
+    sp_router register_policy(
+        evmvc::method method,
+        const evmvc::string_view& route_path,
+        policies::filter_policy pol)
+    {
+        return _router->register_policy(method, route_path, pol);
+    }
+    
+    sp_router register_policy(
+        const evmvc::string_view& method,
+        const evmvc::string_view& route_path,
+        policies::filter_policy pol)
+    {
+        return _router->register_policy(method, route_path, pol);
     }
     
     sp_router register_router(sp_router router)

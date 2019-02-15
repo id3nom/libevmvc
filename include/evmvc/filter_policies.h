@@ -34,14 +34,14 @@ SOFTWARE.
 #include "cookies.h"
 #include "multipart_parser.h"
 
-namespace evmvc {
+namespace evmvc { namespace policies {
 
 typedef std::function<void(const cb_error& err, bool is_valid)> validation_cb;
 
 struct filter_rule_ctx_t
 {
-    sp_request_headers headers;
-    sp_http_cookies cookies;
+    evmvc::sp_request_headers headers;
+    evmvc::sp_http_cookies cookies;
     std::shared_ptr<evmvc::_internal::multipart_content_file> file;
 };
 
@@ -57,6 +57,7 @@ class filter_rule_t
     
 public:
     filter_rule_t()
+        : _id(_nxt_id())
     {
     }
     
@@ -79,10 +80,15 @@ class user_filter_rule_t
 {
 public:
     user_filter_rule_t(user_validation_cb vcb)
-        : cb(vcb)
+        : filter_rule_t(), cb(vcb)
     {
     }
     user_validation_cb cb;
+    
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    {
+        
+    }
 };
 typedef std::shared_ptr<user_filter_rule_t> user_filter_rule;
 
@@ -93,13 +99,15 @@ typedef std::shared_ptr<filter_policy_t> filter_policy;
 
 typedef
     std::function<void(
-        evmvc::filter_policy,
-        async_cb
+        evmvc::policies::filter_policy,
+        evmvc::async_cb
     )> filter_policy_handler_cb;
 
+
+filter_policy new_filter_policy();
 class filter_policy_t
 {
-    friend class app;
+    friend filter_policy new_filter_policy();;
     
     static size_t _nxt_id()
     {
@@ -150,7 +158,6 @@ protected:
 };
 
 
-
 class file_filter_rule_t
     : public filter_rule_t
 {
@@ -159,7 +166,7 @@ public:
         std::initializer_list<std::string> v_names,
         std::initializer_list<std::string> v_mime_types,
         size_t v_max_size)
-        : names(v_names),
+        : filter_rule_t(), names(v_names),
         mime_types(v_mime_types),
         max_size(v_max_size)
     {
@@ -169,12 +176,13 @@ public:
     std::vector<std::string> mime_types;
     size_t max_size;
     
-    void validate(filter_rule_ctx ctx, validation_cb cb)
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
     {
         if(!ctx->file)
             return cb(nullptr, true);
         
-        if(std::find(names.begin(), names.end(), ctx->file->name) ==
+        if(names.size() > 0 && 
+            std::find(names.begin(), names.end(), ctx->file->name) == 
             names.end()
         )
             return cb(
@@ -183,11 +191,58 @@ public:
                 ),
                 false
             );
+        if(mime_types.size() > 0 && 
+            std::find(
+                mime_types.begin(), mime_types.end(), ctx->file->mime_type) == 
+            names.end()
+        )
+            return cb(
+                EVMVC_ERR(
+                    "mime type: '{}' is not allowed!", ctx->file->name
+                ),
+                false
+            );
+        
+        if(max_size > 0 && ctx->file->size > max_size)
+            return cb(
+                EVMVC_ERR(
+                    "file size: '{}' is not allowed!", ctx->file->name
+                ),
+                false
+            );
         
         cb(nullptr, true);
     }
 };
 typedef std::shared_ptr<file_filter_rule_t> file_filter_rule;
-    
-} //ns evmvc
+
+
+
+
+
+filter_policy new_filter_policy()
+{
+    return filter_policy(new filter_policy_t());
+}
+
+
+user_filter_rule new_user_filter(user_validation_cb cb)
+{
+    return std::make_shared<user_filter_rule_t>(
+        cb
+    );
+}
+
+file_filter_rule new_file_filter(
+    std::initializer_list<std::string> names = {},
+    std::initializer_list<std::string> mime_types = {},
+    size_t max_size = 0
+)
+{
+    return std::make_shared<file_filter_rule_t>(
+        names, mime_types, max_size
+    );
+}
+
+}} //ns evmvc::policies
 #endif //_libevmvc_filter_policies_h

@@ -297,6 +297,18 @@ struct event_base** thread_ev_base()
     static thread_local struct event_base* _trd_ev_base = nullptr;
     return &_trd_ev_base;
 }
+// struct evhtp_t** htp_instance()
+// {
+//     static struct evhtp_t* __htp = nullptr;
+//     return &__htp;
+// }
+// struct event_base* get_best_base()
+// {
+//     evthr_pool_t* pool = (*htp_instance())->thr_pool;
+//     
+//     return evthr_get_base(thr);
+// }
+
 
 } //ns evmvc
 
@@ -318,4 +330,4 @@ namespace fmt {
     
 #endif
 
-#endif //_libevmvc_stable_headers_h
+#endif//_libevmvc_stable_headers_h

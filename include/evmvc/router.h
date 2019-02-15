@@ -115,7 +115,7 @@ public:
     bool has_callbacks() const { return !_handlers.empty();}
     bool has_policies() const { return !_policies.empty();}
     
-    sp_route register_policy(filter_policy pol)
+    sp_route register_policy(policies::filter_policy pol)
     {
         _policies.emplace_back(pol);
         return this->shared_from_this();
@@ -363,7 +363,7 @@ protected:
     
     std::vector<std::string> _param_names;
     std::vector<route_handler_cb> _handlers;
-    std::vector<filter_policy> _policies;
+    std::vector<policies::filter_policy> _policies;
     
     std::string _re_pattern;
     pcre* _re;
@@ -488,70 +488,65 @@ public:
         return nullptr;
     }
     
-    // is called after headers are received & for each multipart file
-    virtual sp_router filter(
-        const evmvc::string_view& route_path, filter_policy pol)
-    {
-        return register_policy("ALL", route_path, pol);
-    }
+    
     
     virtual sp_router all(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_route_handler("ALL", route_path, cb, pol);
     }
     virtual sp_router options(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::options, route_path, cb, pol);
     }
     virtual sp_router del(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::del, route_path, cb, pol);
     }
     virtual sp_router head(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::head, route_path, cb, pol);
     }
     virtual sp_router get(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::get, route_path, cb, pol);
     }
     virtual sp_router post(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::post, route_path, cb, pol);
     }
     virtual sp_router put(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::put, route_path, cb, pol);
     }
     virtual sp_router connect(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::connect, route_path, cb, pol);
     }
     virtual sp_router trace(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::trace, route_path, cb, pol);
     }
     virtual sp_router patch(
         const evmvc::string_view& route_path, route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::patch, route_path, cb, pol);
     }
@@ -560,7 +555,7 @@ public:
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb,
-        filter_policy pol = filter_policy())
+        policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(method, route_path, cb, pol);
     }
@@ -580,23 +575,28 @@ public:
         return this->shared_from_this();
     }
     
-protected:
-    
-    static std::string _norm_path(const evmvc::string_view& path)
-    {
-        if(path.size() == 0)
-            return "/";
-        
-        std::string p(path);
-        if(p[0] == '/')
-            return p;
-        return "/" + p;
-    }
 
+    virtual sp_router register_policy(policies::filter_policy pol)
+    {
+        this->_log->info(
+            "Registering policy for router '{}'",
+            this->_path
+        );
+        _policies.emplace_back(pol);
+        return this->shared_from_this();
+    }
+    
+    // is called after headers are received & for each multipart file
+    virtual sp_router register_policy(
+        const evmvc::string_view& route_path, policies::filter_policy pol)
+    {
+        return register_policy("ALL", route_path, pol);
+    }
+    
     virtual sp_router register_policy(
         evmvc::method method,
         const evmvc::string_view& route_path,
-        filter_policy pol)
+        policies::filter_policy pol)
     {
         evmvc::string_view vs = evmvc::to_string(method);
         return register_policy(vs, route_path, pol);
@@ -605,7 +605,7 @@ protected:
     virtual sp_router register_policy(
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
-        filter_policy pol)
+        policies::filter_policy pol)
     {
         this->_log->info(
             "Registering policy for route [{}] '{}'",
@@ -620,11 +620,24 @@ protected:
         return this->shared_from_this();
     }
     
+protected:
+    
+    static std::string _norm_path(const evmvc::string_view& path)
+    {
+        if(path.size() == 0)
+            return "/";
+        
+        std::string p(path);
+        if(p[0] == '/')
+            return p;
+        return "/" + p;
+    }
+    
     virtual sp_router register_handler(
         evmvc::method method,
         const evmvc::string_view& route_path,
         route_handler_cb cb,
-        filter_policy pol)
+        policies::filter_policy pol)
     {
         evmvc::string_view vs = evmvc::to_string(method);
         return register_handler(vs, route_path, cb, pol);
@@ -634,7 +647,7 @@ protected:
         const evmvc::string_view& method,
         const evmvc::string_view& route_path,
         route_handler_cb cb,
-        filter_policy pol)
+        policies::filter_policy pol)
     {
         this->_log->info(
             "Registering handler for route [{}] '{}'",
@@ -684,6 +697,9 @@ protected:
     std::string _path;
     mutable evmvc::sp_logger _log;
     sp_router _parent;
+    
+    std::vector<policies::filter_policy> _policies;
+
     
     // // if the first matching router_path is return
     // // if is false and more than one router_path is found,

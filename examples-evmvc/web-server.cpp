@@ -58,6 +58,7 @@ int main(int argc, char** argv)
     event_set_log_callback(_on_event_log);
     event_set_fatal_callback(_on_event_fatal_error);
     
+    event_enable_debug_mode();
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
@@ -225,7 +226,9 @@ int main(int argc, char** argv)
         )
     );
     
-    evmvc::filter_policy pol = srv->new_filter_policy();
+    auto pol = evmvc::policies::new_filter_policy();
+    auto fr = evmvc::policies::new_file_filter();
+    pol->add_rule(fr);
     // pol->accepts("jpg", "txt");
     // pol->accepts("html");
     
