@@ -136,7 +136,28 @@ typedef std::shared_ptr<evmvc::request> sp_request;
 
 // evmvc::_internal namespace
 namespace _internal{
-    struct app_request_t;
+    struct multipart_content_t;
+    typedef struct multipart_content_t multipart_content;
+    struct multipart_content_form_t;
+    typedef struct multipart_content_form_t multipart_content_form;
+    struct multipart_content_file_t;
+    typedef struct multipart_content_file_t multipart_content_file;
+    struct multipart_subcontent_t;
+    typedef struct multipart_subcontent_t multipart_subcontent;
+    struct multipart_parser_t;
+    typedef struct multipart_parser_t multipart_parser;
+    
+    // typedef struct app_request_t
+    // {
+    //     bool is_multipart;
+    //     evmvc::app* app;
+    //     evmvc::_internal::multipart_parser* mp;
+    // } app_request;
+    typedef struct request_args_t
+    {
+        evmvc::sp_route_result rr;
+        evmvc::sp_response res;
+    } request_args;
     
     evmvc::sp_logger& default_logger();
     
@@ -147,17 +168,19 @@ namespace _internal{
     );
     
     evmvc::sp_response create_http_response(
-        sp_logger log, struct app_request_t* ar,
+        sp_logger log,
+        //struct app_request_t* ar,
         evhtp_request_t* ev_req, sp_route rt,
         const evmvc::http_params& params
     );
     
     evhtp_res on_headers(
         evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
+    void on_multipart_request(evhtp_request_t* req, void* arg);
     void on_app_request(evhtp_request_t* req, void* arg);
     
     void send_error(
-        evmvc::app* app, evhtp_request_t *req, int status_code,
+        evmvc::sp_response res, int status_code,
         evmvc::string_view msg = "");
     
     

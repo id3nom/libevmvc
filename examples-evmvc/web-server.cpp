@@ -226,9 +226,10 @@ int main(int argc, char** argv)
         )
     );
     
-    auto pol = evmvc::policies::new_filter_policy();
-    auto fr = evmvc::policies::new_file_filter();
-    pol->add_rule(fr);
+    // auto pol = evmvc::policies::new_filter_policy();
+    // auto fr = evmvc::policies::new_file_filter();
+    // pol->add_rule(fr);
+
     // pol->accepts("jpg", "txt");
     // pol->accepts("html");
     
@@ -238,7 +239,7 @@ int main(int argc, char** argv)
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
         res->redirect("/html/login-results.html");
-    }, pol);
+    });//, pol);
     
     srv->get("/set_timeout/:[timeout(\\d+)]",
     [&srv](

@@ -60,14 +60,20 @@ namespace _internal {
 class response
     : public std::enable_shared_from_this<response>
 {
+    // friend evmvc::sp_response _internal::create_http_response(
+    //     wp_app a, evhtp_request_t* ev_req, const evmvc::http_params& params
+    // );
+    // friend evmvc::sp_response _internal::create_http_response(
+    //     sp_logger log, struct app_request_t* ar,
+    //     evhtp_request_t* ev_req, sp_route rt,
+    //     const evmvc::http_params& params
+    // );
     friend evmvc::sp_response _internal::create_http_response(
-        wp_app a, evhtp_request_t* ev_req, const evmvc::http_params& params
-    );    
-    friend evmvc::sp_response _internal::create_http_response(
-        sp_logger log, struct app_request_t* ar,
-        evhtp_request_t* ev_req, sp_route rt,
+        sp_logger log,
+        evhtp_request_t* ev_req,
+        sp_route rt,
         const evmvc::http_params& params
-    );
+        );
     
 public:
     

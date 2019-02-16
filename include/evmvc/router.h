@@ -58,9 +58,13 @@ public:
     {
     }
     
-    virtual evmvc::sp_response execute(
-        _internal::app_request* ar,
-        evhtp_request_t* req,
+    // virtual evmvc::sp_response execute(
+    //     _internal::app_request* ar,
+    //     evhtp_request_t* req,
+    //     async_cb cb
+    // );
+    virtual void execute(
+        evmvc::sp_response res,
         async_cb cb
     );
     
@@ -85,6 +89,7 @@ class route
         std::string param_name;
     };
 
+protected:
     route(std::weak_ptr<router> rtr)
         : _rtr(rtr), _log(), _rp(""), _re(nullptr)
     {
@@ -378,15 +383,21 @@ evmvc::sp_logger route_result::log()
     return evmvc::_internal::default_logger();
 }
 
-evmvc::sp_response route_result::execute(
-    _internal::app_request* ar, evhtp_request_t* ev_req, async_cb cb)
+// evmvc::sp_response route_result::execute(
+//     _internal::app_request* ar, evhtp_request_t* ev_req,
+//     async_cb cb)
+// {
+//     auto res = _internal::create_http_response(
+//         this->log(), ar, ev_req, this->_route, params
+//     );
+//     _route->_exec(res->req(), res, 0, cb);
+//     return res;
+// }
+void route_result::execute(
+    evmvc::sp_response res,
+    async_cb cb)
 {
-    auto res = _internal::create_http_response(
-        this->log(), ar, ev_req, this->_route, params
-    );
-    
     _route->_exec(res->req(), res, 0, cb);
-    return res;
 }
 
 
@@ -719,47 +730,51 @@ class file_route_result
     : public route_result
 {
 public:
-    file_route_result(evmvc::sp_router rtr)
-        : route_result(nullptr), _rtr(rtr),
+    file_route_result(evmvc::sp_route rt, evmvc::sp_router rtr)
+        : route_result(rt), _rtr(rtr),
         _filepath(), _local_url(""),
         _not_found(true)
     {
     }
     
-    file_route_result(evmvc::sp_router rtr,
+    file_route_result(evmvc::sp_route rt, evmvc::sp_router rtr,
         bfs::path filepath, const std::string& local_url)
-        : route_result(nullptr), _rtr(rtr), 
+        : route_result(rt), _rtr(rtr), 
         _filepath(filepath), _local_url(local_url), _not_found(false)
     {
     }
     
 protected:
-    
-    evmvc::sp_response execute(
-        _internal::app_request* ar, evhtp_request_t* ev_req, async_cb cb)
+    void execute(
+        evmvc::sp_response res, async_cb cb)
     {
         auto rt = sp_route( new route(_rtr));
         rt->_rp = _rtr->path().to_string() + "/" + _local_url;
-        
-        auto res = _internal::create_http_response(
-            this->_rtr->log(), ar, ev_req, rt, params
-        );
         
         if(_not_found){
             res->error(evmvc::status::not_found, EVMVC_ERR(""));
             if(cb)
                 cb(nullptr);
-            return res;
+            return;
         }
         
         res->send_file(_filepath, "utf-8", cb);
-        return res;
     }
     
     evmvc::sp_router _rtr;
     bfs::path _filepath;
     std::string _local_url;
     bool _not_found;
+};
+
+class file_route
+    : public route
+{
+public:
+    file_route(std::weak_ptr<router> rtr)
+        : route(rtr)
+    {
+    }
 };
 
 class file_router
@@ -771,7 +786,7 @@ public:
         const bfs::path& base_path,
         const evmvc::string_view& virt_path)
         : router(app, virt_path),
-        _base_path(bfs::absolute(base_path))
+        _base_path(bfs::absolute(base_path)), _rt()
     {
     }
     
@@ -789,17 +804,22 @@ public:
                 ec
             );
         
+        if(!_rt)
+            _rt = std::make_shared<file_route>(
+                this->shared_from_this()
+            );
+        
         if(ec){
             return std::static_pointer_cast<route_result>(
                 std::make_shared<file_route_result>(
-                    this->shared_from_this()
+                    _rt, this->shared_from_this()
                 )
             );
         }
         
         return std::static_pointer_cast<route_result>(
             std::make_shared<file_route_result>(
-                this->shared_from_this(),
+                _rt, this->shared_from_this(),
                 file_path, local_url
             )
         );
@@ -816,6 +836,7 @@ protected:
     }
     
     bfs::path _base_path;
+    std::shared_ptr<file_route> _rt;
 };
 
 

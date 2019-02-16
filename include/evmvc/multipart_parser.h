@@ -30,6 +30,7 @@
 #include "stack_debug.h"
 #include "fields.h"
 #include "http_param.h"
+#include "response.h"
 
 // max content buffer size of 10KiB
 #define EVMVC_MAX_CONTENT_BUF_LEN 10240
@@ -66,10 +67,7 @@ enum class multipart_subcontent_type
     digest
 };
 
-struct multipart_subcontent_t;
-typedef struct multipart_subcontent_t multipart_subcontent;
-
-typedef struct multipart_content_t
+struct multipart_content_t
     : public std::enable_shared_from_this<multipart_content_t>
 {
     multipart_content_t()
@@ -111,10 +109,9 @@ typedef struct multipart_content_t
     evmvc::http_params headers;
     std::string name;
     std::string mime_type;
-    
-} multipart_content;
+};
 
-typedef struct multipart_content_form_t
+struct multipart_content_form_t
     : public multipart_content
 {
     multipart_content_form_t(const std::weak_ptr<multipart_subcontent>& p)
@@ -134,9 +131,9 @@ typedef struct multipart_content_form_t
     
     std::string value;
     
-} multipart_content_form;
+};
 
-typedef struct multipart_content_file_t
+struct multipart_content_file_t
     : public multipart_content
 {
     multipart_content_file_t(const std::weak_ptr<multipart_subcontent>& p)
@@ -168,7 +165,7 @@ typedef struct multipart_content_file_t
     int fd;
     bool append_crlf;
     
-} multipart_content_file;
+};
 
 
 struct multipart_subcontent_t
@@ -216,10 +213,11 @@ struct multipart_subcontent_t
     
 };
 
-typedef struct multipart_parser_t
+struct multipart_parser_t
 {
     multipart_parser_t()
-        : app(nullptr),
+        : //app(nullptr),
+        ra(nullptr),
         state(multipart_parser_state::init),
         total_size(0), uploaded_size(0),
         buf(evbuffer_new()),
@@ -235,7 +233,8 @@ typedef struct multipart_parser_t
         evbuffer_free(buf);
     }
     
-    evmvc::app* app;
+    evmvc::_internal::request_args* ra;
+    //evmvc::app* app;
     evmvc::sp_logger log;
     
     multipart_parser_state state;
@@ -250,14 +249,8 @@ typedef struct multipart_parser_t
     bfs::path temp_dir;
     bool completed;
     
-} multipart_parser;
+};
 
-typedef struct app_request_t
-{
-    bool is_multipart;
-    evmvc::app* app;
-    evmvc::_internal::multipart_parser* mp;
-} app_request;
 
 bool is_multipart_data(evhtp_request_t* req, evhtp_headers_t* hdr)
 {
@@ -789,7 +782,7 @@ cleanup:
     if(res != EVHTP_RES_OK){
         evhtp_request_set_keepalive(req, 0);
         mp->state = multipart_parser_state::failed;
-        send_error(mp->app, req, res, cberr);
+        send_error(mp->ra->res, res, cberr);
         return EVHTP_RES_OK;
     }
     
@@ -809,7 +802,8 @@ static evhtp_res on_request_fini_multipart_data(
 evhtp_res parse_multipart_data(
     evmvc::sp_logger log,
     evhtp_request_t* req, evhtp_headers_t* hdr,
-    app* arg, const bfs::path& temp_dir)
+    evmvc::_internal::request_args* ra,
+    const bfs::path& temp_dir)
 {
     std::string boundary = get_boundary(log, hdr);
     if(boundary.size() == 0)
@@ -818,7 +812,8 @@ evhtp_res parse_multipart_data(
     evmvc::_internal::multipart_parser* mp = 
         new evmvc::_internal::multipart_parser();
     
-    mp->app = arg;
+    mp->ra = ra;
+    //mp->app = arg;
     mp->log = log;
     mp->total_size = evmvc::_internal::get_content_length(hdr);
     mp->temp_dir = temp_dir;
