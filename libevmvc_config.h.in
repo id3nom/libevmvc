@@ -44,23 +44,18 @@ SOFTWARE.
 
 // defines the type of build
 #cmakedefine EVMVC_BUILD_DEBUG 1
-#cmakedefine EVMVC_BUILD_TEST 1
-#cmakedefine EVMVC_BUILD_SHIPPING 1
+#cmakedefine EVMVC_BUILD_RELEASE 1
 
-#if !(defined(EVMVC_BUILD_DEBUG) || defined(EVMVC_BUILD_TEST) || defined(EVMVC_BUILD_SHIPPING))
+#if !(defined(EVMVC_BUILD_DEBUG) || defined(EVMVC_BUILD_RELEASE))
     #define EVMVC_BUILD_DEBUG 1
 #endif
 
 #ifndef EVMVC_BUILD_DEBUG
     #define EVMVC_BUILD_DEBUG 0
 #endif
-#ifndef EVMVC_BUILD_TEST
-    #define EVMVC_BUILD_TEST 0
+#ifndef EVMVC_BUILD_RELEASE
+    #define EVMVC_BUILD_RELEASE 0
 #endif
-#ifndef EVMVC_BUILD_SHIPPING
-    #define EVMVC_BUILD_SHIPPING 0
-#endif
-
 
 // arch
 // Check windows

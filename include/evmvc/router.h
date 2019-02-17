@@ -58,11 +58,6 @@ public:
     {
     }
     
-    // virtual evmvc::sp_response execute(
-    //     _internal::app_request* ar,
-    //     evhtp_request_t* req,
-    //     async_cb cb
-    // );
     virtual void execute(
         evmvc::sp_response res,
         async_cb cb
@@ -383,16 +378,6 @@ evmvc::sp_logger route_result::log()
     return evmvc::_internal::default_logger();
 }
 
-// evmvc::sp_response route_result::execute(
-//     _internal::app_request* ar, evhtp_request_t* ev_req,
-//     async_cb cb)
-// {
-//     auto res = _internal::create_http_response(
-//         this->log(), ar, ev_req, this->_route, params
-//     );
-//     _route->_exec(res->req(), res, 0, cb);
-//     return res;
-// }
 void route_result::execute(
     evmvc::sp_response res,
     async_cb cb)
@@ -810,11 +795,12 @@ public:
             );
         
         if(ec){
-            return std::static_pointer_cast<route_result>(
-                std::make_shared<file_route_result>(
-                    _rt, this->shared_from_this()
-                )
-            );
+            return nullptr;
+            // return std::static_pointer_cast<route_result>(
+            //     std::make_shared<file_route_result>(
+            //         _rt, this->shared_from_this()
+            //     )
+            // );
         }
         
         return std::static_pointer_cast<route_result>(

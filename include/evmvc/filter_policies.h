@@ -36,12 +36,20 @@ SOFTWARE.
 
 namespace evmvc { namespace policies {
 
+enum class filter_type
+{
+    access = 0,
+    multipart_form,
+    multipart_file,
+};
+
 typedef std::function<void(const cb_error& err, bool is_valid)> validation_cb;
 
 struct filter_rule_ctx_t
 {
     evmvc::sp_request_headers headers;
     evmvc::sp_http_cookies cookies;
+    std::shared_ptr<evmvc::_internal::multipart_content_form> form;
     std::shared_ptr<evmvc::_internal::multipart_content_file> file;
 };
 
@@ -62,7 +70,7 @@ public:
     }
     
     size_t id() const { return _id;}
-    
+    virtual filter_type type() const = 0;
     virtual void validate(filter_rule_ctx& ctx, validation_cb cb) = 0;
     
 private:
@@ -79,16 +87,22 @@ class user_filter_rule_t
     : public filter_rule_t
 {
 public:
-    user_filter_rule_t(user_validation_cb vcb)
-        : filter_rule_t(), cb(vcb)
+    user_filter_rule_t(filter_type type, user_validation_cb uvcb)
+        : filter_rule_t(), _type(type), _uvcb(uvcb)
     {
     }
-    user_validation_cb cb;
+    
+    filter_type type() const { return _type;}
     
     void validate(filter_rule_ctx& ctx, validation_cb cb)
     {
-        
+        _uvcb(ctx, cb);
     }
+    
+private:
+    filter_type _type;
+    user_validation_cb _uvcb;
+
 };
 typedef std::shared_ptr<user_filter_rule_t> user_filter_rule;
 
@@ -158,6 +172,59 @@ protected:
 };
 
 
+
+
+
+class form_filter_rule_t
+    : public filter_rule_t
+{
+public:
+    form_filter_rule_t(
+        std::initializer_list<std::string> v_names,
+        std::initializer_list<std::string> v_mime_types)
+        : filter_rule_t(), names(v_names),
+        mime_types(v_mime_types)
+    {
+    }
+    
+    filter_type type() const { return filter_type::multipart_form;}
+    
+    std::vector<std::string> names;
+    std::vector<std::string> mime_types;
+    
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    {
+        if(!ctx->file)
+            return cb(nullptr, true);
+        
+        if(names.size() > 0 && 
+            std::find(names.begin(), names.end(), ctx->form->name) == 
+            names.end()
+        )
+            return cb(
+                EVMVC_ERR(
+                    "form name: '{}' is not allowed!", ctx->form->name
+                ),
+                false
+            );
+        if(mime_types.size() > 0 && 
+            std::find(
+                mime_types.begin(), mime_types.end(), ctx->form->mime_type) == 
+            names.end()
+        )
+            return cb(
+                EVMVC_ERR(
+                    "mime type: '{}' is not allowed!", ctx->form->mime_type
+                ),
+                false
+            );
+        
+        cb(nullptr, true);
+    }
+};
+typedef std::shared_ptr<form_filter_rule_t> form_filter_rule;
+
+
 class file_filter_rule_t
     : public filter_rule_t
 {
@@ -171,6 +238,8 @@ public:
         max_size(v_max_size)
     {
     }
+    
+    filter_type type() const { return filter_type::multipart_file;}
     
     std::vector<std::string> names;
     std::vector<std::string> mime_types;
@@ -198,7 +267,7 @@ public:
         )
             return cb(
                 EVMVC_ERR(
-                    "mime type: '{}' is not allowed!", ctx->file->name
+                    "mime type: '{}' is not allowed!", ctx->file->mime_type
                 ),
                 false
             );
@@ -206,7 +275,7 @@ public:
         if(max_size > 0 && ctx->file->size > max_size)
             return cb(
                 EVMVC_ERR(
-                    "file size: '{}' is not allowed!", ctx->file->name
+                    "file size: '{}' is too big!", ctx->file->size
                 ),
                 false
             );
@@ -226,10 +295,20 @@ filter_policy new_filter_policy()
 }
 
 
-user_filter_rule new_user_filter(user_validation_cb cb)
+user_filter_rule new_user_filter(filter_type ft, user_validation_cb uvcb)
 {
     return std::make_shared<user_filter_rule_t>(
-        cb
+        ft, uvcb
+    );
+}
+
+form_filter_rule new_form_filter(
+    std::initializer_list<std::string> names = {},
+    std::initializer_list<std::string> mime_types = {}
+)
+{
+    return std::make_shared<form_filter_rule_t>(
+        names, mime_types
     );
 }
 

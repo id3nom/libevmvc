@@ -66,6 +66,10 @@ public:
         _cookies(http_cookies),
         _rt_params(p), _body_params(), _files()
     {
+        EVMVC_DEF_TRACE(
+            "request '{}' created", this->id()
+        );
+        
         if(_log->should_log(log_level::trace)){
             std::string hdrs;
             evhtp_kv_t * kv;
@@ -75,12 +79,19 @@ public:
                 hdrs += kv->val;
                 hdrs += "\n";
             }
-            _log->trace(hdrs);
+            EVMVC_TRACE(_log, hdrs);
         }
 
         // if(!mp)
         //     return;
         // _load_multipart_params(mp->root);
+    }
+    
+    ~request()
+    {
+        EVMVC_DEF_TRACE(
+            "request '{}' released", this->id()
+        );
     }
 
     uint64_t id() const { return _id;}

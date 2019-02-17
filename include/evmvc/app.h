@@ -157,21 +157,12 @@ public:
         
         _evhtp = evhtp_new(_ev_base, NULL);
         
-        // mm__alloc_(_ar, evmvc::_internal::app_request, {
-        //     false, this, nullptr
-        // });
         evhtp_callback_t* cb = evhtp_set_glob_cb(
             _evhtp, "*", _internal::on_app_request, nullptr
         );
         evhtp_callback_set_hook(
             cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
         );
-        
-        // htparser* p;
-        // htparse_hooks h;
-        // h.method = [](htparser * p, const char * s, size_t l) -> int {
-        //
-        // };
         
         evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
         
@@ -216,10 +207,6 @@ public:
         this->_status = app_state::stopping;
         evhtp_unbind_socket(_evhtp);
         evhtp_free(_evhtp);
-        
-        // if(_ar)
-        //     free(_ar);
-        // _ar = nullptr;
         
         this->_status = app_state::stopped;
     }
@@ -389,7 +376,6 @@ private:
     struct event_base* _ev_base;
     struct evhtp* _evhtp;
     evmvc::sp_logger _log;
-    //evmvc::_internal::app_request* _ar;
     
 };//evmvc::app
 
@@ -464,14 +450,14 @@ evhtp_res _internal::on_headers(
     char addr[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
     
-    a->log()->success(
-        "recv: [{}] [{}{}{}] from: [{}]",
-        to_string((evmvc::method)req->method),
-        req->uri->path->full,
-        req->uri->query_raw ? "?" : "",
-        req->uri->query_raw ? (const char*)req->uri->query_raw : "",
-        addr
-    );
+    // a->log()->success(
+    //     "recv: [{}] [{}{}{}] from: [{}]",
+    //     to_string((evmvc::method)req->method),
+    //     req->uri->path->full,
+    //     req->uri->query_raw ? "?" : "",
+    //     req->uri->query_raw ? (const char*)req->uri->query_raw : "",
+    //     addr
+    // );
     
     // search a valid route_result
     evmvc::method v = (evmvc::method)req->method;
@@ -487,8 +473,17 @@ evhtp_res _internal::on_headers(
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
-    // break connection if no valid route found
+    // stop request if no valid route found
     if(!rr){
+        a->log()->fail(
+            "recv: [{}] [{}{}{}] from: [{}]",
+            to_string((evmvc::method)req->method),
+            req->uri->path->full,
+            req->uri->query_raw ? "?" : "",
+            req->uri->query_raw ? (const char*)req->uri->query_raw : "",
+            addr
+        );
+        
         response::null(a->shared_from_this(), req)->error(
             evmvc::status::not_found,
             EVMVC_ERR(
@@ -496,19 +491,23 @@ evhtp_res _internal::on_headers(
                 req->uri->path->full
             )
         );
-        return EVHTP_RES_BADREQ;
+        return EVHTP_RES_OK;
     }
+    
+    a->log()->success(
+        "recv: [{}] [{}{}{}] from: [{}]",
+        to_string((evmvc::method)req->method),
+        req->uri->path->full,
+        req->uri->query_raw ? "?" : "",
+        req->uri->query_raw ? (const char*)req->uri->query_raw : "",
+        addr
+    );
     
     // create the response
     auto res = _internal::create_http_response(
         rr->log(), req, rr->_route, rr->params
     );
     
-    // create the htp args
-    // evmvc::_internal::request_args* ra = nullptr;
-    // mm__alloc_(ra, evmvc::_internal::request_args, {
-    //     rr, res
-    // });
     evmvc::_internal::request_args* ra = 
         new evmvc::_internal::request_args();
     ra->rr = rr;
@@ -530,7 +529,7 @@ evhtp_res _internal::on_headers(
 void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
     auto mp = (evmvc::_internal::multipart_parser*)arg;
-    mp->ra->res->log()->trace("Multipart parser task completed!");
+    EVMVC_TRACE(mp->ra->res->log(), "Multipart parser task completed!");
     mp->ra->res->req()->_load_multipart_params(mp->root);
     
     evmvc::_internal::request_args* ra = mp->ra;
@@ -541,11 +540,13 @@ void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)
 {
+    if(arg == nullptr)
+        return;
+    
     evmvc::_internal::request_args* ra = (evmvc::_internal::request_args*)arg;
     sp_app a = ra->res->get_app();
     sp_route_result rr = ra->rr;
     sp_response res = ra->res;
-    //free(ra);
     delete ra;
     
     try{
@@ -564,52 +565,6 @@ void _internal::on_app_request(evhtp_request_t* req, void* arg)
             EVMVC_ERR(err.what())
         );
     }
-    
-    //evmvc::_internal::app_request* ar = (evmvc::_internal::app_request*)arg;
-    //app* a = ar->app;
-    
-    // evmvc::method v = (evmvc::method)req->method;
-    // evmvc::string_view sv;
-    
-    // if(v == evmvc::method::unknown)
-    //     throw EVMVC_ERR("Unknown method are not implemented!");
-    //     sv = "";// req-> req.method_string();
-    // else
-    //     sv = evmvc::to_string(v);
-    
-    // auto rr = a->_router->resolve_url(v, req->uri->path->full);
-    // if(!rr && v == evmvc::method::head)
-    //     rr = a->_router->resolve_url(
-    //         evmvc::method::get, req->uri->path->full
-    //     );
-    
-    // try{
-    //     if(!rr){
-    //         response::null(a->shared_from_this(), req)->error(
-    //             evmvc::status::not_found,
-    //             EVMVC_ERR(
-    //                 "Unable to find ressource at '{}'",
-    //                 req->uri->path->full
-    //             )
-    //         );
-    //         return;
-    //     }
-        
-    //     rr->execute(ar, req,
-    //     [a, &rr, req/*, res*/](auto error){
-    //         if(error){
-    //             response::null(a->shared_from_this(), req)->error(
-    //                 evmvc::status::internal_server_error, error
-    //             );
-    //             return;
-    //         }
-    //     });
-    // }catch(const std::exception& err){
-    //     response::null(a->shared_from_this(), req)->error(
-    //         evmvc::status::internal_server_error,
-    //         EVMVC_ERR(err.what())
-    //     );
-    // }
 }
 
 
@@ -626,7 +581,6 @@ void request::_load_multipart_params(
     std::shared_ptr<_internal::multipart_subcontent> ms)
 {
     for(auto ct : ms->contents){
-        //std::shared_ptr<_internal::multipart_content> ct;
         if(ct->type == _internal::multipart_content_type::subcontent){
             _load_multipart_params(
                 std::static_pointer_cast<
@@ -785,7 +739,6 @@ namespace _internal{
     {
         return _internal::create_http_response(
             a.lock()->log(), 
-            //nullptr,
             ev_req,
             evmvc::route::null(a),
             params
@@ -794,7 +747,6 @@ namespace _internal{
     
     inline evmvc::sp_response create_http_response(
         sp_logger log,
-        //app_request* ar,
         evhtp_request_t* ev_req,
         sp_route rt,
         const evmvc::http_params& params = http_params()
@@ -803,26 +755,16 @@ namespace _internal{
         static uint64_t cur_id = 0;
         uint64_t rid = ++cur_id;
         
-        //_internal::multipart_parser* mp = ar ? ar->mp : nullptr;
-        
         evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
             rid, rt, log, ev_req
         );
         evmvc::sp_response res = std::make_shared<evmvc::response>(
             rid, rt, log, ev_req, cks
         );
-        // evmvc::sp_request req = std::make_shared<evmvc::request>(
-        //     rid, rt, log, ev_req, cks, params, mp
-        // );
         evmvc::sp_request req = std::make_shared<evmvc::request>(
             rid, rt, log, ev_req, cks, params
         );
         res->_req = req;
-        
-        // if(ar && ar->is_multipart){
-        //     free(ar->mp);
-        //     free(ar);
-        // }
         
         return res;
     }

@@ -111,6 +111,16 @@ public:
         )),
         _ev_req(ev_req), _init(false), _cookies(), _locked(false)
     {
+        EVMVC_DEF_TRACE(
+            "cookies '{}' created", this->id()
+        );
+    }
+    
+    ~http_cookies()
+    {
+        EVMVC_DEF_TRACE(
+            "cookies '{}' released", this->id()
+        );
     }
     
     uint64_t id() const { return _id;}

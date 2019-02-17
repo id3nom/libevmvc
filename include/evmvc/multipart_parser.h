@@ -459,11 +459,11 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     bool& ended,
     char* line)
 {
-    mp->log->trace("parse_end_of_section");
+    EVMVC_TRACE(mp->log, "parse_end_of_section");
 
     if(mp->current->get_parent()->start_boundary == line){
         ended = true;
-        mp->log->trace("start boundary detected");
+        EVMVC_TRACE(mp->log, "start boundary detected");
 
         mp->state = evmvc::_internal::multipart_parser_state::headers;
         if(auto sp = mp->current->parent.lock()){
@@ -482,7 +482,7 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     
     if(mp->current->get_parent()->end_boundary == line){
         ended = true;
-        mp->log->trace("end boundary detected");
+        EVMVC_TRACE(mp->log, "end boundary detected");
         
         mp->state = evmvc::_internal::multipart_parser_state::headers;
         if(std::shared_ptr<multipart_subcontent> spa = 
@@ -509,7 +509,7 @@ static evmvc::cb_error/*evhtp_res*/ parse_end_of_section(
     }
     
     if(ended && mp->current == mp->root){
-        mp->log->trace("on_read_file_data transmission is completed!");
+        EVMVC_TRACE(mp->log, "on_read_file_data transmission is completed!");
         mp->completed = true;
     }
     
@@ -520,7 +520,7 @@ static evmvc::cb_error/*evhtp_res*/ on_read_form_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
-    mp->log->trace("on_read_form_data");
+    EVMVC_TRACE(mp->log, "on_read_form_data");
     
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
@@ -530,7 +530,7 @@ static evmvc::cb_error/*evhtp_res*/ on_read_form_data(
         return nullptr;
     }
     
-    mp->log->trace("recv: '{}'\n", line);
+    EVMVC_TRACE(mp->log, "recv: '{}'\n", line);
     bool ended = false;
     evmvc::cb_error cberr = parse_end_of_section(mp, ended, line);
     if(cberr || ended){
@@ -550,14 +550,14 @@ static evmvc::cb_error/*evhtp_res*/ on_read_file_data(
     evmvc::_internal::multipart_parser* mp,
     bool& has_works)
 {
-    mp->log->trace("on_read_file_data");
+    EVMVC_TRACE(mp->log, "on_read_file_data");
     size_t len;
     char* line = evbuffer_readln(mp->buf, &len, EVBUFFER_EOL_CRLF_STRICT);
     
     auto mf = std::static_pointer_cast<multipart_content_file>(mp->current);
     
     if(line != nullptr){
-        mp->log->trace("recv: '{}'\n", line);
+        EVMVC_TRACE(mp->log, "recv: '{}'\n", line);
         bool ended = false;
         evmvc::cb_error cberr = parse_end_of_section(mp, ended, line);
         if(cberr || ended){
@@ -588,7 +588,7 @@ static evmvc::cb_error/*evhtp_res*/ on_read_file_data(
             
             char buf[buf_size];
             evbuffer_remove(mp->buf, buf, buf_size);
-            mp->log->trace(
+            EVMVC_TRACE(mp->log,
                 "extracted: '{}'",
                 std::string(buf, buf+buf_size)
             );
@@ -634,7 +634,7 @@ static evhtp_res on_read_multipart_data(
 
     size_t blen = evbuffer_get_length(buf);
     
-    mp->log->trace(
+    EVMVC_TRACE(mp->log,
         "on_read_multipart_data received '{}' bytes",
         blen
     );
@@ -659,7 +659,7 @@ static evhtp_res on_read_multipart_data(
                     break;
                 }
                 
-                mp->log->trace("recv: '{}'", line);
+                EVMVC_TRACE(mp->log, "recv: '{}'", line);
                 if(mp->current->get_parent()->start_boundary != line){
                     free(line);
                     cberr = EVMVC_ERR(
@@ -703,7 +703,7 @@ static evhtp_res on_read_multipart_data(
                     break;
                 }
                 
-                mp->log->trace("recv: '{}'", line);
+                EVMVC_TRACE(mp->log, "recv: '{}'", line);
                 if(len == 0){
                     // end of header part
                     free(line);
@@ -793,7 +793,7 @@ static evhtp_res on_request_fini_multipart_data(
     evhtp_request_t *req, void *arg)
 {
     auto mp = (evmvc::_internal::multipart_parser*)arg;
-    mp->log->trace("on_request_fini_multipart_data");
+    EVMVC_TRACE(mp->log, "on_request_fini_multipart_data");
     delete mp;
     
     return EVHTP_RES_OK;

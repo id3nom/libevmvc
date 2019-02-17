@@ -68,7 +68,7 @@ extern "C" {
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
-#ifdef EVENT_MVC_USE_STD_STRING_VIEW
+#ifdef EVMVC_USE_STD_STRING_VIEW
     #include <string_view>
 #else
     #include <boost/utility/string_view.hpp>
@@ -86,7 +86,7 @@ extern "C" {
 namespace evmvc {
 namespace bfs = boost::filesystem;
 
-#ifdef EVENT_MVC_USE_STD_STRING_VIEW
+#ifdef EVMVC_USE_STD_STRING_VIEW
     /// The type of string view used by the library
     using string_view = std::string_view;
     
@@ -218,6 +218,26 @@ namespace _internal{
         __FILE__, __LINE__, __PRETTY_FUNCTION__ \
     )
 
+#if EVMVC_BUILD_DEBUG
+#define EVMVC_DEF_TRACE(msg, ...) evmvc::_internal::default_logger()->trace(msg, ##__VA_ARGS__)
+#define EVMVC_DEF_DBG(msg, ...) evmvc::_internal::default_logger()->debug(msg, ##__VA_ARGS__)
+#define EVMVC_DEF_INFO(msg, ...) evmvc::_internal::default_logger()->info(msg, ##__VA_ARGS__)
+
+#define EVMVC_TRACE(log, msg, ...) log->trace(msg, ##__VA_ARGS__)
+#define EVMVC_DBG(log, msg, ...) log->debug(msg, ##__VA_ARGS__)
+#define EVMVC_INFO(log, msg, ...) log->info(msg, ##__VA_ARGS__)
+
+#else
+#define EVMVC_DEF_TRACE(msg, ...) 
+#define EVMVC_DEF_DBG(msg, ...) 
+#define EVMVC_DEF_INFO(msg, ...) 
+
+#define EVMVC_TRACE(log, msg, ...) 
+#define EVMVC_DBG(log, msg, ...) 
+#define EVMVC_INFO(log, msg, ...) 
+
+#endif
+
 #define __EVMVC_STRING(s) #s
 #define EVMVC_STRING(s) __EVMVC_STRING(s)
 
@@ -254,8 +274,8 @@ inline std::string version()
             "    {}\n" //openssl
             "    zlib v{}\n"
             "    libpcre v{}.{} {}\n"
-            "    libevent v{}\n"
             "    libicu v{}\n"
+            "    libevent v{}\n"
             "    libevhtp v{}\n",
             EVMVC_VERSION_NAME,
             __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
@@ -335,7 +355,7 @@ struct event_base** thread_ev_base()
 
 } //ns evmvc
 
-#ifdef EVENT_MVC_USE_STD_STRING_VIEW
+#ifdef EVMVC_USE_STD_STRING_VIEW
     
 #else
 namespace fmt {

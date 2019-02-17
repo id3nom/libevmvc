@@ -64,7 +64,7 @@ int main(int argc, char** argv)
     evmvc::app_options opts;
     opts.stack_trace_enabled = true;
     opts.log_console_level = evmvc::log_level::trace;
-    opts.log_file_level = evmvc::log_level::trace;
+    opts.log_file_level = evmvc::log_level::warning;
     //opts.log_file_max_size = 10000;
     opts.worker_count = 0;
     

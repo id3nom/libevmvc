@@ -96,6 +96,16 @@ public:
         _started(false), _ended(false),
         _status(-1), _type(""), _enc(""), _paused(false)
     {
+        EVMVC_DEF_TRACE(
+            "response '{}' created", this->id()
+        );
+    }
+    
+    ~response()
+    {
+        EVMVC_DEF_TRACE(
+            "response '{}' released", this->id()
+        );
     }
     
     static sp_response null(wp_app a, evhtp_request_t* ev_req);
@@ -299,13 +309,16 @@ public:
         BOOST_ASSERT(file_desc != nullptr);
         
         // create internal file_reply struct
-        mm__alloc_(reply, struct evmvc::_internal::file_reply, {
-            sp_response(),
-            _ev_req, file_desc, evbuffer_new(), nullptr, 0, cb,
-            sp_logger()
+        reply = new evmvc::_internal::file_reply({
+            this->shared_from_this(),
+            _ev_req,
+            file_desc,
+            evbuffer_new(),
+            nullptr,
+            0,
+            cb,
+            this->_log
         });
-        reply->res = this->shared_from_this();
-        reply->log = this->_log;
         
         /* here we set a connection hook of the type `evhtp_hook_on_write`
         *
@@ -328,6 +341,8 @@ public:
         // set file content-type
         auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
         if(evmvc::mime::compressible(mime_type)){
+            EVMVC_DBG(this->_log, "file is compressible");
+            
             sp_header hdr = _req->headers().get(
                 evmvc::field::accept_encoding
             );
@@ -523,7 +538,7 @@ namespace _internal {
             }
             
             if(bytes_read > 0){
-                reply->res->log()->trace(
+                EVMVC_TRACE(reply->res->log(),
                     "Sending {} bytes for '{}'",
                     bytes_read, reply->request->uri->path->full
                 );
@@ -540,7 +555,7 @@ namespace _internal {
         
         /* check if we have read everything from the file */
         if(feof(reply->file_desc)){
-            reply->res->log()->trace(
+            EVMVC_TRACE(reply->res->log(),
                 "Sending last chunk for '{}'",
                 reply->request->uri->path->full
             );
@@ -556,13 +571,15 @@ namespace _internal {
             {
                 if(reply->zs){
                     deflateEnd(reply->zs);
+                    free(reply->zs);
                     reply->zs = nullptr;
                 }
                 
                 fclose(reply->file_desc);
                 
                 evhtp_safe_free(reply->buffer, evbuffer_free);
-                evhtp_safe_free(reply, free);
+                //evhtp_safe_free(reply, free);
+                delete reply;
                 
                 // no need for the connection fini hook anymore
                 evhtp_connection_unset_hook(
@@ -581,12 +598,14 @@ namespace _internal {
         
         if(reply->zs){
             deflateEnd(reply->zs);
+            free(reply->zs);
             reply->zs = nullptr;
         }
         
         fclose(reply->file_desc);
         evhtp_safe_free(reply->buffer, evbuffer_free);
-        evhtp_safe_free(reply, free);
+        //evhtp_safe_free(reply, free);
+        delete reply;
         
         return EVHTP_RES_OK;
     }
