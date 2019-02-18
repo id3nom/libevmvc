@@ -25,14 +25,14 @@ SOFTWARE.
 #ifndef _libevmvc_cb_def_h
 #define _libevmvc_cb_def_h
 
+#include "stable_headers.h"
+#include "traits.h"
+#include "logging.h"
+#include "utils.h"
+
 #include <type_traits>
 #include <functional>
-
-#include "stable_headers.h"
 #include <stdexcept>
-
-#include "traits.h"
-#include "utils.h"
 
 namespace evmvc {
 
@@ -51,7 +51,9 @@ typedef std::function<void(async_cb)> async_series_cb;
 void noop_cb(const cb_error& err)
 {
     if(err)
-        std::cerr << "Unhandled exception:\n" << err << "\n";
+        evmvc::_internal::default_logger()->error(
+            "Unhandled exception:\n{}", err
+        );
 }
 const async_cb run_async = &noop_cb;
 
@@ -84,7 +86,9 @@ void assign_value_cb(
 {
     cb = [value](const cb_error& err, U /*val*/){
         if(err)
-            std::cerr << "Unhandled exception:\n" << err << "\n";
+            evmvc::_internal::default_logger()->error(
+                "Unhandled exception:\n{}", err
+            );
         value();
     };
 }
@@ -180,7 +184,9 @@ void assign_value_cb(
 {
     cb = [value](const cb_error& err, U val){
         if(err)
-            std::cerr << "Unhandled exception:\n" << err << "\n";
+            evmvc::_internal::default_logger()->error(
+                "Unhandled exception:\n{}", err
+            );
         value(val);
     };
 }
@@ -206,7 +212,9 @@ void assign_async_cb(
 {
     cb = [value](const cb_error& err){
         if(err)
-            std::cerr << "Unhandled exception:\n" << err << "\n";
+            evmvc::_internal::default_logger()->error(
+                "Unhandled exception:\n{}", err
+            );
         value();
     };
 }

@@ -383,7 +383,7 @@ sp_response response::null(
     evhtp_request_t* ev_req)
 {
     auto res = _internal::create_http_response(
-        a, ev_req, http_params()
+        a, ev_req, std::vector<std::shared_ptr<evmvc::http_param>>()
     );
     
     return res;
@@ -458,7 +458,6 @@ evhtp_res _internal::on_headers(
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
-    
     // get client ip
     auto con_addr_in = (sockaddr_in*)req->conn->saddr;
     char addr[INET_ADDRSTRLEN];
@@ -499,21 +498,41 @@ evhtp_res _internal::on_headers(
         rr->log(), req, rr->_route, rr->params
     );
     
-    evmvc::_internal::request_args* ra = 
-        new evmvc::_internal::request_args();
-    ra->rr = rr;
-    ra->res = res;
+    // create validation context
+    evmvc::policies::filter_rule_ctx ctx = 
+        evmvc::policies::new_context(res);
     
-    // update request cb.
-    req->cb = on_app_request;
-    req->cbarg = ra;
-    
-    if(evmvc::_internal::is_multipart_data(req, hdr))
-        return evmvc::_internal::parse_multipart_data(
-            a->log(),
-            req, hdr, ra,
-            a->options().temp_dir
-        );
+    res->pause();
+    rr->validate_access(
+        ctx,
+    [rr, res](const evmvc::cb_error& err){
+        if(err){
+            res->error(
+                evmvc::status::unauthorized,
+                err
+            );
+            res->resume();
+            return;
+        }
+        
+        evmvc::_internal::request_args* ra = 
+            new evmvc::_internal::request_args();
+        ra->rr = rr;
+        ra->res = res;
+        
+        // update request cb.
+        req->cb = on_app_request;
+        req->cbarg = ra;
+        
+        if(evmvc::_internal::is_multipart_data(req, hdr)){
+            evmvc::_internal::parse_multipart_data(
+                a->log(),
+                req, hdr, ra,
+                a->options().temp_dir
+            );
+        }
+        res->resume();
+    });
     return EVHTP_RES_OK;
 }
 
@@ -606,7 +625,7 @@ void request::_load_multipart_params(
                 std::static_pointer_cast<
                     _internal::multipart_content_form
                 >(ct);
-            _body_params.emplace_back(
+            _body_params->emplace_back(
                 std::make_shared<http_param>(
                     mcf->name, mcf->value
                 )
@@ -735,7 +754,8 @@ namespace _internal{
     inline evmvc::sp_response create_http_response(
         wp_app a,
         evhtp_request_t* ev_req,
-        const evmvc::http_params& params = http_params()
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params =
+            std::vector<std::shared_ptr<evmvc::http_param>>()
         )
     {
         return _internal::create_http_response(
@@ -750,7 +770,8 @@ namespace _internal{
         sp_logger log,
         evhtp_request_t* ev_req,
         sp_route rt,
-        const evmvc::http_params& params = http_params()
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params =
+            std::vector<std::shared_ptr<evmvc::http_param>>()
         )
     {
         static uint64_t cur_id = 0;

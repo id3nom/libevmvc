@@ -22,6 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
+// copy and modified from: https://github.com/boostorg/beast
+
 #ifndef _libevmvc_fields_h
 #define _libevmvc_fields_h
 

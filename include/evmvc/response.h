@@ -60,19 +60,11 @@ namespace _internal {
 class response
     : public std::enable_shared_from_this<response>
 {
-    // friend evmvc::sp_response _internal::create_http_response(
-    //     wp_app a, evhtp_request_t* ev_req, const evmvc::http_params& params
-    // );
-    // friend evmvc::sp_response _internal::create_http_response(
-    //     sp_logger log, struct app_request_t* ar,
-    //     evhtp_request_t* ev_req, sp_route rt,
-    //     const evmvc::http_params& params
-    // );
     friend evmvc::sp_response _internal::create_http_response(
         sp_logger log,
         evhtp_request_t* ev_req,
         sp_route rt,
-        const evmvc::http_params& params
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params
         );
     
 public:
@@ -352,16 +344,16 @@ public:
                 int wsize = EVMVC_COMPRESSION_NOT_SUPPORTED;
                 if(encs.size() == 0)
                     wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                for(const auto& enc : encs){
-                    if(enc.type == encoding_type::gzip){
+                for(const auto& cenc : encs){
+                    if(cenc.type == encoding_type::gzip){
                         wsize = EVMVC_ZLIB_GZIP_WSIZE;
                         break;
                     }
-                    if(enc.type == encoding_type::deflate){
+                    if(cenc.type == encoding_type::deflate){
                         wsize = EVMVC_ZLIB_DEFLATE_WSIZE;
                         break;
                     }
-                    if(enc.type == encoding_type::star){
+                    if(cenc.type == encoding_type::star){
                         wsize = EVMVC_ZLIB_GZIP_WSIZE;
                         break;
                     }
@@ -393,7 +385,9 @@ public:
         }
         
         //TODO: get file encoding
-        this->encoding(enc).type(filepath.extension().c_str());
+        this->encoding(enc == "" ? "utf-8" : enc).type(
+            filepath.extension().c_str()
+        );
         this->_prepare_headers();
         _started = true;
         

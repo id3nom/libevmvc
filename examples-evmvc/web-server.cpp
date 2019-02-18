@@ -37,6 +37,30 @@ extern "C" {
 #include <unistd.h>
 
 
+void _on_terminate()
+{
+    try {
+        auto unknown = std::current_exception();
+        if(unknown){
+            std::rethrow_exception(unknown);
+        }else{
+            std::_Exit(EXIT_SUCCESS);
+        }
+    }catch(const evmvc::stacked_error& e){
+        evmvc::_internal::default_logger()->fatal(
+            e
+        );
+    }catch(const std::exception& e){
+        evmvc::_internal::default_logger()->fatal(
+            "Uncaught exception:\n{}", e.what()
+        );
+    } catch (...){
+        evmvc::_internal::default_logger()->fatal(
+            "Uncaught unknown exception"
+        );
+    }
+}
+
 void _on_event_log(int severity, const char *msg)
 {
     if(severity == _EVENT_LOG_DEBUG)
@@ -55,6 +79,8 @@ void _on_event_fatal_error(int err)
 
 int main(int argc, char** argv)
 {
+    std::set_terminate(_on_terminate);
+    
     event_set_log_callback(_on_event_log);
     event_set_fatal_callback(_on_event_fatal_error);
     
@@ -84,7 +110,7 @@ int main(int argc, char** argv)
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
-            req->get_query_param<std::string>("val", "testing 1, 2...")
+            req->query("val", "testing 1, 2...")
         );
         nxt(nullptr);
     });
@@ -92,15 +118,18 @@ int main(int argc, char** argv)
     srv->get("/download-file/:[filename]",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok)
-            .download("the file path",
-            req->get_route_param<std::string>("filename", "test.txt"));
+            .download(
+                "the file path",
+                req->params().get<std::string>("filename", "test.txt")
+            );
         nxt(nullptr);
     });
     
     srv->get("/echo/:val",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
-            req->get_route_param<std::string>("val")
+            //(evmvc::string_view)req->params()<evmvc::string_view>("val")
+            req->params("val")
         );
         nxt(nullptr);
     });
@@ -126,9 +155,9 @@ int main(int argc, char** argv)
     
     srv->get("/send-file",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        auto path = req->get_query_param<std::string>("path");
+        std::string path = req->query("path");
         
-        std::clog << fmt::format("sending file: '{0}'\n", path);
+        res->log()->info("sending file: '{0}'\n", path);
         
         res->send_file(path, "", [path, res](evmvc::cb_error err){
             if(err)
@@ -151,10 +180,10 @@ int main(int argc, char** argv)
         res->cookies().set("cookie-a", "abc", opts);
         
         opts = {};
-        opts.path = req->get_route_param<std::string>("path", "/");
+        opts.path = req->params("path", "/");
         res->cookies().set(
-            req->get_route_param<std::string>("name", "cookie-b"),
-            req->get_route_param<std::string>("val", "def"),
+            req->params("name", "cookie-b"),
+            req->params("val", "def"),
             opts
         );
         
@@ -169,9 +198,9 @@ int main(int argc, char** argv)
             fmt::format("route: {}\ncookie-a: {}, {}: {}", 
                 "/cookies/get/:[name]",
                 res->cookies().get<std::string>("cookie-a"),
-                req->get_route_param<std::string>("name", "cookie-b"),
+                req->params("name", "cookie-b"),
                 res->cookies().get<std::string>(
-                    req->get_route_param<std::string>("name", "cookie-b"),
+                    req->params("name", "cookie-b"),
                     "do not exists!"
                 )
             )
@@ -181,10 +210,10 @@ int main(int argc, char** argv)
     srv->get("/cookies/clear/:[name]/:[path]",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         evmvc::http_cookies::options opts;
-        opts.path = req->get_route_param<std::string>("path", "");
+        opts.path = req->params("path", "");
         
         res->cookies().clear(
-            req->get_route_param<std::string>("name", "cookie-b"),
+            req->params("name", "cookie-b"),
             opts
         );
         res->status(evmvc::status::ok).send(
@@ -229,11 +258,10 @@ int main(int argc, char** argv)
     // auto pol = evmvc::policies::new_filter_policy();
     // auto fr = evmvc::policies::new_file_filter();
     // pol->add_rule(fr);
-
+    //
     // pol->accepts("jpg", "txt");
     // pol->accepts("html");
     
-    //srv->add_policy("/forms/login", pol);
     srv->post("/forms/login",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
@@ -254,7 +282,7 @@ int main(int argc, char** argv)
                     "route: /set_timeout/:[timeout(\\d+)]"
                 );
             },
-            req->get_route_param<size_t>("timeout", 3000)
+            req->params("timeout", 3000)
         );
     });
     
@@ -265,12 +293,13 @@ int main(int argc, char** argv)
         res->status(evmvc::status::ok).send(
             "route: /set_interval/:[name]/:[interval(\\d+)]"
         );
+        std::string name = req->params("name", "abc");
         evmvc::set_interval(
-            req->get_route_param<std::string>("name", "abc"),
-            [name = req->get_route_param<std::string>("name", "abc")](auto ew){
+            name,
+            [name](auto ew){
                 evmvc::info("'{}' interval reached!", name);
             },
-            req->get_route_param<size_t>("interval", 3000)
+            req->params("interval", 3000)
         );
     });
     srv->get("/clear_interval/:[name]",
@@ -278,7 +307,7 @@ int main(int argc, char** argv)
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt
     ){
         evmvc::clear_interval(
-            req->get_route_param<std::string>("name", "abc")
+            req->params("name", "abc")
         );
         
         res->status(evmvc::status::ok).send(

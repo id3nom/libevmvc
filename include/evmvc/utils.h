@@ -176,12 +176,6 @@ std::ostream& operator<<(std::ostream& s, const cb_error& v)
     return s;
 }
 
-// Report a failure
-inline void fail(cb_error err, char const* what)
-{
-    std::cerr << what << ": " << err << "\n";
-}
-
 typedef std::function<void()> void_cb;
 typedef std::function<void(const cb_error& err)> async_cb;
 
@@ -727,4 +721,18 @@ void gzip_file(
 
 
 } //ns evmvc
+
+namespace fmt {
+    template <>
+    struct formatter<evmvc::cb_error> {
+        template <typename ParseContext>
+        constexpr auto parse(ParseContext& ctx) { return ctx.begin(); }
+
+        template <typename FormatContext>
+        auto format(const evmvc::cb_error& e, FormatContext& ctx) {
+            return format_to(ctx.out(), "{}", e.c_str());
+        }
+    };
+}
+
 #endif //_boost_beast_mvc_utils_h

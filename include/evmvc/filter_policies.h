@@ -32,7 +32,10 @@ SOFTWARE.
 #include "fields.h"
 #include "methods.h"
 #include "cookies.h"
+#include "request.h"
+#include "response.h"
 #include "multipart_parser.h"
+#include "jwt.h"
 
 namespace evmvc { namespace policies {
 
@@ -43,17 +46,23 @@ enum class filter_type
     multipart_file,
 };
 
-typedef std::function<void(const cb_error& err, bool is_valid)> validation_cb;
+typedef std::function<void(const cb_error& err)> validation_cb;
 
 struct filter_rule_ctx_t
 {
-    evmvc::sp_request_headers headers;
-    evmvc::sp_http_cookies cookies;
+    sp_response res;
+    sp_request req;
     std::shared_ptr<evmvc::_internal::multipart_content_form> form;
     std::shared_ptr<evmvc::_internal::multipart_content_file> file;
 };
-
 typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
+
+filter_rule_ctx new_context(sp_response res)
+{
+    return std::make_shared<filter_rule_ctx_t>({
+        res, res->req, nullptr, nullptr
+    });
+}
 
 class filter_rule_t
 {
@@ -77,35 +86,6 @@ private:
     size_t _id;
 };
 typedef std::shared_ptr<filter_rule_t> filter_rule;
-
-
-typedef std::function<
-    void(filter_rule_ctx ctx, validation_cb cb)
-    > user_validation_cb;
-
-class user_filter_rule_t
-    : public filter_rule_t
-{
-public:
-    user_filter_rule_t(filter_type type, user_validation_cb uvcb)
-        : filter_rule_t(), _type(type), _uvcb(uvcb)
-    {
-    }
-    
-    filter_type type() const { return _type;}
-    
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
-    {
-        _uvcb(ctx, cb);
-    }
-    
-private:
-    filter_type _type;
-    user_validation_cb _uvcb;
-
-};
-typedef std::shared_ptr<user_filter_rule_t> user_filter_rule;
-
 
 
 class filter_policy_t;
@@ -171,8 +151,38 @@ protected:
     
 };
 
+filter_policy new_filter_policy()
+{
+    return filter_policy(new filter_policy_t());
+}
 
 
+
+typedef std::function<
+    void(filter_rule_ctx ctx, validation_cb cb)
+    > user_validation_cb;
+class user_filter_rule_t
+    : public filter_rule_t
+{
+public:
+    user_filter_rule_t(filter_type type, user_validation_cb uvcb)
+        : filter_rule_t(), _type(type), _uvcb(uvcb)
+    {
+    }
+    
+    filter_type type() const { return _type;}
+    
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    {
+        _uvcb(ctx, cb);
+    }
+    
+private:
+    filter_type _type;
+    user_validation_cb _uvcb;
+
+};
+typedef std::shared_ptr<user_filter_rule_t> user_filter_rule;
 
 
 class form_filter_rule_t
@@ -286,13 +296,82 @@ public:
 typedef std::shared_ptr<file_filter_rule_t> file_filter_rule;
 
 
-
-
-
-filter_policy new_filter_policy()
+typedef std::function<
+    void(const jwt::decoded_jwt& tok, validation_cb cb)
+    > jwt_validation_cb;
+class jwt_filter_rule_t
+    : public filter_rule_t
 {
-    return filter_policy(new filter_policy_t());
-}
+public:
+    jwt_filter_rule_t(evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier)
+        : filter_rule_t(), _verifier(verifier)
+    {
+        // auto v = evmvc::jwt::verify()
+        //     .allow_algorithm(evmvc::jwt::algorithm::hs256{"secret"})
+        //     .with_issuer("auth0");
+    }
+
+    jwt_filter_rule_t(
+        evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier,
+        jwt_validation_cb jwcb
+        )
+        : filter_rule_t(), _verifier(verifier), _jwcb(jwcb)
+    {
+    }
+    
+    filter_type type() const { return filter_type::access;}
+    
+    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    {
+        std::string tok = _get_jwt(ctx->req);
+        if(tok.empty()){
+            cb(
+                EVMVC_ERR("Unable to find a valid JSON Web Token!"),
+                false
+            );
+            return;
+        }
+        
+        try{
+            jwt::decoded_jwt decoded = jwt::decode(tok);
+            _verifier.verify(decoded);
+            
+            ctx->req->_token = jwt::decoded_jwt(std::move(decoded));
+            
+            if(_jwcb)
+                _jwcb(ctx->req->_token, cb);
+            else
+                cb(nullptr, true);
+            
+        }catch(const std::exception& err){
+            cb(err, false);
+        }
+    }
+    
+private:
+    std::string _get_jwt(sp_request req)
+    {
+        auto auth = req->headers().get(evmvc::field::authorization);
+        if(auth){
+            std::vector<std::string> auth_vals;
+            std::string val(auth->value());
+            boost::algorithm::split(
+                auth_vals, val, boost::is_any_of(" ")
+            );
+            if(auth_vals.size() == 2 && auth_vals[0] == "bearer")
+                return auth_vals[1];
+        }
+        
+        if(req->cookies().exists("token"))
+            return req->cookies().get<std::string>("token");
+            
+        return req->query("token", "");
+    }
+    
+    evmvc::jwt::verifier<evmvc::jwt::default_clock> _verifier;
+    jwt_validation_cb _jwcb;
+};
+typedef std::shared_ptr<jwt_filter_rule_t> jwt_filter_rule;
 
 
 user_filter_rule new_user_filter(filter_type ft, user_validation_cb uvcb)
@@ -320,6 +399,24 @@ file_filter_rule new_file_filter(
 {
     return std::make_shared<file_filter_rule_t>(
         names, mime_types, max_size
+    );
+}
+
+
+jwt_filter_rule new_jwt_filter(
+    evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier)
+{
+    return std::make_shared<jwt_filter_rule_t>(
+        verifier
+    );
+}
+
+jwt_filter_rule new_jwt_filter(
+    evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier,
+    jwt_validation_cb jwcb)
+{
+    return std::make_shared<jwt_filter_rule_t>(
+        verifier, jwcb
     );
 }
 

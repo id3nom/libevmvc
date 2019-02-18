@@ -125,17 +125,18 @@ TEST_F(router_test, routes)
         ){
             rt_val = "abc-g";
             
-            const auto& p1 = req->route_param("p1");
+            const auto& p1 = req->params().get("p1");
             auto p1val = p1->get<int32_t>();
             ASSERT_EQ(p1val, 4);
             
-            if(req->route_param("p2")){
-                auto p2val = req->get_route_param<std::string>("p2");
+            if(req->params().get("p2")){
+                //auto p2val = req->get_route_param<std::string>("p2");
+                auto p2val = req->params().get<std::string>("p2");
                 ASSERT_STREQ(p2val.c_str(), "arg2");
                 
-                if(req->route_param("p3")){
+                if(req->params().get("p3")){
                     ASSERT_STREQ(
-                        req->route_param("p3")->get<std::string>().c_str(),
+                        req->params().get("p3")->get<std::string>().c_str(),
                         "arg3"
                     );
                 }

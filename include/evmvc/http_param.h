@@ -81,6 +81,12 @@ public:
         return str_to_num<ParamType>(_param_value);
     }
     
+    template<typename PARAM_T>
+    operator PARAM_T() const
+    {
+        return get<PARAM_T>();
+    }
+    
 private:
     std::string _param_name;
     std::string _param_value;
@@ -91,9 +97,24 @@ inline std::string evmvc::http_param::get<std::string, -1>() const
 {
     return _param_value;
 }
+template<>
+inline const char* evmvc::http_param::get<const char*, -1>() const
+{
+    return _param_value.c_str();
+}
+template<>
+inline evmvc::string_view evmvc::http_param::get<evmvc::string_view, -1>() const
+{
+    return _param_value.c_str();
+}
+
 
 class http_params_t
 {
+    friend class _internal::multipart_content_form_t;
+    friend class _internal::multipart_content_file_t;
+    friend class _internal::multipart_subcontent_t;
+    
 public:
     http_params_t()
     {
@@ -103,16 +124,69 @@ public:
         : _params(lst)
     {
     }
+
+    http_params_t(const std::vector<std::shared_ptr<evmvc::http_param>>& p)
+        : _params(p)
+    {
+    }
+
+    http_params_t(const http_params_t& o)
+    {
+        _params = o._params;
+    }
     
     void emplace_back(sp_http_param p)
     {
         _params.emplace_back(p);
     }
     
-    sp_http_param get()
+    sp_http_param get(evmvc::string_view name) const
     {
-        // to complete
+        for(auto it : _params)
+            if(strcasecmp(it->name(), name.data()) == 0)
+                return it;
+        return nullptr;
     }
+    
+    template<typename PARAM_T>
+    PARAM_T get(evmvc::string_view name, PARAM_T def_val = PARAM_T()) const
+    {
+        for(auto it : _params)
+            if(strcasecmp(it->name(), name.data()) == 0)
+                return it->get<PARAM_T>();
+        return def_val;
+    }
+    
+    size_t size() const
+    {
+        return _params.size();
+    }
+    
+    template<typename PARAM_T>
+    PARAM_T operator[](size_t idx) const
+    {
+        return _params[idx]->get<PARAM_T>();
+    }
+
+    template<typename PARAM_T>
+    PARAM_T operator[](evmvc::string_view name) const
+    {
+        for(auto it : _params)
+            if(strcasecmp(it->name(), name.data()) == 0)
+                return it->get<PARAM_T>();
+        return PARAM_T();
+    }
+    
+    template<typename PARAM_T>
+    PARAM_T operator()(
+        evmvc::string_view name, PARAM_T def_val = PARAM_T()) const
+    {
+        for(auto it : _params)
+            if(strcasecmp(it->name(), name.data()) == 0)
+                return it->get<PARAM_T>();
+        return def_val;
+    }
+
     
 private:
     std::vector<sp_http_param> _params;

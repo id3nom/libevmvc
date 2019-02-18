@@ -58,15 +58,15 @@ public:
     {
     }
     
-    virtual void execute(
-        evmvc::sp_response res,
-        async_cb cb
-    );
-    
     evmvc::sp_logger log();
     
+    virtual void execute(evmvc::sp_response res, async_cb cb);
+    virtual bool validate_access(
+        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::validation_cb cb);
+    
     sp_route _route;
-    evmvc::http_params params;
+    std::vector<std::shared_ptr<evmvc::http_param>> params;
 };
 
 class route
@@ -198,6 +198,15 @@ public:
         return rr;
     }
     
+    void validate_access(
+        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::validation_cb cb)
+    {
+        if(_policies.empty())
+            return cb(nullptr);
+        _validate_access(0, ctx, cb);
+    }
+    
 protected:
     
     virtual void _exec(
@@ -220,6 +229,26 @@ protected:
             self->_exec(req, res, hidx, cb);
         });
     }
+    
+    void _validate_rules(
+        std::vector<policies::filter_rule> rules,
+        size_t hidx,
+        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::validation_cb cb)
+    {
+        rules[hidx](
+            ctx,
+        [self = this->shared_from_this(), rules, &ctx, &hidx, &cb]
+        (const cb_error& err){
+            if(err)
+                return cb(err);
+            if(++hidx == rules.size())
+                return cb(nullptr);
+            
+            self->_validate_rules(hidx, ctx, cb);
+        });
+    }
+    
     
     void _build_route_re(evmvc::string_view route_path)
     {
@@ -378,13 +407,10 @@ evmvc::sp_logger route_result::log()
     return evmvc::_internal::default_logger();
 }
 
-void route_result::execute(
-    evmvc::sp_response res,
-    async_cb cb)
+void route_result::execute(evmvc::sp_response res, async_cb cb)
 {
     _route->_exec(res->req(), res, 0, cb);
 }
-
 
 class router
     : public std::enable_shared_from_this<router>
@@ -615,6 +641,13 @@ public:
         return this->shared_from_this();
     }
     
+    void validate_access(
+        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::validation_cb cb)
+    {
+        
+    }
+    
 protected:
     
     static std::string _norm_path(const evmvc::string_view& path)
@@ -708,6 +741,24 @@ protected:
     verb_map _verbs;
     router_map _routers;
 };
+
+void route_result::validate_access(
+        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::validation_cb cb)
+{
+    // first validate router access
+    auto rt = this->_route;
+    auto rtr = rt->get_router();
+    
+    rtr->validate_access(ctx, 
+    [rt, rtr](const cb_error& err){
+        if(err)
+            return cb(err);
+        
+        
+        
+    });
+}
 
 
 class file_route_result

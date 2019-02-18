@@ -34,13 +34,18 @@ SOFTWARE.
 #include "cookies.h"
 #include "http_param.h"
 #include "files.h"
-//#include "multipart_parser.h"
+#include "jwt.h"
 
 namespace evmvc {
+
+namespace policies {
+class jwt_filter_rule_t;
+}
 
 class request
     : public std::enable_shared_from_this<request>
 {
+    friend class policies::jwt_filter_rule_t;
     friend void _internal::on_multipart_request(
         evhtp_request_t* req, void* arg);
     
@@ -51,7 +56,7 @@ public:
         evmvc::sp_logger log,
         evhtp_request_t* ev_req,
         const sp_http_cookies& http_cookies,
-        const std::vector<std::shared_ptr<evmvc::http_param>> p/*,
+        const std::vector<std::shared_ptr<evmvc::http_param>>& p/*,
         _internal::multipart_parser* mp*/
         )
         : _id(id), _rt(rt),
@@ -64,8 +69,9 @@ public:
             ev_req->headers_in
         )),
         _cookies(http_cookies),
-        _rt_params(std::make_shared<http_params_t>(p)),
-        _body_params(std::make_shared<http_params_t>()),
+        _rt_params(std::make_unique<http_params_t>(p)),
+        _qry_params(std::make_unique<http_params_t>()),
+        _body_params(std::make_unique<http_params_t>()),
         _files()
     {
         EVMVC_DEF_TRACE(
@@ -83,6 +89,30 @@ public:
             }
             EVMVC_TRACE(_log, hdrs);
         }
+        
+        // building the _qry_params object
+        if(!_ev_req->uri->query)
+            return;
+
+        auto qp = _ev_req->uri->query->tqh_first;
+        if(qp == nullptr)
+            return;
+        
+        while(qp != nullptr){
+            char* pval = evhttp_decode_uri(qp->val);
+            std::string sval(pval);
+            free(pval);
+            _qry_params->emplace_back(
+                std::make_shared<evmvc::http_param>(
+                    qp->key, sval
+                )
+            );
+            
+            qp = qp->next.tqe_next;
+            if(qp == *_ev_req->uri->query->tqh_last)
+                break;
+        }
+        
     }
     
     ~request()
@@ -168,66 +198,45 @@ public:
     http_files& files() const { return *(_files.get());}
     
     http_params_t& params() const { return *(_rt_params.get());}
-    http_params_t& body() const { return *(_body_params.get());}
-    
-    // sp_http_param route_param(
-    //     evmvc::string_view pname) const noexcept
-    // {
-    //     for(auto& ele : _rt_params)
-    //         if(strcasecmp(ele->name(), pname.data()) == 0)
-    //             return ele;
-
-    //     return sp_http_param();
-    // }
-
-    // template<typename ParamType>
-    // ParamType get_route_param(
-    //     const evmvc::string_view& pname,
-    //     ParamType default_val = ParamType()) const
-    // {
-    //     for(auto& ele : _rt_params)
-    //         if(strcasecmp(ele->name(), pname.data()) == 0)
-    //             return ele->get<ParamType>();
-
-    //     return default_val;
-    // }
-
-    std::shared_ptr<evmvc::http_param> query_param(
-        evmvc::string_view pname) const noexcept
+    http_param& params(evmvc::string_view name) const
     {
-        if(!_ev_req->uri->query)
-            return sp_http_param();
-
-        auto p = _ev_req->uri->query->tqh_first;
-        if(p == nullptr)
-            return std::shared_ptr<evmvc::http_param>();
-
-        while(p != nullptr){
-            if(strcmp(p->key, pname.data()) == 0){
-                char* pval = evhttp_decode_uri(p->val);
-                std::string sval(pval);
-                free(pval);
-                return std::make_shared<evmvc::http_param>(
-                    p->key, sval
-                );
-            }
-            if(p == *_ev_req->uri->query->tqh_last)
-                break;
-            ++p;
-        }
-
-        return sp_http_param();
+        return *(_rt_params->get(name).get());
+    }
+    template<typename PARAM_T>
+    PARAM_T params(evmvc::string_view name, PARAM_T def_val) const
+    {
+        auto p = _rt_params->get(name);
+        if(p)
+            return p->get<PARAM_T>();
+        return def_val;
     }
     
-    template<typename ParamType>
-    ParamType get_query_param(
-        const evmvc::string_view& pname,
-        ParamType default_val = ParamType()) const
+    http_params_t& query() const { return *(_qry_params.get());}
+    http_param& query(evmvc::string_view name) const
     {
-        auto p = query_param(pname);
+        return *(_qry_params->get(name).get());
+    }
+    template<typename PARAM_T>
+    PARAM_T query(evmvc::string_view name, PARAM_T def_val) const
+    {
+        auto p = _qry_params->get(name);
         if(p)
-            return p->get<ParamType>();
-        return default_val;
+            return p->get<PARAM_T>();
+        return def_val;
+    }
+    
+    http_params_t& body() const { return *(_body_params.get());}
+    http_param& body(evmvc::string_view name) const
+    {
+        return *(_body_params->get(name).get());
+    }
+    template<typename PARAM_T>
+    PARAM_T body(evmvc::string_view name, PARAM_T def_val) const
+    {
+        auto p = _body_params->get(name);
+        if(p)
+            return p->get<PARAM_T>();
+        return def_val;
     }
     
     evmvc::method method()
@@ -242,29 +251,12 @@ public:
         );
     }
     
-    // sp_http_param body_param(
-    //     evmvc::string_view pname) const noexcept
-    // {
-    //     for(auto& ele : _body_params)
-    //         if(strcasecmp(ele->name(), pname.data()) == 0)
-    //             return ele;
+    const jwt::decoded_jwt& token() const
+    {
+        return _token;
+    }
 
-    //     return sp_http_param();
-    // }
-
-    // template<typename ParamType>
-    // ParamType get_body_param(
-    //     const evmvc::string_view& pname,
-    //     ParamType default_val = ParamType()) const
-    // {
-    //     for(auto& ele : _body_params)
-    //         if(strcasecmp(ele->name(), pname.data()) == 0)
-    //             return ele->get<ParamType>();
-
-    //     return default_val;
-    // }
-
-
+    
 protected:
 
     void _load_multipart_params(
@@ -278,8 +270,10 @@ protected:
     sp_http_cookies _cookies;
     //param_map _rt_params;
     evmvc::http_params _rt_params;
+    evmvc::http_params _qry_params;
     evmvc::http_params _body_params;
     evmvc::sp_http_files _files;
+    jwt::decoded_jwt _token;
 };
 
 

@@ -160,14 +160,13 @@ namespace _internal{
     evmvc::sp_response create_http_response(
         wp_app a,
         evhtp_request_t* ev_req,
-        const evmvc::http_params& params
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params
     );
     
     evmvc::sp_response create_http_response(
         sp_logger log,
-        //struct app_request_t* ar,
         evhtp_request_t* ev_req, sp_route rt,
-        const evmvc::http_params& params
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params
     );
     
     evhtp_res on_headers(

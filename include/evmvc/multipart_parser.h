@@ -73,13 +73,17 @@ struct multipart_content_t
     multipart_content_t()
         :
         parent(), type(multipart_content_type::unknown),
-        headers(), name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
+        //headers(std::make_unique<http_params_t>()),
+        headers(),
+        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
 
     multipart_content_t(multipart_content_type ct)
         : parent(), type(ct),
-        headers(), name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
+        //headers(std::make_unique<http_params_t>()),
+        headers(),
+        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
     
@@ -87,7 +91,9 @@ struct multipart_content_t
         const std::weak_ptr<multipart_subcontent>& p,
         multipart_content_type ct)
         : parent(p), type(ct),
-        headers(), name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
+        //headers(std::make_unique<http_params_t>()),
+        headers(),
+        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
     
@@ -106,7 +112,8 @@ struct multipart_content_t
     std::weak_ptr<multipart_subcontent> parent;
     
     multipart_content_type type;
-    evmvc::http_params headers;
+    //evmvc::http_params headers;
+    std::vector<sp_http_param> headers;
     std::string name;
     std::string mime_type;
 };
