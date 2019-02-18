@@ -61,8 +61,8 @@ public:
     evmvc::sp_logger log();
     
     virtual void execute(evmvc::sp_response res, async_cb cb);
-    virtual bool validate_access(
-        evmvc::policies::filter_rule_ctx ctx,
+    virtual void validate_access(
+        evmvc::policies::filter_rule_ctx& ctx,
         evmvc::policies::validation_cb cb);
     
     sp_route _route;
@@ -199,13 +199,8 @@ public:
     }
     
     void validate_access(
-        evmvc::policies::filter_rule_ctx ctx,
-        evmvc::policies::validation_cb cb)
-    {
-        if(_policies.empty())
-            return cb(nullptr);
-        _validate_access(0, ctx, cb);
-    }
+        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::validation_cb cb);
     
 protected:
     
@@ -230,22 +225,23 @@ protected:
         });
     }
     
-    void _validate_rules(
-        std::vector<policies::filter_rule> rules,
-        size_t hidx,
-        evmvc::policies::filter_rule_ctx ctx,
+    void _validate_policies(
+        policies::filter_type type,
+        size_t idx,
+        evmvc::policies::filter_rule_ctx& ctx,
         evmvc::policies::validation_cb cb)
     {
-        rules[hidx](
+        _policies[idx]->validate(
+            type,
             ctx,
-        [self = this->shared_from_this(), rules, &ctx, &hidx, &cb]
+        [self = this->shared_from_this(), type, &ctx, &idx, &cb]
         (const cb_error& err){
             if(err)
                 return cb(err);
-            if(++hidx == rules.size())
+            if(++idx == self->_policies.size())
                 return cb(nullptr);
             
-            self->_validate_rules(hidx, ctx, cb);
+            self->_validate_policies(type, idx, ctx, cb);
         });
     }
     
@@ -642,10 +638,25 @@ public:
     }
     
     void validate_access(
-        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::filter_rule_ctx& ctx,
         evmvc::policies::validation_cb cb)
     {
+        if(_parent)
+            return _parent->validate_access(ctx,
+            [self = this->shared_from_this(), &ctx, cb](const cb_error& err){
+                if(err)
+                    return cb(err);
+                
+                if(self->_policies.empty())
+                    return cb(nullptr);
+                self->_validate_policies(
+                    policies::filter_type::access, 0, ctx, cb
+                );
+            });
         
+        if(_policies.empty())
+            return cb(nullptr);
+        _validate_policies(policies::filter_type::access, 0, ctx, cb);
     }
     
 protected:
@@ -721,13 +732,32 @@ protected:
         return r;
     }
     
+    void _validate_policies(
+        policies::filter_type type,
+        size_t idx,
+        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::validation_cb cb)
+    {
+        _policies[idx]->validate(
+            type,
+            ctx,
+        [self = this->shared_from_this(), type, &ctx, &idx, &cb]
+        (const cb_error& err){
+            if(err)
+                return cb(err);
+            if(++idx == self->_policies.size())
+                return cb(nullptr);
+            
+            self->_validate_policies(type, idx, ctx, cb);
+        });
+    }
+    
     evmvc::wp_app _app;
     std::string _path;
     mutable evmvc::sp_logger _log;
     sp_router _parent;
     
     std::vector<policies::filter_policy> _policies;
-
     
     // // if the first matching router_path is return
     // // if is false and more than one router_path is found,
@@ -742,22 +772,37 @@ protected:
     router_map _routers;
 };
 
+void route::validate_access(
+    evmvc::policies::filter_rule_ctx& ctx,
+    evmvc::policies::validation_cb cb)
+{
+    get_router()->validate_access(ctx,
+    [self = this->shared_from_this(), &ctx, cb](const cb_error& err){
+        if(err)
+            return cb(err);
+        
+        if(self->_policies.empty())
+            return cb(nullptr);
+        self->_validate_policies(policies::filter_type::access, 0, ctx, cb);
+    });
+}
+
 void route_result::validate_access(
-        evmvc::policies::filter_rule_ctx ctx,
+        evmvc::policies::filter_rule_ctx& ctx,
         evmvc::policies::validation_cb cb)
 {
     // first validate router access
     auto rt = this->_route;
     auto rtr = rt->get_router();
     
-    rtr->validate_access(ctx, 
-    [rt, rtr](const cb_error& err){
-        if(err)
-            return cb(err);
-        
-        
-        
-    });
+    rt->validate_access(ctx, cb);
+    
+    // rt->validate_access(ctx, 
+    // [rt, rtr](const cb_error& err){
+    //     if(err)
+    //         return cb(err);
+    //         
+    // });
 }
 
 

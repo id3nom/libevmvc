@@ -92,7 +92,7 @@ int main(int argc, char** argv)
     opts.log_console_level = evmvc::log_level::trace;
     opts.log_file_level = evmvc::log_level::warning;
     //opts.log_file_max_size = 10000;
-    opts.worker_count = 0;
+    //opts.worker_count = 0;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
@@ -245,29 +245,35 @@ int main(int argc, char** argv)
     });
     
     
-    srv->register_router(
-        std::static_pointer_cast<evmvc::router>(
-            std::make_shared<evmvc::file_router>(
-                srv,
-                EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
-                "/html"
-            )
-        )
+    auto frtr = std::make_shared<evmvc::file_router>(
+        srv,
+        EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
+        "/html"
     );
     
-    // auto pol = evmvc::policies::new_filter_policy();
-    // auto fr = evmvc::policies::new_file_filter();
-    // pol->add_rule(fr);
-    //
-    // pol->accepts("jpg", "txt");
-    // pol->accepts("html");
+    auto pol = evmvc::policies::new_filter_policy();
+    pol->add_rule(evmvc::policies::new_user_filter(
+        evmvc::policies::filter_type::access,
+        [](evmvc::policies::filter_rule_ctx& ctx,
+            evmvc::policies::validation_cb cb)
+        {
+            ctx->req->log()->info("waiting 1 seconds...");
+            sleep(1);
+            cb(nullptr);
+        })
+    );
+    frtr->register_policy(pol);
+    srv->register_router(
+        std::static_pointer_cast<evmvc::router>(frtr)
+    );
+    
     
     srv->post("/forms/login",
     [&_ev_base, &srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
         res->redirect("/html/login-results.html");
-    });//, pol);
+    });
     
     srv->get("/set_timeout/:[timeout(\\d+)]",
     [&srv](

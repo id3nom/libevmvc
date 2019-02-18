@@ -505,7 +505,7 @@ evhtp_res _internal::on_headers(
     res->pause();
     rr->validate_access(
         ctx,
-    [rr, res](const evmvc::cb_error& err){
+    [a, rr, res, &req, &hdr](const evmvc::cb_error& err){
         if(err){
             res->error(
                 evmvc::status::unauthorized,

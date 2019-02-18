@@ -50,6 +50,15 @@ typedef std::function<void(const cb_error& err)> validation_cb;
 
 struct filter_rule_ctx_t
 {
+    filter_rule_ctx_t(
+        sp_response res,
+        sp_request req,
+        std::shared_ptr<evmvc::_internal::multipart_content_form> form,
+        std::shared_ptr<evmvc::_internal::multipart_content_file> file)
+        : res(res), req(req), form(form), file(file)
+    {
+    }
+
     sp_response res;
     sp_request req;
     std::shared_ptr<evmvc::_internal::multipart_content_form> form;
@@ -59,9 +68,11 @@ typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
 
 filter_rule_ctx new_context(sp_response res)
 {
-    return std::make_shared<filter_rule_ctx_t>({
-        res, res->req, nullptr, nullptr
-    });
+    return std::make_shared<filter_rule_ctx_t>(
+        res, res->req(),
+        std::shared_ptr<evmvc::_internal::multipart_content_form>(),
+        std::shared_ptr<evmvc::_internal::multipart_content_file>()
+    );
 }
 
 class filter_rule_t
@@ -100,6 +111,7 @@ typedef
 
 filter_policy new_filter_policy();
 class filter_policy_t
+    : public std::enable_shared_from_this<filter_policy_t>
 {
     friend filter_policy new_filter_policy();;
     
@@ -132,19 +144,34 @@ public:
             }
     }
     
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_type type, filter_rule_ctx& ctx, validation_cb cb)
     {
-        for(size_t i = 0; i < _rules.size(); ++i){
-            auto rule = _rules[i];
-            rule->validate(ctx, [cb](const cb_error& err, bool is_valid){
-                cb(err, is_valid);
-            });
-        }
+        _validate(type, 0, ctx, cb);
     }
     
     const std::vector<filter_rule>& rules() const { return _rules;}
     
 protected:
+    
+    void _validate(filter_type type, size_t idx,
+        filter_rule_ctx& ctx, validation_cb cb)
+    {
+        while(idx < _rules.size() && _rules[idx]->type() != type)
+            ++idx;
+        if(idx == _rules.size())
+            return cb(nullptr);
+        
+        _rules[idx]->validate(
+            ctx,
+        [self = this->shared_from_this(), type, &idx, &ctx, cb]
+        (const cb_error& err){
+            if(err)
+                return cb(err);
+            if(++idx == self->_rules.size())
+                return cb(nullptr);
+            self->_validate(type, idx, ctx, cb);
+        });
+    }
     
     size_t _id;
     std::vector<filter_rule> _rules;
@@ -159,7 +186,7 @@ filter_policy new_filter_policy()
 
 
 typedef std::function<
-    void(filter_rule_ctx ctx, validation_cb cb)
+    void(filter_rule_ctx& ctx, validation_cb cb)
     > user_validation_cb;
 class user_filter_rule_t
     : public filter_rule_t
@@ -205,7 +232,7 @@ public:
     void validate(filter_rule_ctx& ctx, validation_cb cb)
     {
         if(!ctx->file)
-            return cb(nullptr, true);
+            return cb(nullptr);
         
         if(names.size() > 0 && 
             std::find(names.begin(), names.end(), ctx->form->name) == 
@@ -214,8 +241,7 @@ public:
             return cb(
                 EVMVC_ERR(
                     "form name: '{}' is not allowed!", ctx->form->name
-                ),
-                false
+                )
             );
         if(mime_types.size() > 0 && 
             std::find(
@@ -225,11 +251,10 @@ public:
             return cb(
                 EVMVC_ERR(
                     "mime type: '{}' is not allowed!", ctx->form->mime_type
-                ),
-                false
+                )
             );
         
-        cb(nullptr, true);
+        cb(nullptr);
     }
 };
 typedef std::shared_ptr<form_filter_rule_t> form_filter_rule;
@@ -250,7 +275,6 @@ public:
     }
     
     filter_type type() const { return filter_type::multipart_file;}
-    
     std::vector<std::string> names;
     std::vector<std::string> mime_types;
     size_t max_size;
@@ -258,7 +282,7 @@ public:
     void validate(filter_rule_ctx& ctx, validation_cb cb)
     {
         if(!ctx->file)
-            return cb(nullptr, true);
+            return cb(nullptr);
         
         if(names.size() > 0 && 
             std::find(names.begin(), names.end(), ctx->file->name) == 
@@ -267,9 +291,9 @@ public:
             return cb(
                 EVMVC_ERR(
                     "file name: '{}' is not allowed!", ctx->file->name
-                ),
-                false
+                )
             );
+        
         if(mime_types.size() > 0 && 
             std::find(
                 mime_types.begin(), mime_types.end(), ctx->file->mime_type) == 
@@ -278,19 +302,17 @@ public:
             return cb(
                 EVMVC_ERR(
                     "mime type: '{}' is not allowed!", ctx->file->mime_type
-                ),
-                false
+                )
             );
         
         if(max_size > 0 && ctx->file->size > max_size)
             return cb(
                 EVMVC_ERR(
                     "file size: '{}' is too big!", ctx->file->size
-                ),
-                false
+                )
             );
         
-        cb(nullptr, true);
+        cb(nullptr);
     }
 };
 typedef std::shared_ptr<file_filter_rule_t> file_filter_rule;
@@ -326,8 +348,7 @@ public:
         std::string tok = _get_jwt(ctx->req);
         if(tok.empty()){
             cb(
-                EVMVC_ERR("Unable to find a valid JSON Web Token!"),
-                false
+                EVMVC_ERR("Unable to find a valid JSON Web Token!")
             );
             return;
         }
@@ -341,10 +362,10 @@ public:
             if(_jwcb)
                 _jwcb(ctx->req->_token, cb);
             else
-                cb(nullptr, true);
+                cb(nullptr);
             
         }catch(const std::exception& err){
-            cb(err, false);
+            cb(err);
         }
     }
     
