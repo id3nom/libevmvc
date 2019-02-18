@@ -64,7 +64,9 @@ public:
             ev_req->headers_in
         )),
         _cookies(http_cookies),
-        _rt_params(p), _body_params(), _files()
+        _rt_params(std::make_shared<http_params_t>(p)),
+        _body_params(std::make_shared<http_params_t>()),
+        _files()
     {
         EVMVC_DEF_TRACE(
             "request '{}' created", this->id()
@@ -81,10 +83,6 @@ public:
             }
             EVMVC_TRACE(_log, hdrs);
         }
-
-        // if(!mp)
-        //     return;
-        // _load_multipart_params(mp->root);
     }
     
     ~request()
@@ -99,33 +97,100 @@ public:
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
-
+    
+    std::string connection_ip() const
+    {
+        auto con_addr_in = (sockaddr_in*)_ev_req->conn->saddr;
+        char addr[INET_ADDRSTRLEN];
+        inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
+        return std::string(addr);
+    }
+    
+    uint16_t connection_port() const
+    {
+        auto con_addr_in = (sockaddr_in*)_ev_req->conn->saddr;
+        return ntohs(con_addr_in->sin_port);
+    }
+    
+    std::string ip() const
+    {
+        //TODO: add trust proxy options
+        sp_header h = _headers->get("X-Forwarded-For");
+        if(!h)
+            return connection_ip();
+        
+        std::string ips = evmvc::trim_copy(h->value());
+        auto cp = ips.find(",");
+        if(cp == std::string::npos)
+            return ips;
+        return ips.substr(0, cp);
+    }
+    
+    std::vector<std::string> ips() const
+    {
+        //TODO: add trust proxy options
+        sp_header h = _headers->get("X-Forwarded-For");
+        if(!h)
+            return {connection_ip()};
+        
+        std::string ips = evmvc::trim_copy(h->value());
+        
+        std::vector<std::string> vals;
+        size_t start = 0;
+        auto cp = ips.find(",");
+        if(cp == std::string::npos)
+            return {ips};
+        while(cp != std::string::npos){
+            vals.emplace_back(
+                ips.substr(start, cp)
+            );
+            start = cp+1;
+            cp = ips.find(",", start);
+        }
+        return vals;
+    }
+    
+    std::string hostname() const
+    {
+        //TODO: add trust proxy options
+        sp_header h = _headers->get("X-Forwarded-Host");
+        if(!h)
+            h = _headers->get("host");
+        
+        return h->value();
+    }
+    
+    std::string protocol() const;
+    
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::request_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
     http_files& files() const { return *(_files.get());}
+    
+    http_params_t& params() const { return *(_rt_params.get());}
+    http_params_t& body() const { return *(_body_params.get());}
+    
+    // sp_http_param route_param(
+    //     evmvc::string_view pname) const noexcept
+    // {
+    //     for(auto& ele : _rt_params)
+    //         if(strcasecmp(ele->name(), pname.data()) == 0)
+    //             return ele;
 
-    sp_http_param route_param(
-        evmvc::string_view pname) const noexcept
-    {
-        for(auto& ele : _rt_params)
-            if(strcasecmp(ele->name(), pname.data()) == 0)
-                return ele;
+    //     return sp_http_param();
+    // }
 
-        return sp_http_param();
-    }
+    // template<typename ParamType>
+    // ParamType get_route_param(
+    //     const evmvc::string_view& pname,
+    //     ParamType default_val = ParamType()) const
+    // {
+    //     for(auto& ele : _rt_params)
+    //         if(strcasecmp(ele->name(), pname.data()) == 0)
+    //             return ele->get<ParamType>();
 
-    template<typename ParamType>
-    ParamType get_route_param(
-        const evmvc::string_view& pname,
-        ParamType default_val = ParamType()) const
-    {
-        for(auto& ele : _rt_params)
-            if(strcasecmp(ele->name(), pname.data()) == 0)
-                return ele->get<ParamType>();
-
-        return default_val;
-    }
+    //     return default_val;
+    // }
 
     std::shared_ptr<evmvc::http_param> query_param(
         evmvc::string_view pname) const noexcept
@@ -153,7 +218,7 @@ public:
 
         return sp_http_param();
     }
-
+    
     template<typename ParamType>
     ParamType get_query_param(
         const evmvc::string_view& pname,
@@ -164,39 +229,40 @@ public:
             return p->get<ParamType>();
         return default_val;
     }
-
+    
     evmvc::method method()
     {
         return (evmvc::method)_ev_req->method;
     }
-
-    bool is_ajax()
+    
+    bool xhr()
     {
-        return this->headers().get("X-Requested-With")
-            ->compare_value("XMLHttpRequest");
+        return this->headers().compare_value(
+            "X-Requested-With", "XMLHttpRequest"
+        );
     }
+    
+    // sp_http_param body_param(
+    //     evmvc::string_view pname) const noexcept
+    // {
+    //     for(auto& ele : _body_params)
+    //         if(strcasecmp(ele->name(), pname.data()) == 0)
+    //             return ele;
 
-    sp_http_param body_param(
-        evmvc::string_view pname) const noexcept
-    {
-        for(auto& ele : _body_params)
-            if(strcasecmp(ele->name(), pname.data()) == 0)
-                return ele;
+    //     return sp_http_param();
+    // }
 
-        return sp_http_param();
-    }
+    // template<typename ParamType>
+    // ParamType get_body_param(
+    //     const evmvc::string_view& pname,
+    //     ParamType default_val = ParamType()) const
+    // {
+    //     for(auto& ele : _body_params)
+    //         if(strcasecmp(ele->name(), pname.data()) == 0)
+    //             return ele->get<ParamType>();
 
-    template<typename ParamType>
-    ParamType get_body_param(
-        const evmvc::string_view& pname,
-        ParamType default_val = ParamType()) const
-    {
-        for(auto& ele : _body_params)
-            if(strcasecmp(ele->name(), pname.data()) == 0)
-                return ele->get<ParamType>();
-
-        return default_val;
-    }
+    //     return default_val;
+    // }
 
 
 protected:

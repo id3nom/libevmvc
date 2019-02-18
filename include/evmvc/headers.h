@@ -189,14 +189,6 @@ public:
         if(!tele.empty())
             eles.emplace_back(tele);
         
-        // boost::split(
-        //     eles,
-        //     evmvc::lower_case_copy(
-        //         _hdr_value
-        //     ),
-        //     boost::is_any_of(",")
-        // );
-
         for(size_t i = 0; i < eles.size(); ++i){
             auto& ele = eles[i];
             
@@ -262,6 +254,22 @@ public:
     {
     }
     
+    bool exists(evmvc::field header_name) const
+    {
+        return exists(to_string(header_name));
+    }
+
+    bool exists(evmvc::string_view header_name) const
+    {
+        evhtp_kv_t* header = nullptr;
+        if((header = evhtp_headers_find_header(
+            _hdrs, header_name.data()
+        )) != nullptr)
+            return true;
+        return false;
+    }
+    
+    
     evmvc::sp_header get(evmvc::field header_name) const
     {
         return get(to_string(header_name));
@@ -278,6 +286,26 @@ public:
                 header->val
             );
         return nullptr;
+    }
+
+    bool compare_value(
+        evmvc::field header_name,
+        evmvc::string_view val, bool case_sensitive = false) const
+    {
+        return compare_value(to_string(header_name), val, case_sensitive);
+    }
+    
+    bool compare_value(
+        evmvc::string_view header_name,
+        evmvc::string_view val, bool case_sensitive = false) const
+    {
+        sp_header hdr = get(header_name);
+        if(!hdr)
+            return false;
+        
+        if(case_sensitive)
+            return strcmp(hdr->value(), val.data()) == 0;
+        return strcasecmp(hdr->value(), val.data()) == 0;
     }
     
     std::vector<evmvc::sp_header> list(evmvc::field header_name) const
@@ -392,13 +420,6 @@ public:
         
         return *this;
     }
-    
-    
-    
-    
-    
-    
-    
     
     
 private:

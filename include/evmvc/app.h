@@ -298,7 +298,6 @@ public:
         return _router->register_policy(pol);
     }
     
-    // is called after headers are received & for each multipart file
     sp_router register_policy(
         const evmvc::string_view& route_path, policies::filter_policy pol)
     {
@@ -423,8 +422,6 @@ router::router(evmvc::wp_app app, const evmvc::string_view& path)
 {
 }
 
-
-
 void _internal::send_error(
     evmvc::sp_response res, int status_code,
     evmvc::string_view msg)
@@ -446,18 +443,6 @@ evhtp_res _internal::on_headers(
     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg)
 {
     app* a = (app*)arg;
-    auto con_addr_in = (sockaddr_in*)req->conn->saddr;
-    char addr[INET_ADDRSTRLEN];
-    inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
-    
-    // a->log()->success(
-    //     "recv: [{}] [{}{}{}] from: [{}]",
-    //     to_string((evmvc::method)req->method),
-    //     req->uri->path->full,
-    //     req->uri->query_raw ? "?" : "",
-    //     req->uri->query_raw ? (const char*)req->uri->query_raw : "",
-    //     addr
-    // );
     
     // search a valid route_result
     evmvc::method v = (evmvc::method)req->method;
@@ -473,15 +458,21 @@ evhtp_res _internal::on_headers(
     if(!rr && v == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, req->uri->path->full);
     
+    
+    // get client ip
+    auto con_addr_in = (sockaddr_in*)req->conn->saddr;
+    char addr[INET_ADDRSTRLEN];
+    inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
+    
     // stop request if no valid route found
     if(!rr){
         a->log()->fail(
-            "recv: [{}] [{}{}{}] from: [{}]",
+            "recv: [{}] [{}{}{}] from: [{}:{}]",
             to_string((evmvc::method)req->method),
             req->uri->path->full,
             req->uri->query_raw ? "?" : "",
             req->uri->query_raw ? (const char*)req->uri->query_raw : "",
-            addr
+            addr, ntohs(con_addr_in->sin_port)
         );
         
         response::null(a->shared_from_this(), req)->error(
@@ -495,12 +486,12 @@ evhtp_res _internal::on_headers(
     }
     
     a->log()->success(
-        "recv: [{}] [{}{}{}] from: [{}]",
+        "recv: [{}] [{}{}{}] from: [{}:{}]",
         to_string((evmvc::method)req->method),
         req->uri->path->full,
         req->uri->query_raw ? "?" : "",
         req->uri->query_raw ? (const char*)req->uri->query_raw : "",
-        addr
+        addr, ntohs(con_addr_in->sin_port)
     );
     
     // create the response
@@ -575,6 +566,16 @@ evmvc::sp_app request::get_app() const
 evmvc::sp_router request::get_router() const
 {
     return this->get_route()->get_router();
+}
+
+std::string request::protocol() const
+{
+    //TODO: add trust proxy options
+    sp_header h = _headers->get("X-Forwarded-Proto");
+    if(h)
+        return h->value();
+    
+    return this->get_app()->options().secure ? "https" : "http";
 }
 
 void request::_load_multipart_params(

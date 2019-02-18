@@ -92,6 +92,31 @@ inline std::string evmvc::http_param::get<std::string, -1>() const
     return _param_value;
 }
 
+class http_params_t
+{
+public:
+    http_params_t()
+    {
+    }
+    
+    http_params_t(std::initializer_list<sp_http_param> lst)
+        : _params(lst)
+    {
+    }
+    
+    void emplace_back(sp_http_param p)
+    {
+        _params.emplace_back(p);
+    }
+    
+    sp_http_param get()
+    {
+        // to complete
+    }
+    
+private:
+    std::vector<sp_http_param> _params;
+};
 
 }//ns evmvc
 #endif //_libevmvc_http_param_h

@@ -125,7 +125,9 @@ typedef std::shared_ptr<router> sp_router;
 
 class http_param;
 typedef std::shared_ptr<http_param> sp_http_param;
-typedef std::vector<sp_http_param> http_params;
+//typedef std::vector<sp_http_param> http_params;
+class http_params_t;
+typedef std::unique_ptr<http_params_t> http_params;
 
 class response;
 typedef std::shared_ptr<evmvc::response> sp_response;
@@ -147,12 +149,6 @@ namespace _internal{
     struct multipart_parser_t;
     typedef struct multipart_parser_t multipart_parser;
     
-    // typedef struct app_request_t
-    // {
-    //     bool is_multipart;
-    //     evmvc::app* app;
-    //     evmvc::_internal::multipart_parser* mp;
-    // } app_request;
     typedef struct request_args_t
     {
         evmvc::sp_route_result rr;
@@ -340,17 +336,6 @@ struct event_base** thread_ev_base()
     static thread_local struct event_base* _trd_ev_base = nullptr;
     return &_trd_ev_base;
 }
-// struct evhtp_t** htp_instance()
-// {
-//     static struct evhtp_t* __htp = nullptr;
-//     return &__htp;
-// }
-// struct event_base* get_best_base()
-// {
-//     evthr_pool_t* pool = (*htp_instance())->thr_pool;
-//     
-//     return evthr_get_base(thr);
-// }
 
 
 } //ns evmvc

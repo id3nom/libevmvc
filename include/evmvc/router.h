@@ -582,7 +582,6 @@ public:
         return this->shared_from_this();
     }
     
-    // is called after headers are received & for each multipart file
     virtual sp_router register_policy(
         const evmvc::string_view& route_path, policies::filter_policy pol)
     {
@@ -794,14 +793,8 @@ public:
                 this->shared_from_this()
             );
         
-        if(ec){
+        if(ec)
             return nullptr;
-            // return std::static_pointer_cast<route_result>(
-            //     std::make_shared<file_route_result>(
-            //         _rt, this->shared_from_this()
-            //     )
-            // );
-        }
         
         return std::static_pointer_cast<route_result>(
             std::make_shared<file_route_result>(
