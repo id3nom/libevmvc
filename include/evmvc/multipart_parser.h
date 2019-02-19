@@ -632,6 +632,19 @@ static evmvc::cb_error/*evhtp_res*/ on_read_file_data(
     return nullptr;
 }
 
+static evhtp_res on_request_fini_multipart_data(
+    evhtp_request_t *req, void *arg)
+{
+    if(!arg)
+        return EVHTP_RES_OK;
+    
+    auto mp = (evmvc::_internal::multipart_parser*)arg;
+    EVMVC_TRACE(mp->log, "on_request_fini_multipart_data");
+    delete mp;
+    
+    return EVHTP_RES_OK;
+}
+
 static evhtp_res on_read_multipart_data(
     evhtp_request_t *req, evbuf_t *buf, void *arg)
 {
@@ -793,15 +806,10 @@ cleanup:
         return EVHTP_RES_OK;
     }
     
-    return EVHTP_RES_OK;
-}
-
-static evhtp_res on_request_fini_multipart_data(
-    evhtp_request_t *req, void *arg)
-{
-    auto mp = (evmvc::_internal::multipart_parser*)arg;
-    EVMVC_TRACE(mp->log, "on_request_fini_multipart_data");
-    delete mp;
+    if(mp->completed && mp->ra->ready){
+        on_request_fini_multipart_data(req, mp);
+        on_multipart_request(req, mp);
+    }
     
     return EVHTP_RES_OK;
 }

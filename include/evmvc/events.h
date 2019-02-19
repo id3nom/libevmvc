@@ -326,7 +326,7 @@ private:
 // {
 //     return std::shared_ptr<event_wrapper<void>>(
 //         new event_wrapper<void>(
-//             *evmvc::ev_base(), fd, events, _res, _nxt, _cb
+//             *evmvc::thread_ev_base(), fd, events, _res, _nxt, _cb
 //         )
 //     );
 // }
@@ -473,7 +473,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
-            *evmvc::ev_base(), fd, et, nullptr, nullptr, _cb
+            *evmvc::thread_ev_base(), fd, et, nullptr, nullptr, _cb
         )
     );
     if(ms == 0){
@@ -511,7 +511,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
-            *evmvc::ev_base(), -1, event_type::none, nullptr, nullptr, 
+            *evmvc::thread_ev_base(), -1, event_type::none, nullptr, nullptr, 
             [_cb](auto ew, int /*fd*/, evmvc::event_type /*et*/){
                 _cb(ew);
             }
@@ -553,7 +553,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
-            *evmvc::ev_base(), fd, et | event_type::persist,
+            *evmvc::thread_ev_base(), fd, et | event_type::persist,
             nullptr, nullptr, _cb
         )
     );
@@ -591,7 +591,8 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
-            *evmvc::ev_base(), -1, event_type::persist, nullptr, nullptr, 
+            *evmvc::thread_ev_base(), -1, event_type::persist,
+            nullptr, nullptr, 
             [_cb](auto ew, int /*fd*/, evmvc::event_type /*et*/){
                 _cb(ew);
             }

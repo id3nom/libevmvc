@@ -91,7 +91,7 @@ public:
     
     size_t id() const { return _id;}
     virtual filter_type type() const = 0;
-    virtual void validate(filter_rule_ctx& ctx, validation_cb cb) = 0;
+    virtual void validate(filter_rule_ctx ctx, validation_cb cb) = 0;
     
 private:
     size_t _id;
@@ -144,7 +144,7 @@ public:
             }
     }
     
-    void validate(filter_type type, filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_type type, filter_rule_ctx ctx, validation_cb cb)
     {
         _validate(type, 0, ctx, cb);
     }
@@ -154,20 +154,20 @@ public:
 protected:
     
     void _validate(filter_type type, size_t idx,
-        filter_rule_ctx& ctx, validation_cb cb)
+        filter_rule_ctx ctx, validation_cb cb)
     {
         while(idx < _rules.size() && _rules[idx]->type() != type)
             ++idx;
-        if(idx == _rules.size())
+        if(idx >= _rules.size())
             return cb(nullptr);
         
         _rules[idx]->validate(
             ctx,
-        [self = this->shared_from_this(), type, &idx, &ctx, cb]
-        (const cb_error& err){
+        [self = this->shared_from_this(), type, idx, ctx, cb]
+        (const cb_error& err) mutable {
             if(err)
                 return cb(err);
-            if(++idx == self->_rules.size())
+            if(++idx >= self->_rules.size())
                 return cb(nullptr);
             self->_validate(type, idx, ctx, cb);
         });
@@ -186,7 +186,7 @@ filter_policy new_filter_policy()
 
 
 typedef std::function<
-    void(filter_rule_ctx& ctx, validation_cb cb)
+    void(filter_rule_ctx ctx, validation_cb cb)
     > user_validation_cb;
 class user_filter_rule_t
     : public filter_rule_t
@@ -199,7 +199,7 @@ public:
     
     filter_type type() const { return _type;}
     
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_rule_ctx ctx, validation_cb cb)
     {
         _uvcb(ctx, cb);
     }
@@ -229,7 +229,7 @@ public:
     std::vector<std::string> names;
     std::vector<std::string> mime_types;
     
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_rule_ctx ctx, validation_cb cb)
     {
         if(!ctx->file)
             return cb(nullptr);
@@ -279,7 +279,7 @@ public:
     std::vector<std::string> mime_types;
     size_t max_size;
     
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_rule_ctx ctx, validation_cb cb)
     {
         if(!ctx->file)
             return cb(nullptr);
@@ -343,7 +343,7 @@ public:
     
     filter_type type() const { return filter_type::access;}
     
-    void validate(filter_rule_ctx& ctx, validation_cb cb)
+    void validate(filter_rule_ctx ctx, validation_cb cb)
     {
         std::string tok = _get_jwt(ctx->req);
         if(tok.empty()){

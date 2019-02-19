@@ -62,7 +62,7 @@ public:
     
     virtual void execute(evmvc::sp_response res, async_cb cb);
     virtual void validate_access(
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb);
     
     sp_route _route;
@@ -199,7 +199,7 @@ public:
     }
     
     void validate_access(
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb);
     
 protected:
@@ -210,8 +210,8 @@ protected:
     {
         _handlers[hidx](
             req, res,
-        [self = this->shared_from_this(), &req, &res, &hidx, &cb]
-        (cb_error err){
+        [self = this->shared_from_this(), &req, &res, hidx, cb]
+        (cb_error err) mutable {
             if(err){
                 cb(err);
                 return;
@@ -225,23 +225,26 @@ protected:
         });
     }
     
-    void _validate_policies(
+    void _validate_route_policies(
         policies::filter_type type,
         size_t idx,
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
     {
+        if(idx >= _policies.size())
+            return cb(nullptr);
+        
         _policies[idx]->validate(
             type,
             ctx,
-        [self = this->shared_from_this(), type, &ctx, &idx, &cb]
-        (const cb_error& err){
+        [self = this->shared_from_this(), type, ctx, idx, cb]
+        (const cb_error& err) mutable {
             if(err)
                 return cb(err);
-            if(++idx == self->_policies.size())
+            if(++idx >= self->_policies.size())
                 return cb(nullptr);
             
-            self->_validate_policies(type, idx, ctx, cb);
+            self->_validate_route_policies(type, idx, ctx, cb);
         });
     }
     
@@ -638,25 +641,25 @@ public:
     }
     
     void validate_access(
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
     {
         if(_parent)
             return _parent->validate_access(ctx,
-            [self = this->shared_from_this(), &ctx, cb](const cb_error& err){
+            [self = this->shared_from_this(), ctx, cb](const cb_error& err){
                 if(err)
                     return cb(err);
                 
                 if(self->_policies.empty())
                     return cb(nullptr);
-                self->_validate_policies(
+                self->_validate_router_policies(
                     policies::filter_type::access, 0, ctx, cb
                 );
             });
         
         if(_policies.empty())
             return cb(nullptr);
-        _validate_policies(policies::filter_type::access, 0, ctx, cb);
+        _validate_router_policies(policies::filter_type::access, 0, ctx, cb);
     }
     
 protected:
@@ -732,23 +735,26 @@ protected:
         return r;
     }
     
-    void _validate_policies(
+    void _validate_router_policies(
         policies::filter_type type,
         size_t idx,
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
     {
+        if(idx >= _policies.size())
+            return cb(nullptr);
+        
         _policies[idx]->validate(
             type,
             ctx,
-        [self = this->shared_from_this(), type, &ctx, &idx, &cb]
-        (const cb_error& err){
+        [self = this->shared_from_this(), type, ctx, idx, cb]
+        (const cb_error& err) mutable {
             if(err)
                 return cb(err);
-            if(++idx == self->_policies.size())
+            if(++idx >= self->_policies.size())
                 return cb(nullptr);
             
-            self->_validate_policies(type, idx, ctx, cb);
+            self->_validate_router_policies(type, idx, ctx, cb);
         });
     }
     
@@ -770,25 +776,28 @@ protected:
     
     verb_map _verbs;
     router_map _routers;
-};
+    
+};// class router
 
 void route::validate_access(
-    evmvc::policies::filter_rule_ctx& ctx,
+    evmvc::policies::filter_rule_ctx ctx,
     evmvc::policies::validation_cb cb)
 {
     get_router()->validate_access(ctx,
-    [self = this->shared_from_this(), &ctx, cb](const cb_error& err){
+    [self = this->shared_from_this(), ctx, cb](const cb_error& err){
         if(err)
             return cb(err);
         
         if(self->_policies.empty())
             return cb(nullptr);
-        self->_validate_policies(policies::filter_type::access, 0, ctx, cb);
+        self->_validate_route_policies(
+            policies::filter_type::access, 0, ctx, cb
+        );
     });
 }
 
 void route_result::validate_access(
-        evmvc::policies::filter_rule_ctx& ctx,
+        evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
 {
     // first validate router access

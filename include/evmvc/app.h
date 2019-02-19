@@ -158,7 +158,7 @@ public:
         _evhtp = evhtp_new(_ev_base, NULL);
         
         evhtp_callback_t* cb = evhtp_set_glob_cb(
-            _evhtp, "*", _internal::on_app_request, nullptr
+            _evhtp, "*", _internal::on_app_noop_request, nullptr
         );
         evhtp_callback_set_hook(
             cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
@@ -498,31 +498,34 @@ evhtp_res _internal::on_headers(
         rr->log(), req, rr->_route, rr->params
     );
     
+    evmvc::_internal::request_args* ra = 
+        new evmvc::_internal::request_args();
+    ra->ready = false;
+    ra->rr = rr;
+    ra->res = res;
+    
+    // update request cb.
+    req->cb = on_app_request;
+    req->cbarg = ra;
+    
     // create validation context
     evmvc::policies::filter_rule_ctx ctx = 
         evmvc::policies::new_context(res);
     
-    res->pause();
+    //res->pause();
     rr->validate_access(
         ctx,
-    [a, rr, res, &req, &hdr](const evmvc::cb_error& err){
+    [a, req, hdr, rr, res, ra](const evmvc::cb_error& err){
+        res->resume();
+        
         if(err){
             res->error(
                 evmvc::status::unauthorized,
                 err
             );
-            res->resume();
+            //res->resume();
             return;
         }
-        
-        evmvc::_internal::request_args* ra = 
-            new evmvc::_internal::request_args();
-        ra->rr = rr;
-        ra->res = res;
-        
-        // update request cb.
-        req->cb = on_app_request;
-        req->cbarg = ra;
         
         if(evmvc::_internal::is_multipart_data(req, hdr)){
             evmvc::_internal::parse_multipart_data(
@@ -530,30 +533,46 @@ evhtp_res _internal::on_headers(
                 req, hdr, ra,
                 a->options().temp_dir
             );
+        } else {
+            if(ra->ready)
+                _internal::on_app_request(req, ra);
+            else
+                ra->ready = true;
         }
-        res->resume();
     });
+    
     return EVHTP_RES_OK;
+    //return EVHTP_RES_PAUSE;
 }
 
 void _internal::on_multipart_request(evhtp_request_t* req, void* arg)
 {
+    req->hooks->on_request_fini_arg = nullptr;
+    
     auto mp = (evmvc::_internal::multipart_parser*)arg;
     EVMVC_TRACE(mp->ra->res->log(), "Multipart parser task completed!");
     mp->ra->res->req()->_load_multipart_params(mp->root);
     
     evmvc::_internal::request_args* ra = mp->ra;
     delete mp;
-    
+    ra->ready = true;
     _internal::on_app_request(req, ra);
+}
+
+void _internal::on_app_noop_request(evhtp_request_t* /*req*/, void* /*arg*/)
+{
 }
 
 void _internal::on_app_request(evhtp_request_t* req, void* arg)
 {
-    if(arg == nullptr)
-        return;
-    
     evmvc::_internal::request_args* ra = (evmvc::_internal::request_args*)arg;
+    
+    if(!ra->ready){
+        ra->res->pause();
+        ra->ready = true;
+        return;
+    }
+    
     sp_app a = ra->res->get_app();
     sp_route_result rr = ra->rr;
     sp_response res = ra->res;
@@ -613,6 +632,8 @@ void request::_load_multipart_params(
                 std::static_pointer_cast<
                     _internal::multipart_content_file
                 >(ct);
+            if(!_files)
+                _files = std::make_shared<http_files>();
             _files->_files.emplace_back(
                 std::make_shared<http_file>(
                     mcf->name, mcf->filename,

@@ -151,6 +151,7 @@ namespace _internal{
     
     typedef struct request_args_t
     {
+        bool ready;
         evmvc::sp_route_result rr;
         evmvc::sp_response res;
     } request_args;
@@ -172,6 +173,7 @@ namespace _internal{
     evhtp_res on_headers(
         evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
     void on_multipart_request(evhtp_request_t* req, void* arg);
+    void on_app_noop_request(evhtp_request_t* /*req*/, void* /*arg*/);
     void on_app_request(evhtp_request_t* req, void* arg);
     
     void send_error(

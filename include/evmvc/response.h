@@ -114,6 +114,7 @@ public:
     http_cookies& cookies() const { return *(_cookies.get());}
     evmvc::sp_request req() const { return _req;}
     
+    bool paused() const { return _paused;}
     void pause()
     {
         if(_paused)
