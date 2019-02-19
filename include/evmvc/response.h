@@ -179,7 +179,7 @@ public:
     
     response& type(evmvc::string_view type, evmvc::string_view enc = "")
     {
-        _type = evmvc::mime::get_type(type).to_string();
+        _type = evmvc::mime::get_type(type);
         if(_type.empty())
             _type = type.data();
         if(enc.size() > 0)

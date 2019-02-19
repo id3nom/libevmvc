@@ -455,10 +455,19 @@ namespace sinks{
         
         static void _on_inotify(int fd, short events, void* arg)
         {
+            // clear the notify flag.
+            struct inotify_event ie;
+            while(true){
+                ssize_t l = read(fd, &ie, sizeof(ie));
+                if(l == -1)
+                    break;
+            }
+            
             if((events & IN_IGNORED) == IN_IGNORED)
                 return;
             
             rotating_file_sink* self = (rotating_file_sink*)arg;
+
             if(self->_rotating)
                 return;
             

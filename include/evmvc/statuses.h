@@ -244,7 +244,7 @@ public:
         return _codes;
     }
     
-    static evmvc::string_view status(int16_t code)
+    static std::string status(int16_t code)
     {
         std::string sc = evmvc::num_to_str(code, false);
         auto it = codes().find(sc);
@@ -253,7 +253,7 @@ public:
         else
             return *it;
     }
-    static evmvc::string_view status(evmvc::status s)
+    static std::string status(evmvc::status s)
     {
         return status((int16_t)s);
     }
@@ -336,7 +336,7 @@ public:
     
 };
 
-evmvc::string_view to_string(evmvc::status sc)
+std::string to_string(evmvc::status sc)
 {
     return evmvc::statuses::status((int16_t)sc);
 }

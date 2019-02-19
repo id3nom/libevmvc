@@ -90,9 +90,11 @@ int main(int argc, char** argv)
     evmvc::app_options opts;
     opts.stack_trace_enabled = true;
     opts.log_console_level = evmvc::log_level::trace;
-    opts.log_file_level = evmvc::log_level::warning;
+    opts.log_file_level = evmvc::log_level::off;
     //opts.log_file_max_size = 10000;
-    opts.worker_count = 0;
+    if(argc > 1)
+        opts.worker_count = evmvc::str_to_num<int>(argv[1]);
+
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
@@ -257,14 +259,16 @@ int main(int argc, char** argv)
         [](evmvc::policies::filter_rule_ctx ctx,
             evmvc::policies::validation_cb cb)
         {
-            ctx->req->log()->info("waiting 3 seconds...");
+            int to = rand()%(25-5 + 1) + 5;
+            ctx->req->log()->info("waiting {}ms...", to);
             
             evmvc::set_timeout([ctx, cb](auto ew){
                 cb(nullptr);
-            }, 3000);
+            }, to);
         })
     );
     frtr->register_policy(pol);
+    
     srv->register_router(
         std::static_pointer_cast<evmvc::router>(frtr)
     );

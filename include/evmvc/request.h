@@ -99,14 +99,22 @@ public:
             return;
         
         while(qp != nullptr){
-            char* pval = evhttp_decode_uri(qp->val);
-            std::string sval(pval);
-            free(pval);
-            _qry_params->emplace_back(
-                std::make_shared<evmvc::http_param>(
-                    qp->key, sval
-                )
-            );
+            if(!qp->val){
+                _qry_params->emplace_back(
+                    std::make_shared<evmvc::http_param>(
+                        qp->key, ""
+                    )
+                );
+            }else{
+                char* pval = evhttp_decode_uri(qp->val);
+                std::string sval(pval);
+                free(pval);
+                _qry_params->emplace_back(
+                    std::make_shared<evmvc::http_param>(
+                        qp->key, sval
+                    )
+                );
+            }
             
             qp = qp->next.tqe_next;
             if(qp == *_ev_req->uri->query->tqh_last)

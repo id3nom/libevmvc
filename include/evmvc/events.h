@@ -333,6 +333,7 @@ private:
 
 std::string next_event_name()
 {
+    std::unique_lock<std::mutex> lock(events_mutex());
     static size_t uid = 0;
     return "da724ca0-308c-11e9-9071-5b3166957f05_" + evmvc::num_to_str(++uid);
 }
@@ -351,6 +352,8 @@ void register_event(sp_evw ev)
 
 bool event_exists(const std::string& name)
 {
+    std::unique_lock<std::mutex> lock(events_mutex());
+    
     auto it = named_events().find(name);
     return it != named_events().end();
 }
@@ -359,12 +362,16 @@ bool event_exists(const std::string& name)
 
 bool timeout_exists(evmvc::string_view name)
 {
+    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+
     std::string n = "to:" + name.to_string();
     return _internal::event_exists(n);
 }
 
 bool interval_exists(evmvc::string_view name)
 {
+    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+
     std::string n = "iv:" + name.to_string();
     return _internal::event_exists(n);
 }
@@ -470,6 +477,9 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     size_t ms
 )
 {
+    if(*evmvc::thread_ev_base() == nullptr)
+        return nullptr;
+    
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
@@ -508,6 +518,9 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     size_t ms
 )
 {
+    if(*evmvc::thread_ev_base() == nullptr)
+        return nullptr;
+    
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
@@ -550,6 +563,9 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     size_t ms
 )
 {
+    if(*evmvc::thread_ev_base() == nullptr)
+        return nullptr;
+    
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
@@ -588,6 +604,9 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     size_t ms
 )
 {
+    if(*evmvc::thread_ev_base() == nullptr)
+        return nullptr;
+    
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),

@@ -174,13 +174,14 @@ public:
             evhtp_use_threads_wexit(_evhtp,
                 // called on init
                 [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
-                    evmvc::info("Loading thread '{}'", ::pthread_self());
+                    evmvc::warn("Loading thread '{}'", ::pthread_self());
                     *evmvc::thread_ev_base() = evthr_get_base(thread);
                 },
                 
                 // called on exit
                 [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
-                    evmvc::info("Exiting thread '{}'", ::pthread_self());
+                    *evmvc::thread_ev_base() = nullptr;
+                    evmvc::warn("Exiting thread '{}'", ::pthread_self());
                 },
                 
                 _options.worker_count, NULL

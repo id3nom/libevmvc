@@ -140,7 +140,7 @@ public:
     /**
      * Lookup a mime type based on extension
      */
-    static evmvc::string_view get_type(evmvc::string_view path)
+    static std::string get_type(evmvc::string_view path)
     {
         auto tp = evmvc::lower_case_copy(evmvc::trim_copy(path.data()));
         if(tp.size() == 0 || (*tp.rbegin()) == '/')
@@ -162,7 +162,7 @@ public:
     /**
      * Return file extension associated with a mime type
      */
-    static evmvc::string_view get_extension(evmvc::string_view mime_type)
+    static std::string get_extension(evmvc::string_view mime_type)
     {
         auto ext = _extensions().find(
             evmvc::trim_copy(evmvc::lower_case_copy(mime_type.data()))
