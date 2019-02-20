@@ -12,10 +12,9 @@ void sig_received(int sig);
 int main(int argc, char** argv)
 {
     signal(SIGINT, sig_received);
-    signal(SIGKILL, sig_received);
     
-    //int worker_count = 4;
-    int worker_count = 1;
+    int worker_count = 4;
+    //int worker_count = 1;
     
     for(int i = 0; i < worker_count; ++i){
         worker w = std::make_shared<worker_t>();
@@ -51,6 +50,8 @@ int main(int argc, char** argv)
         }else if(w->pid == 0){// is worker proc
             workers().clear();
             
+            w->pid = getpid();
+            
             // remove old socket
             if(remove(w->chan.usock_path.c_str()) == -1 && errno != ENOENT)
                 error_exit("unable to remove: " + w->chan.usock_path);
@@ -76,6 +77,7 @@ int main(int argc, char** argv)
             close(w->chan.ctop[PIPE_READ_FD]);
             
             int wres = start_worker(w);
+            w.reset();
             return wres;
             
         }else{// is main proc
@@ -133,17 +135,13 @@ void exiting()
 
 void sig_received(int sig)
 {
-    if(sig == SIGINT)
+    if(sig == SIGINT){
         //_run = false;
         event_base_loopbreak(ev_base());
+    }
 }
 
 
-
-void on_listen()
-{
-    
-}
 
 void start_listener()
 {
@@ -154,6 +152,10 @@ void start_listener()
     struct event* tev = event_new(ev_base(), -1, EV_PERSIST,
     [](int,short,void* args)->void{
         int* i = (int*)args;
+        
+        if(workers().size() == 0)
+            return;
+        
         int widx = ++(*i) % workers().size();
         
         worker w = workers()[widx];
@@ -296,6 +298,12 @@ void start_listener()
             sockaddr* saddr, int socklen, void* args
         )->void{
             int* wid = (int*)args;
+            
+            if(workers().size() == 0){
+                close(sock);
+                return;
+            }
+            
             // send the sock via cmsg
             int data;
             struct msghdr msgh;
@@ -343,11 +351,12 @@ void start_listener()
     );
     
     event_base_loop(ev_base(), 0);
-
-cleanup:
+    
+    evconnlistener_free(lev);
+    
     event_del(tev);
     event_free(tev);
-
+    
     for(auto w : workers()){
         event_del(w->chan.rcmd_ev);
         event_free(w->chan.rcmd_ev);

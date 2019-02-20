@@ -11,6 +11,7 @@
             "program": "${workspaceFolder}/build/bin/bbact",
             "args": [
             ],
+            //"autoAttachChildProcesses": true,
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/bin/",
             "environment": [],
@@ -23,7 +24,31 @@
                     "ignoreFailures": true
                 }
             ]
-        }
+        },
         
-    ]
+        {
+            "name": "(gdb) Attach worker",
+            "type": "cppdbg",
+            "request": "attach",
+            "processId":"${command:pickProcess}",
+            "program": "${workspaceFolder}/build/bin/bbact",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ],
+    
+	"compounds": [
+		{
+			"name": "main+worker",
+			"configurations": [
+				"(gdb) Launch project", "(gdb) Attach worker"
+			]
+		}
+	]
 }
