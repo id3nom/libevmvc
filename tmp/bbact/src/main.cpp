@@ -346,7 +346,7 @@ void start_listener()
             cmsgp->cmsg_len = CMSG_LEN(sizeof(int));
             cmsgp->cmsg_level = SOL_SOCKET;
             cmsgp->cmsg_type = SCM_RIGHTS;
-            *((int *) CMSG_DATA(cmsgp)) = sock;
+            *((int*)CMSG_DATA(cmsgp)) = sock;
             
             int res = sendmsg(workers[0]->chan.acm[PIPE_WRITE_FD], &msgh, 0);
             if(res == -1)
