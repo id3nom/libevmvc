@@ -1,61 +1,11 @@
 
+#include "stable_headers.h"
+#include "worker.h"
+#include "unix_sockets.h"
 
-#include <iostream>
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <netinet/in.h>
-#include <netinet/tcp.h>
-#include <arpa/inet.h>
-#include <sys/prctl.h>
-#include <unistd.h>
-#include <fcntl.h>
-
-#include <signal.h>
-#include <event2/event.h>
-#include <event2/buffer.h>
-#include <event2/util.h>
-#include <event2/listener.h>
-#include <event2/bufferevent.h>
-
-#include <memory>
-#include <vector>
-#include <functional>
-
-#include <strings.h>
-
-struct event_base* _ev_base = nullptr;
-//bool _run = true;
-
-#define PIPE_WRITE_FD 1
-#define PIPE_READ_FD 0
-
-class channel
-{
-public:
-    int ptoc[2] = {0,0};
-    int ctop[2] = {0,0};
-    // access control messages (ancillary data) pipe
-    int acm[2] = {0,0};
-    struct event* ev = nullptr;
-};
-
-class worker_t
-{
-public:
-    int wid = -1;
-    int pid = -1;
-    channel chan;
-};
-
-typedef std::shared_ptr<worker_t> worker;
-std::vector<worker> workers;
-
-void close_children();
+void close_workers();
 void start_listener();
-int start_worker(worker w);
 void exiting();
 void sig_received(int sig);
 
@@ -64,29 +14,61 @@ int main(int argc, char** argv)
     signal(SIGINT, sig_received);
     signal(SIGKILL, sig_received);
     
-    int worker_count = 4;
-    //int worker_count = 1;
+    //int worker_count = 4;
+    int worker_count = 1;
     
     for(int i = 0; i < worker_count; ++i){
         worker w = std::make_shared<worker_t>();
-        w->wid = workers.size();
+        w->wid = workers().size();
         
-        pipe(w->chan.acm);
+        char buf[FILENAME_MAX];
+        getcwd(buf, FILENAME_MAX);
+        std::string cur_dir(buf);
+        
+        if(cur_dir[cur_dir.size()-1] != '/')
+            cur_dir += "/";
+        std::string run_dir = cur_dir + ".run";
+        __mode_t mod = S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH;
+        if(mkdir(run_dir.c_str(), mod) == -1 && errno != EEXIST)
+            error_exit(
+                "mkdir failed with: " + std::to_string(errno)
+            );
+        if(run_dir[run_dir.size()-1] != '/')
+            run_dir += "/";
+        
+        w->chan.usock_path = run_dir + "bbact." + std::to_string(w->wid);
+        
+        //pipe(w->chan.acm);
         pipe(w->chan.ptoc);
         pipe(w->chan.ctop);
         
         w->pid = fork();
         if(w->pid == -1){// error
-            std::cerr << "unable to create child\n";
-            close_children();
+            std::cerr << "unable to create worker\n";
+            close_workers();
             return -1;
             
-        }else if(w->pid == 0){// is child proc
-            workers.clear();
+        }else if(w->pid == 0){// is worker proc
+            workers().clear();
             
-            //TODO: must be converted to unix socket...
-            fcntl(w->chan.acm[PIPE_READ_FD], F_SETFL, O_NONBLOCK);
-            close(w->chan.acm[PIPE_WRITE_FD]);
+            // remove old socket
+            if(remove(w->chan.usock_path.c_str()) == -1 && errno != ENOENT)
+                error_exit("unable to remove: " + w->chan.usock_path);
+            
+            // create the client listener
+            int lfd = unix_bind(w->chan.usock_path.c_str(), SOCK_STREAM);
+            if(lfd == -1)
+                error_exit("unix_bind: " + std::to_string(errno));
+            if(listen(lfd, 5) == -1)
+                error_exit("listen: " + std::to_string(errno));
+            do{
+                w->chan.usock = accept(lfd, nullptr, nullptr);
+                if(w->chan.usock == -1)
+                    std::cerr << "accept err: " << errno << std::endl;
+            }while(w->chan.usock == -1);
+            unix_set_sock_opts(w->chan.usock);
+            // now close the listener
+            close(lfd);
             
             fcntl(w->chan.ptoc[PIPE_READ_FD], F_SETFL, O_NONBLOCK);
             close(w->chan.ptoc[PIPE_WRITE_FD]);
@@ -97,68 +79,65 @@ int main(int argc, char** argv)
             return wres;
             
         }else{// is main proc
-            //TODO: must be converted to unix socket...
-            fcntl(w->chan.acm[PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
-            close(w->chan.acm[PIPE_READ_FD]);
-            
             fcntl(w->chan.ptoc[PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
             close(w->chan.ptoc[PIPE_READ_FD]);
             fcntl(w->chan.ctop[PIPE_READ_FD], F_SETFL, O_NONBLOCK);
             close(w->chan.ctop[PIPE_WRITE_FD]);
             
-            workers.emplace_back(w);
+            workers().emplace_back(w);
         }
+    }
+    
+    // connect unix socket to workers.
+    for(auto w : workers()){
+        int tryout = 0;
+        do{
+            w->chan.usock = unix_connect(
+                w->chan.usock_path.c_str(), SOCK_STREAM
+            );
+            if(w->chan.usock == -1){
+                std::cerr << "unix connect err: " << errno << std::endl;
+                sleep(1);
+            }else
+                break;
+            
+            if(++tryout >= 5)
+                error_exit(
+                    "unable to connect to client: " +
+                    std::to_string(w->wid)
+                );
+        }while(w->chan.usock == -1);
+        unix_set_sock_opts(w->chan.usock);
     }
     
     std::atexit(exiting);
     std::at_quick_exit(exiting);
     start_listener();
-    close_children();
+    close_workers();
     
     return 0;
 }
 
-void close_children()
+void close_workers()
 {
-    for(auto el : workers)
+    for(auto el : workers())
         kill(el->pid, SIGINT);
-    workers.clear();
+    workers().clear();
 }
 
 void exiting()
 {
     std::clog << "exiting\n";
-    close_children();
+    close_workers();
 }
 
 void sig_received(int sig)
 {
     if(sig == SIGINT)
         //_run = false;
-        event_base_loopbreak(_ev_base);
+        event_base_loopbreak(ev_base());
 }
 
-ssize_t writen(int fd, const void *vptr, size_t n)
-{
-    size_t nleft;
-    ssize_t nwritten;
-    const char* ptr;
-    
-    ptr = (const char*)vptr;
-    nleft = n;
-    while(nleft > 0){
-        if((nwritten = write(fd, ptr, nleft)) <= 0){
-            if (errno == EINTR)
-                nwritten = 0;/* and call write() again */
-            else
-                return(-1);/* error */
-        }
-        
-        nleft -= nwritten;
-        ptr   += nwritten;
-    }
-    return(n);
-}
 
 
 void on_listen()
@@ -169,16 +148,15 @@ void on_listen()
 void start_listener()
 {
     std::cout << "starting listener\n";
+    ev_base();
     
-    event_enable_debug_mode();
-    _ev_base = event_base_new();
     int i = 0;
-    struct event* tev = event_new(_ev_base, -1, EV_PERSIST,
+    struct event* tev = event_new(ev_base(), -1, EV_PERSIST,
     [](int,short,void* args)->void{
         int* i = (int*)args;
-        int widx = ++(*i) % workers.size();
+        int widx = ++(*i) % workers().size();
         
-        worker w = workers[widx];
+        worker w = workers()[widx];
         std::string msg("Hello worker, idx: ");
         msg += std::to_string(widx) + ", pid: " + std::to_string(w->pid);
         writen(w->chan.ptoc[PIPE_WRITE_FD], msg.c_str(), msg.size());
@@ -188,9 +166,9 @@ void start_listener()
     event_add(tev, &tv);
     
     // read events for each worker
-    for(auto w : workers){
-        w->chan.ev = event_new(
-            _ev_base, w->chan.ctop[PIPE_READ_FD], EV_READ | EV_PERSIST,
+    for(auto w : workers()){
+        w->chan.rcmd_ev = event_new(
+            ev_base(), w->chan.ctop[PIPE_READ_FD], EV_READ | EV_PERSIST,
         [](int fd, short events, void* args)->void{
             worker_t* w = (worker_t*)args;
             
@@ -215,7 +193,7 @@ void start_listener()
                     break;
             }
         }, w.get());
-        event_add(w->chan.ev, nullptr);
+        event_add(w->chan.rcmd_ev, nullptr);
     }
     
     struct sockaddr* sa;
@@ -311,11 +289,13 @@ void start_listener()
         return std::exit(-1);
     
     int backlog = -1;
+    int wid = -1;
     struct evconnlistener* lev = evconnlistener_new(
-        _ev_base,
+        ev_base(),
         [](struct evconnlistener*, int sock,
             sockaddr* saddr, int socklen, void* args
         )->void{
+            int* wid = (int*)args;
             // send the sock via cmsg
             int data;
             struct msghdr msgh;
@@ -348,127 +328,32 @@ void start_listener()
             cmsgp->cmsg_type = SCM_RIGHTS;
             *((int*)CMSG_DATA(cmsgp)) = sock;
             
-            int res = sendmsg(workers[0]->chan.acm[PIPE_WRITE_FD], &msgh, 0);
+            //int res = sendmsg(
+            //    workers()[0]->chan.acm[PIPE_WRITE_FD], &msgh, 0);
+            if(++(*wid) >= workers().size())
+                *wid = 0;
+            int res = sendmsg(workers()[*wid]->chan.usock, &msgh, 0);
             if(res == -1)
                 std::exit(-1);
         },
-        nullptr, //args
+        &wid, //args
         LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
         backlog,
         sock
     );
     
-    event_base_loop(_ev_base, 0);
+    event_base_loop(ev_base(), 0);
 
 cleanup:
     event_del(tev);
     event_free(tev);
 
-    for(auto w : workers){
-        event_del(w->chan.ev);
-        event_free(w->chan.ev);
+    for(auto w : workers()){
+        event_del(w->chan.rcmd_ev);
+        event_free(w->chan.rcmd_ev);
     }
-    event_base_free(_ev_base);
+    event_base_free(ev_base());
     
     std::cout << "listener closing\n";
 }
 
-void worker_recv_sock(int sock)
-{
-    struct bufferevent* bev = bufferevent_socket_new(
-        _ev_base, sock,
-        BEV_OPT_CLOSE_ON_FREE
-    );
-    bufferevent_setcb(bev,
-        // readcb
-        [](struct bufferevent* bev, void* ctx)->void{
-            if(bev == nullptr)
-                return;
-            
-            size_t avail =
-                evbuffer_get_length(bufferevent_get_input(bev));
-            if(avail == 0)
-                return;
-            
-            void* buf = evbuffer_pullup(
-                bufferevent_get_input(bev), avail
-            );
-            
-            std::clog << "Received: " << (const char*)buf <<
-                "\n";
-            
-            evbuffer_drain(bufferevent_get_input(bev), avail);
-            
-            std::string msg("HTTP/1.1 200 OK\r\n\r\n");
-            bufferevent_write(bev, msg.c_str(), msg.size());
-            
-        },
-        
-        // writecb
-        [](struct bufferevent* bev, void* ctx)->void{
-            bufferevent_free(bev);
-        },
-        
-        // eventcb
-        [](struct bufferevent* bev, short what, void* ctx)->void{
-            
-        },
-        
-        nullptr
-    );
-    bufferevent_enable(bev, EV_READ);
-}
-
-int start_worker(worker w)
-{
-    // will send a SIGINT when the parent dies
-    prctl(PR_SET_PDEATHSIG, SIGINT);
-    int ppid = getppid();
-    std::cout << "starting worker\n parent pid: " << ppid << "\n";
-    
-    event_enable_debug_mode();
-    _ev_base = event_base_new();
-    
-    // on read
-    w->chan.ev = event_new(
-        _ev_base, w->chan.ptoc[PIPE_READ_FD],
-        EV_READ | EV_PERSIST,
-    [](int fd, short events, void* args)->void{
-        worker_t* w = (worker_t*)args;
-        
-        char buf[4096];
-        while(true){
-            ssize_t len = read(fd, buf, 4096);
-            if(len == -1){
-                int err = errno;
-                if(err == EAGAIN || err == EWOULDBLOCK)
-                    break;
-                
-                std::cerr << "read failed with: " << err << "\n";
-                raise(SIGINT);
-                return;
-            }
-            if(len > 0){
-                std::cout << "recv from listener: '" << 
-                    std::string(buf, len)
-                    << "'\n";
-                std::string msg("tnks listener for the msg");
-                writen(w->chan.ctop[PIPE_WRITE_FD], msg.c_str(), msg.size());
-            }
-            if(len == 0)
-                break;
-        }
-    }, w.get());
-    event_add(w->chan.ev, nullptr);
-    
-    event_base_loop(_ev_base, 0);
-    // event_del(tev);
-    // event_free(tev);
-    event_del(w->chan.ev);
-    event_free(w->chan.ev);
-    event_base_free(_ev_base);
-
-    std::cout << "worker closing\n";
-    
-    return 0;
-}

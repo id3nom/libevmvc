@@ -1,0 +1,114 @@
+/* unix_sockets.h
+
+   Header file for unix_sockets.c.
+*/
+#ifndef BBACT_UNIX_SOCKETS_H
+#define BBACT_UNIX_SOCKETS_H      /* Prevent accidental double inclusion */
+
+#include "stable_headers.h"
+
+#include <sys/socket.h>
+#include <sys/un.h>
+
+int unix_build_address(const char *path, struct sockaddr_un *addr);
+int unix_connect(const char *path, int type);
+int unix_bind(const char *path, int type);
+
+int unix_build_address(const char *path, struct sockaddr_un *addr)
+{
+    if(addr == NULL || path == NULL){
+        errno = EINVAL;
+        return -1;
+    }
+    
+    memset(addr, 0, sizeof(struct sockaddr_un));
+    addr->sun_family = AF_UNIX;
+    if(strlen(path) < sizeof(addr->sun_path)){
+        strncpy(addr->sun_path, path, sizeof(addr->sun_path) - 1);
+        return 0;
+        
+    }else{
+        errno = ENAMETOOLONG;
+        return -1;
+    }
+}
+
+int unix_connect(const char *path, int type)
+{
+    int sd, savedErrno;
+    struct sockaddr_un addr;
+
+    if(unix_build_address(path, &addr) == -1)
+        return -1;
+
+    sd = socket(AF_UNIX, type, 0);
+    if(sd == -1)
+        return -1;
+
+    if(connect(sd, (struct sockaddr *) &addr,
+                sizeof(struct sockaddr_un)) == -1){
+        savedErrno = errno;
+        close(sd);                      /* Might change 'errno' */
+        errno = savedErrno;
+        return -1;
+    }
+
+    return sd;
+}
+
+int unix_bind(const char *path, int type)
+{
+    int sd, savedErrno;
+    struct sockaddr_un addr;
+
+    if(unix_build_address(path, &addr) == -1)
+        return -1;
+
+    sd = socket(AF_UNIX, type, 0);
+    if(sd == -1)
+        return -1;
+
+    if(bind(sd, (struct sockaddr *) &addr, sizeof(struct sockaddr_un)) == -1){
+        savedErrno = errno;
+        close(sd);                      /* Might change 'errno' */
+        errno = savedErrno;
+        return -1;
+    }
+
+    return sd;
+}
+
+void unix_set_sock_opts(int sock)
+{
+    evutil_make_socket_closeonexec(sock);
+    evutil_make_socket_nonblocking(sock);
+    
+    int on = 1;
+    if(setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on)) == -1)
+        return std::exit(-1);
+    // if(setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void*)&on, sizeof(on)) == -1)
+    //     return std::exit(-1);
+    // if(setsockopt(sock, SOL_SOCKET, SO_REUSEPORT,
+    //     (void*)&on, sizeof(on)) == -1
+    // ){
+    //     if(errno != EOPNOTSUPP)
+    //         return std::exit(-1);
+    //     std::clog << "SO_REUSEPORT NOT SUPPORTED\n";
+    // }
+    // if(setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, 
+    //     (void*)&on, sizeof(on)) == -1
+    // ){
+    //     if(errno != EOPNOTSUPP)
+    //         return std::exit(-1);
+    //     std::clog << "TCP_NODELAY NOT SUPPORTED\n";
+    // }
+    // if(setsockopt(sock, IPPROTO_TCP, TCP_DEFER_ACCEPT, 
+    //     (void*)&on, sizeof(on)) == -1
+    // ){
+    //     if(errno != EOPNOTSUPP)
+    //         return std::exit(-1);
+    //     std::clog << "TCP_DEFER_ACCEPT NOT SUPPORTED\n";
+    // }
+}
+
+#endif
