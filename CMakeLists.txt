@@ -109,11 +109,11 @@ endif()
 
 
 # debug vs test vs shipping build type
-set(EVMVC_BUILD_TYPE "DEBUG" CACHE STRING "libpq-async++ BUILD TYPE")
+set(EVMVC_BUILD_TYPE "DEBUG" CACHE STRING "libevmvc BUILD TYPE")
 set(EVMVC_BUILD_TYPE_VALUES "DEBUG;RELEASE;")
 set_property(CACHE EVMVC_BUILD_TYPE PROPERTY STRINGS ${EVMVC_BUILD_TYPE_VALUES})
 
-message(STATUS "libpq-async++ build type='${EVMVC_BUILD_TYPE}'")
+message(STATUS "libevmvc build type='${EVMVC_BUILD_TYPE}'")
 if( ${EVMVC_BUILD_TYPE} STREQUAL "DEBUG")
     set(EVMVC_BUILD_DEBUG 1)
 else(${EVMVC_BUILD_TYPE} STREQUAL "DEBUG")
