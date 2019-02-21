@@ -1,0 +1,69 @@
+{
+    "C_Cpp.intelliSenseEngine": "Default",
+    "C_Cpp.autocomplete": "Default",
+    "C_Cpp.intelliSenseEngineFallback": "Enabled",
+    // "C_Cpp.configurationWarnings": "Disabled",
+    "editor.autoClosingBrackets": "never",
+    "editor.acceptSuggestionOnCommitCharacter": false,
+    "editor.autoClosingQuotes": "never",
+    
+    "files.associations": {
+        "*.hbs": "handlebars",
+        "type_traits": "cpp",
+        "initializer_list": "cpp",
+        "atomic": "cpp",
+        "strstream": "cpp",
+        "*.tcc": "cpp",
+        "chrono": "cpp",
+        "cinttypes": "cpp",
+        "condition_variable": "cpp",
+        "cstdint": "cpp",
+        "forward_list": "cpp",
+        "string_view": "cpp",
+        "iosfwd": "cpp",
+        "mutex": "cpp",
+        "ratio": "cpp",
+        "system_error": "cpp",
+        "thread": "cpp",
+        "cctype": "cpp",
+        "cstdio": "cpp",
+        "cstdlib": "cpp",
+        "cwchar": "cpp",
+        "typeindex": "cpp",
+        "codecvt": "cpp",
+        "clocale": "cpp",
+        "cmath": "cpp",
+        "cstdarg": "cpp",
+        "cstddef": "cpp",
+        "cstring": "cpp",
+        "ctime": "cpp",
+        "cwctype": "cpp",
+        "functional": "cpp",
+        "exception": "cpp"
+    },
+    "C_Cpp.dimInactiveRegions": false,
+    "editor.tokenColorCustomizations": {
+        "textMateRules": [
+            {
+                "scope": "googletest.failed",
+                "settings": {
+                    "foreground": "#f00"
+                }
+            },
+            {
+                "scope": "googletest.passed",
+                "settings": {
+                    "foreground": "#0f0"
+                }
+            },
+            {
+                "scope": "googletest.run",
+                "settings": {
+                    "foreground": "#0f0"
+                }
+            }
+        ]
+    },
+    "gtest-adapter.debugConfig": "(gdb) Launch",
+    "gtest-adapter.supportLocation": false
+}
