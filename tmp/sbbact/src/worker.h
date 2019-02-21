@@ -285,8 +285,8 @@ public:
         }
         
         // ciphers
-        if(cfg->ciphers){
-            if(SSL_CTX_set_cipher_list(ssl_ctx, cfg->ciphers) == 0)
+        if(cfg->ciphers.size() > 0){
+            if(SSL_CTX_set_cipher_list(ssl_ctx, cfg->ciphers.c_str()) == 0)
                 error_exit("set_cipher_list");
         }
         
@@ -370,8 +370,8 @@ public:
     
     std::vector<vhost> vhosts;
 
-    struct timeval recv_timeo = {0,0};
-    struct timeval send_timeo = {0,0};
+    struct timeval recv_timeo = {3,0};
+    struct timeval send_timeo = {3,0};
     
 };
 
@@ -434,7 +434,7 @@ public:
             rtimeo = &recv_timeo;
         else if(w->recv_timeo.tv_sec || w->recv_timeo.tv_usec)
             rtimeo = &w->recv_timeo;
-
+        
         struct timeval* wtimeo = nullptr;
         if(send_timeo.tv_sec || send_timeo.tv_usec)
             wtimeo = &send_timeo;
@@ -451,7 +451,7 @@ public:
         
         bufferevent_setcb(bev,
             connection_readcb,
-            connection_writecb,
+            nullptr, //connection_writecb,
             connection_eventcb,
             this
         );
