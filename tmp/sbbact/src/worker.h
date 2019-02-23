@@ -60,9 +60,9 @@ public:
     std::string capath;
     
     std::string ciphers;
-    char* named_curve = nullptr;
-    char* dhparams = nullptr;
-
+    std::string named_curve;
+    std::string dhparams;
+    
     long ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
     long ssl_ctx_timeout = 0;
     
@@ -74,7 +74,7 @@ public:
     bbact_ssl_decrypt_cb decrypt_cb = nullptr;
     
     unsigned long store_flags = 0;
-
+    
     ssl_cache_type scache_type = ssl_cache_type::disabled;
     long scache_timeout = 0;
     long scache_size = 0;
@@ -129,70 +129,10 @@ int ssl_servername(SSL* ssl, int* unused, void* arg)
     return SSL_TLSEXT_ERR_NOACK;
 }     /* htp__ssl_servername_ */
 
-int ssl_new_scache_ent(SSL* ssl, SSL_SESSION* sess)
-{
-    // evhtp_connection_t * connection;
-    // evhtp_ssl_cfg_t    * cfg;
-    // evhtp_ssl_data_t   * sid;
-    // unsigned int         slen;
-
-    // connection = (evhtp_connection_t *)SSL_get_app_data(ssl);
-    // if (connection->htp == NULL) {
-    //     return 0;     /* We cannot get the ssl_cfg */
-    // }
-
-    // cfg = connection->htp->ssl_cfg;
-    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
-
-    // SSL_set_timeout(sess, cfg->scache_timeout);
-
-    // if (cfg->scache_add) {
-    //     return (cfg->scache_add)(connection, sid, slen, sess);
-    // }
-
-    return 0;
-}
-
+int ssl_new_scache_ent(SSL* ssl, SSL_SESSION* sess);
 SSL_SESSION* ssl_get_scache_ent(
-    SSL* ssl, const unsigned char* sid, int sid_len, int* copy)
-{
-    // evhtp_connection_t * connection;
-    // evhtp_ssl_cfg_t    * cfg;
-    SSL_SESSION* sess;
-
-    // connection = (evhtp_connection_t * )SSL_get_app_data(ssl);
-
-    // if (connection->htp == NULL) {
-    //     return NULL;     /* We have no way of getting ssl_cfg */
-    // }
-
-    // cfg  = connection->htp->ssl_cfg;
-    // sess = NULL;
-
-    // if (cfg->scache_get) {
-    //     sess = (cfg->scache_get)(connection, sid, sid_len);
-    // }
-
-    // *copy = 0;
-
-    return sess;
-}
-
-void ssl_remove_scache_ent(SSL_CTX* ctx, SSL_SESSION* sess)
-{
-    // evhtp_t          * htp;
-    // evhtp_ssl_cfg_t  * cfg;
-    // evhtp_ssl_data_t * sid;
-    // unsigned int       slen;
-
-    // htp = (evhtp_t *)SSL_CTX_get_app_data(ctx);
-    // cfg = htp->ssl_cfg;
-    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
-
-    // if (cfg->scache_del) {
-    //     (cfg->scache_del)(htp, sid, slen);
-    // }
-}
+    SSL* ssl, const unsigned char* sid, int sid_len, int* copy);
+void ssl_remove_scache_ent(SSL_CTX* ctx, SSL_SESSION* sess);
 
 
 class vhost_t;
@@ -232,18 +172,20 @@ public:
         
         SSL_CTX_set_options(
             ssl_ctx,
+            cfg->ssl_opts | 
+            SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
             SSL_MODE_RELEASE_BUFFERS | SSL_OP_NO_COMPRESSION
         );
         SSL_CTX_set_timeout(ssl_ctx, cfg->ssl_ctx_timeout);
         
-        SSL_CTX_set_options(ssl_ctx, cfg->ssl_opts);
+        //SSL_CTX_set_options(ssl_ctx, cfg->ssl_opts);
         
         // init ecdh
-        if(cfg->named_curve){
+        if(cfg->named_curve.size() > 0){
             EC_KEY* ecdh = nullptr;
             int nid = 0;
             
-            nid = OBJ_sn2nid(cfg->named_curve);
+            nid = OBJ_sn2nid(cfg->named_curve.c_str());
             if(nid == 0)
                 error_exit(
                     "ECDH init failed with unknown curve: " +
@@ -259,14 +201,23 @@ public:
             
             SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh);
             EC_KEY_free(ecdh);
+        }else{
+            EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
+            if(!ecdh)
+                error_exit(
+                    "ECDH init failed for curve: NID_X9_62_prime256v1"
+                );
+            
+            SSL_CTX_set_tmp_ecdh(ssl_ctx, ecdh);
+            EC_KEY_free(ecdh);
         }
         
         // init dbparams
-        if(cfg->dhparams){
+        if(cfg->dhparams.size() > 0){
             FILE* fh;
             DH* dh;
             
-            fh = fopen(cfg->dhparams, "r");
+            fh = fopen(cfg->dhparams.c_str(), "r");
             if(!fh)
                 std::cerr << "DH init failed: unable to open file: " <<
                     cfg->dhparams << std::endl;
@@ -290,9 +241,11 @@ public:
                 error_exit("set_cipher_list");
         }
         
-        SSL_CTX_load_verify_locations(
-            ssl_ctx, cfg->cafile.c_str(), cfg->capath.c_str()
-        );
+        if(!cfg->cafile.empty())
+            SSL_CTX_load_verify_locations(
+                ssl_ctx, cfg->cafile.c_str(), cfg->capath.c_str()
+            );
+        
         X509_STORE_set_flags(
             SSL_CTX_get_cert_store(ssl_ctx),
             cfg->store_flags
@@ -314,7 +267,11 @@ public:
                 cache_mode = SSL_SESS_CACHE_SERVER;
                 break;
         };
-            
+        
+        // verify if pemfile exists
+        struct stat fst;
+        if(stat(cfg->pemfile.c_str(), &fst))
+            error_exit("bad pemfile, errno: " + std::to_string(errno));
         
         SSL_CTX_use_certificate_chain_file(ssl_ctx, cfg->pemfile.c_str());
         
@@ -327,8 +284,12 @@ public:
                 error_exit("decrypt_cb(key)");
             SSL_CTX_use_PrivateKey(ssl_ctx, pkey);
             EVP_PKEY_free(pkey);
-        }else
+        }else{
+            if(stat(cfg->privfile.c_str(), &fst))
+                error_exit("bad privfile, errno: " + std::to_string(errno));
+
             SSL_CTX_use_PrivateKey_file(ssl_ctx, key, SSL_FILETYPE_PEM);
+        }
             
         SSL_CTX_set_session_id_context(
             ssl_ctx,
@@ -366,10 +327,10 @@ public:
     ssl_config_t* cfg = nullptr;
     SSL_CTX* ssl_ctx = nullptr;
     
-    int bev_flags = 0;
+    int bev_flags = BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS;
     
     std::vector<vhost> vhosts;
-
+    
     struct timeval recv_timeo = {3,0};
     struct timeval send_timeo = {3,0};
     
@@ -414,6 +375,7 @@ public:
         : worker(w), sock(sock_fd)
     {
         if(w->ssl_ctx){
+            std::clog << "creating ssl bufferevent\n";
             ssl = SSL_new(w->ssl_ctx);
             bev = bufferevent_openssl_socket_new(
                 ev_base(),
@@ -517,6 +479,70 @@ std::vector<worker>& workers()
 }
 
 
+int ssl_new_scache_ent(SSL* ssl, SSL_SESSION* sess)
+{
+    // evhtp_connection_t * connection;
+    // evhtp_ssl_cfg_t    * cfg;
+    // evhtp_ssl_data_t   * sid;
+    // unsigned int         slen;
+
+    // connection = (evhtp_connection_t *)SSL_get_app_data(ssl);
+    // if (connection->htp == NULL) {
+    //     return 0;     /* We cannot get the ssl_cfg */
+    // }
+
+    // cfg = connection->htp->ssl_cfg;
+    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
+
+    // SSL_set_timeout(sess, cfg->scache_timeout);
+
+    // if (cfg->scache_add) {
+    //     return (cfg->scache_add)(connection, sid, slen, sess);
+    // }
+
+    return 0;
+}
+
+SSL_SESSION* ssl_get_scache_ent(
+    SSL* ssl, const unsigned char* sid, int sid_len, int* copy)
+{
+    // evhtp_connection_t * connection;
+    // evhtp_ssl_cfg_t    * cfg;
+    SSL_SESSION* sess;
+
+    // connection = (evhtp_connection_t * )SSL_get_app_data(ssl);
+
+    // if (connection->htp == NULL) {
+    //     return NULL;     /* We have no way of getting ssl_cfg */
+    // }
+
+    // cfg  = connection->htp->ssl_cfg;
+    // sess = NULL;
+
+    // if (cfg->scache_get) {
+    //     sess = (cfg->scache_get)(connection, sid, sid_len);
+    // }
+
+    // *copy = 0;
+
+    return sess;
+}
+
+void ssl_remove_scache_ent(SSL_CTX* ctx, SSL_SESSION* sess)
+{
+    // evhtp_t          * htp;
+    // evhtp_ssl_cfg_t  * cfg;
+    // evhtp_ssl_data_t * sid;
+    // unsigned int       slen;
+
+    // htp = (evhtp_t *)SSL_CTX_get_app_data(ctx);
+    // cfg = htp->ssl_cfg;
+    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
+
+    // if (cfg->scache_del) {
+    //     (cfg->scache_del)(htp, sid, slen);
+    // }
+}
 
 
 void connection_readcb(struct bufferevent* bev, void* arg)

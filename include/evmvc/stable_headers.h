@@ -114,6 +114,10 @@ class app;
 typedef std::shared_ptr<app> sp_app;
 typedef std::weak_ptr<app> wp_app;
 
+class worker;
+typedef std::shared_ptr<worker> sp_app;
+typedef std::weak_ptr<worker> wp_app;
+
 class route_result;
 typedef std::shared_ptr<route_result> sp_route_result;
 

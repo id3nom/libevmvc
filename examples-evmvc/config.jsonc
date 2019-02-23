@@ -1,0 +1,144 @@
+{
+    // root directory use by the library
+    // if null current working directory is used.
+    "base_dir": null,
+    // application instance default view directory
+    // if null is "$base_dir/views"
+    "view_dir": null,
+    // application instance default temporary directory
+    // if null is "$base_dir/temp"
+    "temp_dir": null,
+    // application instance default caching directory
+    // if null is "$base_dir/cache"
+    "cache_dir": null,
+    // application instance default file logging directory
+    // if null is "$base_dir/logs"
+    "log_dir": null,
+    
+    "logging":{
+        // if the default logger may be used if console and file logger are off.
+        "use_default_logger": true,
+        
+        // if stack trace must be shown in errors.
+        // should be use in debug only
+        "stack_trace_enabled": true,
+        
+        "console":{
+            // can be one of: off, audit_failed, audit_succeeded,
+            //    fatal, error, warning, info, debug, trace
+            // if null will be set to warning.
+            "level": null,
+            // if color output is enable
+            "enable_color": true,
+        },
+        
+        "file":{
+            // can be one of: off, audit_failed, audit_succeeded,
+            //    fatal, error, warning, info, debug, trace
+            // if null will be set to warning.
+            "level": null,
+            // max log file size in byte, default is 5MiB
+            "max_size": 5242880,
+            // number of log to keep.
+            "max_files": 7,
+        },
+    },
+    
+    // number of worker process used.
+    // if null will default to get_nprocs_conf()
+    "worker_count": null,
+    
+    "servers":[
+        {
+            /*
+                listen config:
+                syntax:
+                    // single config
+                    listen: "config"
+                    // multiple config
+                    listen: ["config"]
+                    
+                formats:
+                    "config":
+                        address[:port] [ssl] [backlog=-1]
+                        
+                    address:
+                        // IPv6 address are specified in square bracket
+                        // to specify all IPv6 interfaces use
+                        [::]
+                        
+                        // IPv4 address are specified with no prefix
+                        // to specify all ipv4 interfaces use:
+                        0.0.0.0
+                        
+                        // UNIX socket are specified with the 'unix:' prefix.
+                        //   the char '~' mean the '$base_dir'.
+                        // if the unix path didn't exist, it will be created.
+                        // here is an example for a valid unix path:
+                        unix:~/.run/sock_name
+                        
+                    port:
+                        // any valid port number, if not specified port '80'
+                        //   will be use, if not specified and 'ssl' flag is, 
+                        //   then the port '443' will be use
+                    
+                    ssl:
+                        // if this flag is speficied and "ssl_cfg" options are
+                        // specified then those connection will be secured
+                        
+                    backlog:
+                        // to specify a custom backlog value
+                        
+                defaults:
+                    address: *
+                    port: 80
+            */
+            "listen": [
+                "0.0.0.0:8080",
+                "0.0.0.0:4343 ssl"
+                ],
+            
+            // unique server name
+            "server_name": "localhost",
+            
+            // can be, false or ssl_options object
+            "ssl_cfg":{
+                // path to the certificate file
+                "cert_file": "~/srv-crt.pem",
+                "cert_key_file": "~/srv-key.pem",
+                "cafile": null,
+                "capath": null,
+                
+                // default: "HIGH:!aNULL:!MD5;"
+                "ciphers": null,
+                // named curve, default: prime256v1
+                "named_curve": "prime256v1",
+                "dhparams": null,
+                
+                "long ssl_opts": "SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_MODE_RELEASE_BUFFERS | SSL_OP_NO_COMPRESSION",
+                "long ssl_ctx_timeout": 0,
+                
+                /*
+                // not supported in the json config
+                "verify_mode": "none",
+                "x509_verify_cb": null,
+                //    (int preverify_ok, X509_STORE_CTX *x509_ctx)->{return int}
+                "verify_depth": 0,
+                
+                "x509_chk_issued_cb": null, 
+                //    (X509_STORE_CTX *ctx, X509 *x, X509 *issuer)->{return int}
+                */
+                
+                "store_flags": 0,
+                
+                // can be one of: disabled, internal, user, builtin
+                "cache_type": "disabled",
+                "cache_timeout": 0,
+                "cache_size": 0,
+                // not supported in the json config
+                //"cache_init_cb": null,
+                
+            }
+        },
+    ]
+}

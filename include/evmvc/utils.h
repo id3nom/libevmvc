@@ -25,16 +25,18 @@ SOFTWARE.
 #ifndef _libevmvc_utils_h
 #define _libevmvc_utils_h
 
-#include <string>
-#include <sstream>
-#include <algorithm> 
-#include <cctype>
-#include <locale>
-#include <string>
-#include <numeric>
-#include <type_traits>
-#include <functional>
-#include <chrono>
+#include "stable_headers.h"
+
+// #include <string>
+// #include <sstream>
+// #include <algorithm> 
+// #include <cctype>
+// #include <locale>
+// #include <string>
+// #include <numeric>
+// #include <type_traits>
+// #include <functional>
+// #include <chrono>
 
 
 #define EVMVC_ENUM_FLAGS(t) \
@@ -717,6 +719,121 @@ void gzip_file(
     fout.write(def_data.c_str(), def_data.size());
     fout.flush();
     fout.close();
+}
+
+template<typename PARAM_T>
+PARAM_T json_default(
+    const evmvc::json& jobj,
+    evmvc::string_view key,
+    PARAM_T def_val)
+{
+    auto it = jobj.find(key.to_string());
+    if(it == jobj.end())
+        return def_val;
+    return *it;
+}
+
+
+evmvc::json parse_jsonc_string(const std::string jsonwc)
+{
+    bool in_str = false;
+    // single line comments
+    bool in_scom = false;
+    // multi line comments
+    bool in_mcom = false;
+    
+    ssize_t last_comma_loc = -1;
+    
+    std::string res;
+    // removes comments
+    for(size_t i = 0; i < jsonwc.size(); ++i){
+        char pprev_chr = i > 1 ? jsonwc[i-2] : 0;
+        char prev_chr = i > 0 ? jsonwc[i-1] : 0;
+        char cur_chr = jsonwc[i];
+        char nxt_chr = i < jsonwc.size()-1 ? jsonwc[i+1] : 0;
+        
+        if(in_scom){
+            if(cur_chr == '\n'){
+                in_scom = false;
+                if(prev_chr == '\r')
+                    res += '\r';
+                res += '\n';
+            }
+            continue;
+        }
+        
+        if(in_mcom){
+            if(cur_chr == '/' && prev_chr == '*'){
+                in_mcom = false;
+            }
+            continue;
+        }
+        
+        if(in_str){
+            if(cur_chr == '\\'){
+                if(nxt_chr != 0){
+                    res += cur_chr;
+                    res += nxt_chr;
+                    ++i;
+                    continue;
+                }
+                throw EVMVC_ERR("JSONC invalid format!");
+            }
+            
+            if(cur_chr == '"')
+                in_str = false;
+            res += cur_chr;
+            continue;
+        }
+        
+        if(cur_chr == '/' && nxt_chr == '/'){
+            in_scom = true;
+            continue;
+        }
+        
+        if(cur_chr == '/' && nxt_chr == '*'){
+            in_mcom = true;
+            continue;
+        }
+        
+        if(cur_chr == '"'){
+            last_comma_loc = -1;
+            in_str = true;
+            res += cur_chr;
+            continue;
+        }
+        
+        //verify if it's a bad comma
+        if(cur_chr == '}' || cur_chr == ']'){
+            if(last_comma_loc > -1){
+                std::string tmp = res.substr(0, last_comma_loc);
+                tmp += res.substr(last_comma_loc+1);
+                res = tmp;
+            }
+            last_comma_loc = -1;
+        }
+        if(cur_chr == ','){
+            last_comma_loc = i;
+        }else if(last_comma_loc > -1 && !isspace(cur_chr)){
+            last_comma_loc = -1;
+        }
+        
+        res += cur_chr;
+    }
+    
+    return res;
+}
+evmvc::json parse_jsonc_file(
+    const evmvc::string_view jsonc_filename)
+{
+    std::ifstream fin(
+        jsonc_filename.data(), std::ios::binary
+    );
+    std::ostringstream ostrm;
+    ostrm << fin.rdbuf();
+    std::string jsonwc = ostrm.str();
+    fin.close();
+    return parse_jsonc_string(jsonwc);
 }
 
 

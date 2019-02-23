@@ -13,8 +13,10 @@ int main(int argc, char** argv)
 {
     signal(SIGINT, sig_received);
     
-    //int worker_count = 4;
-    int worker_count = 1;
+    std::clog << OPENSSL_VERSION_TEXT << "\n";
+    
+    int worker_count = 4;
+    //int worker_count = 1;
     
     for(int i = 0; i < worker_count; ++i){
         worker w = std::make_shared<worker_t>();
@@ -49,10 +51,16 @@ int main(int argc, char** argv)
         }else if(w->pid == 0){// is worker proc
             workers().clear();
             
+            SSL_load_error_strings();
+            SSL_library_init();
+            
             w->pid = getpid();
             ssl_config_t* ssl_cfg = new ssl_config_t();
             ssl_cfg->pemfile = cur_dir + "srv-crt.pem";
             ssl_cfg->privfile = cur_dir + "srv-key.pem";
+            ssl_cfg->dhparams = cur_dir + "dhparam.pem";
+            ssl_cfg->ciphers = "HIGH:!aNULL:!MD5;";
+            
             w->init_ssl(ssl_cfg);
             
             // remove old socket
@@ -167,7 +175,7 @@ void start_listener()
         writen(w->chan.ptoc[PIPE_WRITE_FD], msg.c_str(), msg.size());
         
     }, &i);
-    struct timeval tv = {5, 0};
+    struct timeval tv = {30, 0};
     event_add(tev, &tv);
     
     // read events for each worker
