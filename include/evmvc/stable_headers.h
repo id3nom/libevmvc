@@ -26,6 +26,7 @@
 #include <sys/utsname.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <arpa/inet.h>
 
 #include <aio.h>
@@ -114,9 +115,21 @@ class app;
 typedef std::shared_ptr<app> sp_app;
 typedef std::weak_ptr<app> wp_app;
 
+class child_server;
+typedef std::shared_ptr<child_server> sp_child_server;
+
+class channel;
 class worker;
-typedef std::shared_ptr<worker> sp_app;
-typedef std::weak_ptr<worker> wp_app;
+class http_worker;
+class cache_worker;
+typedef std::shared_ptr<worker> sp_worker;
+typedef std::weak_ptr<worker> wp_worker;
+typedef std::shared_ptr<http_worker> sp_http_worker;
+typedef std::weak_ptr<http_worker> wp_http_worker;
+typedef std::shared_ptr<cache_worker> sp_cache_worker;
+typedef std::weak_ptr<cache_worker> wp_cache_worker;
+
+
 
 class route_result;
 typedef std::shared_ptr<route_result> sp_route_result;
@@ -139,6 +152,26 @@ typedef std::shared_ptr<evmvc::response> sp_response;
 class request;
 typedef std::shared_ptr<evmvc::request> sp_request;
 
+enum class running_state
+{
+    stopped,
+    starting,
+    running,
+    stopping,
+};
+evmvc::string_view to_string(evmvc::running_state s)
+{
+    switch(s){
+        case evmvc::running_state::stopped:
+            return "stopped";
+        case evmvc::running_state::starting:
+            return "starting";
+        case evmvc::running_state::running:
+            return "running";
+        case evmvc::running_state::stopping:
+            return "stopping";
+    }
+}
 
 // evmvc::_internal namespace
 namespace _internal{

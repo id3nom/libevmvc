@@ -33,7 +33,7 @@ SOFTWARE.
 namespace evmvc {
 
 typedef EVP_PKEY* (*ssl_decrypt_cb)(const char* cert_key_file);
-typedef void* (*ssl_scache_init)(evmvc::worker*);
+typedef void* (*ssl_scache_init)(evmvc::sp_child_server);
 
 enum class ssl_verify_mode
 {
@@ -84,7 +84,7 @@ public:
         cache_timeout(o.cache_timeout),
         cache_size(o.cache_size),
         cache_init_cb(o.cache_init_cb),
-        args(o.args)
+        cache_args(o.cache_args)
     {
     }
     
@@ -114,7 +114,7 @@ public:
         cache_timeout(o.cache_timeout),
         cache_size(o.cache_size),
         cache_init_cb(o.cache_init_cb),
-        args(o.args)
+        cache_args(o.cache_args)
     {
         o.ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
         o.ssl_ctx_timeout = 0;
@@ -132,7 +132,7 @@ public:
         o.cache_timeout = 0;
         o.cache_size = 0;
         o.cache_init_cb = nullptr;
-        o.args = nullptr;
+        o.cache_args = nullptr;
     }
     
     ssl_options& operator=(ssl_options&& o)
@@ -162,7 +162,7 @@ public:
         cache_timeout = o.cache_timeout;
         cache_size = o.cache_size;
         cache_init_cb = o.cache_init_cb;
-        args = o.args;
+        cache_args = o.cache_args;
         
         o.ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
         o.ssl_ctx_timeout = 0;
@@ -180,13 +180,13 @@ public:
         o.cache_timeout = 0;
         o.cache_size = 0;
         o.cache_init_cb = nullptr;
-        o.args = nullptr;
+        o.cache_args = nullptr;
         
         return *this;
     }
     
     ssl_options(const evmvc::json& cfg)
-    {
+    { 
         
     }
     
@@ -220,13 +220,47 @@ public:
     long cache_timeout = 0;
     long cache_size = 0;
     evmvc::ssl_scache_init cache_init_cb = nullptr;
-    
-    void* args = nullptr;
+    void* cache_args = nullptr;
 };
 
 class listen_options
 {
 public:
+    listen_options()
+    {
+    }
+    
+    listen_options(const listen_options& o)
+        : address(o.address),
+        port(o.port),
+        ssl(o.ssl),
+        backlog(o.backlog)
+    {
+    }
+
+    listen_options(listen_options&& o)
+        : address(std::move(o.address)),
+        port(o.port),
+        ssl(o.ssl),
+        backlog(o.backlog)
+    {
+        o.port = 80;
+        o.ssl = false;
+        o.backlog = -1
+    }
+    
+    listen_options& operator=(listen_options&& o)
+    {
+        address = std::move(o.address);
+        port = o.port;
+        ssl = o.ssl;
+        backlog = o.backlog;
+        
+        o.port = 80;
+        o.ssl = false;
+        o.backlog = -1
+    }
+    
     std::string address = "*";
     uint16_t port = 80;
     bool ssl = false;
@@ -236,8 +270,45 @@ public:
 class server_options
 {
 public:
+    server_options()
+    {
+    }
+    
+    server_options(const server_options& o)
+        : name(o.name),
+        aliases(o.aliases),
+        listeners(o.listeners),
+        enable_ssl(o.enable_ssl),
+        ssl(o.ssl)
+    {
+    }
+
+    server_options(server_options&& o)
+        : name(std::move(o.name)),
+        aliases(std::move(o.aliases)),
+        listeners(std::move(o.listeners)),
+        enable_ssl(std::move(o.enable_ssl)),
+        ssl(std::move(o.ssl))
+    {
+    }
+    
+    server_options& operator=(server_options&& o)
+    {
+        name = std::move(o.name);
+        aliases = std::move(o.aliases);
+        listeners = std::move(o.listeners);
+        enable_ssl = o.enable_ssl;
+        ssl = std::move(ssl);
+        
+        o.enable_ssl = false;
+        
+        return *this;
+    }
+    
     std::string name = "";
+    std::vector<std::string> aliases;
     std::vector<listen_options> listeners;
+    bool enable_ssl = false;
     ssl_options ssl;
 };
 
@@ -294,7 +365,8 @@ public:
         log_file_max_size(other.log_file_max_size),
         log_file_max_files(other.log_file_max_files),
         stack_trace_enabled(other.stack_trace_enabled),
-        worker_count(other.worker_count)
+        worker_count(other.worker_count),
+        servers(other.servers)
     {
     }
     
@@ -312,7 +384,8 @@ public:
         log_file_max_size(other.log_file_max_size),
         log_file_max_files(other.log_file_max_files),
         stack_trace_enabled(other.stack_trace_enabled),
-        worker_count(other.worker_count)
+        worker_count(other.worker_count),
+        servers(std::move(other.servers))
     {
         other.use_default_logger = true;
         other.log_console_level = log_level::warning;
@@ -341,6 +414,8 @@ public:
         stack_trace_enabled = other.stack_trace_enabled;
         worker_count = other.worker_count;
         
+        servers = std::move(other.servers);
+        
         other.use_default_logger = true;
         other.log_console_level = log_level::warning;
         other.log_console_enable_color = true;
@@ -349,7 +424,6 @@ public:
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
         other.worker_count = get_nprocs_conf();
-        
     }
     
     bfs::path base_dir;

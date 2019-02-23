@@ -28,6 +28,7 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "logging.h"
 #include "utils.h"
+#include "connection.h"
 #include "headers.h"
 #include "fields.h"
 #include "methods.h"
@@ -129,7 +130,7 @@ public:
             "request '{}' released", this->id()
         );
     }
-
+    
     uint64_t id() const { return _id;}
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
@@ -149,6 +150,9 @@ public:
         auto con_addr_in = (sockaddr_in*)_ev_req->conn->saddr;
         return ntohs(con_addr_in->sin_port);
     }
+    
+    sp_connection connection() const { return _conn;}
+    bool secure() const { return _conn->secure();}
     
     std::string ip() const
     {
@@ -198,7 +202,34 @@ public:
         return h->value();
     }
     
-    std::string protocol() const;
+    evmvc::conn_protocol protocol() const
+    {
+        //TODO: add trust proxy options
+        sp_header h = _headers->get("X-Forwarded-Proto");
+        if(h){
+            if(!strcasecmp(h->value(), "https"))
+                return evmvc::conn_protocol::https;
+            else if(!strcasecmp(h->value(), "http"))
+                return evmvc::conn_protocol::http;
+            else
+                throw EVMVC_ERR(
+                    "Invalid 'X-Forwarded-Proto': '{}'", h->value()
+                );
+        }
+        
+        return _conn->protocol();
+    }
+    std::string protocol_string() const
+    {
+        //TODO: add trust proxy options
+        sp_header h = _headers->get("X-Forwarded-Proto");
+        if(h)
+            return boost::to_lower_copy(
+                h->value()
+            );
+        
+        return to_string(_conn->protocol()).to_string();
+    }
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::request_headers& headers() const { return *(_headers.get());}
@@ -271,6 +302,7 @@ protected:
         std::shared_ptr<_internal::multipart_subcontent> ms);
 
     uint64_t _id;
+    sp_connection _conn;
     evmvc::sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;

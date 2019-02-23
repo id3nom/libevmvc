@@ -33,25 +33,10 @@ SOFTWARE.
 #include "stack_debug.h"
 #include "multipart_parser.h"
 
-#include "server.h"
+#include "worker.h"
+#include "master_server.h"
 
 namespace evmvc {
-
-// class event_wrapper
-// {
-// public:
-//    
-// protected:
-//     virtual run() = 0;
-// };
-
-enum class app_state
-{
-    stopped,
-    starting,
-    running,
-    stopping,
-};
 
 //https://chromium.googlesource.com/external/github.com/ellzey/libevhtp/+/libevhtp2/src/evhtp2/ws/
 
@@ -66,7 +51,7 @@ public:
     
     app(struct event_base* ev_base,
         evmvc::app_options&& opts)
-        : _init_rtr(false), _init_dirs(false), _status(app_state::stopped),
+        : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
         _router(),
         _ev_base(ev_base), _evhtp(nullptr)//, _ar(nullptr)
@@ -132,27 +117,47 @@ public:
         return _log;
     }
     
-    app_state status() const
+    const std::vector<sp_worker>& workers() const { return _workers;}
+    
+    running_state status() const
     {
         return _status;
     }
+    bool stopped() const { return _status == running_state::stopped;}
+    bool starting() const { return _status == running_state::starting;}
+    bool running() const { return _status == running_state::running;}
+    bool stopping() const { return _status == running_state::stopping;}
     
-    bool stopped() const { return _status == app_state::stopped;}
-    bool starting() const { return _status == app_state::starting;}
-    bool running() const { return _status == app_state::running;}
-    bool stopping() const { return _status == app_state::stopping;}
-    
-    std::string abs_path(evmvc::string_view rel_path)
+    bfs::path abs_path(evmvc::string_view rel_path)
     {
-        
+        std::string rp(rel_path.data(), rel_path.size());
+        if(rp[0] == '~')
+            return _options.base_dir / rp.substr(1);
+        else if(rp[0] == '/')
+            return rp;
+        else
+            return _options.base_dir / rp;
     }
     
     void start(bool start_event_loop = true)
     {
+        if(!stopped())
+            throw EVMVC_ERR(
+                "app must be in stopped state to start listening again"
+            );
+        _status = running_state::starting;
+        
+        for(size_t i = 0; i < _options.worker_count; ++i){
+            sp_http_worker w = std::make_shared<evmvc::http_worker>(
+                this->shared_from_this(), _options
+            );
+            
+        }
+        
         for(auto w : _workers){
             int tryout = 0;
             do{
-                w->channel().usock = unix_connect(
+                w->channel().usock = _internal::unix_connect(
                     w->channel().usock_path.c_str(), SOCK_STREAM
                 );
                 if(w->channel().usock == -1){
@@ -176,7 +181,13 @@ public:
         
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
-            evconnlistener_free(global::ev_base());
+            
+            for(auto w : _workers)
+                kill(w->pid(), SIGINT);
+            _workers.clear();
+            _servers.clear();
+            
+            event_base_free(global::ev_base());
         }
     }
     
@@ -189,7 +200,7 @@ public:
     //         throw std::runtime_error(
     //             "app must be in stopped state to start listening again"
     //         );
-    //     _status = app_state::starting;
+    //     _status = running_state::starting;
         
     //     this->_init_directories();
         
@@ -234,20 +245,20 @@ public:
     //         address.data(), port
     //     );
         
-    //     _status = app_state::running;
+    //     _status = running_state::running;
     // }
     
     void stop()
     {
         if(stopped() || stopping())
-            throw std::runtime_error(
+            throw EVMVC_ERR(
                 "app must be in running state to be able to stop it."
             );
-        this->_status = app_state::stopping;
+        this->_status = running_state::stopping;
         evhtp_unbind_socket(_evhtp);
         evhtp_free(_evhtp);
         
-        this->_status = app_state::stopped;
+        this->_status = running_state::stopped;
     }
     
     #pragma region
@@ -412,7 +423,7 @@ private:
     
     bool _init_rtr;
     bool _init_dirs;
-    app_state _status;
+    running_state _status;
     app_options _options;
     sp_router _router;
     struct event_base* _ev_base;
@@ -420,8 +431,7 @@ private:
     evmvc::sp_logger _log;
     
     std::vector<evmvc::sp_worker> _workers;
-    std::vector<evmvc::sp_server> _servers;
-    
+    std::vector<evmvc::sp_master_server> _servers;
 };//evmvc::app
 
 
@@ -653,15 +663,15 @@ evmvc::sp_router request::get_router() const
     return this->get_route()->get_router();
 }
 
-std::string request::protocol() const
-{
-    //TODO: add trust proxy options
-    sp_header h = _headers->get("X-Forwarded-Proto");
-    if(h)
-        return h->value();
-    
-    return this->get_app()->options().enable_ssl ? "https" : "http";
-}
+// std::string request::protocol() const
+// {
+//     //TODO: add trust proxy options
+//     sp_header h = _headers->get("X-Forwarded-Proto");
+//     if(h)
+//         return h->value();
+//    
+//     return this->get_app()->options().enable_ssl ? "https" : "http";
+// }
 
 void request::_load_multipart_params(
     std::shared_ptr<_internal::multipart_subcontent> ms)
@@ -818,15 +828,14 @@ sp_router& router::null(wp_app a)
     return rtr;
 }
 
-sp_server evmvc::listener::get_server() const { return _server.lock();}
-sp_app evmvc::server::get_app() const { return _app.lock();}
+sp_master_server evmvc::listener::get_server() const { return _server.lock();}
+sp_app evmvc::master_server::get_app() const { return _app.lock();}
 
-sp_worker channel::get_worker() const { return _worker.lock();}
-
-void channel::_init_parent_channels()
+void channel::_init_master_channels()
 {
-    auto w = get_worker();
-    usock_path = w->get_app()->path("~/.run/evmvc." + std::to_string(w->id()));
+    usock_path = _worker->get_app()->abs_path(
+        "~/.run/evmvc." + std::to_string(_worker->id())
+    ).string();
     
     fcntl(ptoc[EVMVC_PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
     close(ptoc[EVMVC_PIPE_READ_FD]);
@@ -838,26 +847,27 @@ void channel::_init_parent_channels()
 
 void channel::_init_child_channels()
 {
-    auto w = get_worker();
-    usock_path = w->get_app()->path("~/.run/evmvc." + std::to_string(w->id()));
+    usock_path = _worker->get_app()->abs_path(
+        "~/.run/evmvc." + std::to_string(_worker->id())
+    ).string();
     
-    if(remove(usock_path) == -1){
+    if(remove(usock_path.c_str()) == -1){
         int err = errno;
         if(err != ENOENT)
-            return w->log()->fatal(EVMVC_ERR(
+            return _worker->log()->fatal(EVMVC_ERR(
                 "unable to remove unix socket '{}', err: {}", usock_path, err
             ));
     }
     
     // create the client listener.
-    int lfd = _internal::unix_bind(usock_path, SOCK_STREAM);
+    int lfd = _internal::unix_bind(usock_path.c_str(), SOCK_STREAM);
     if(lfd == -1)
-        return w->log()->fatal(EVMVC_ERR(
-            "unix_bind '{}', err: {}", usock_path, err
+        return _worker->log()->fatal(EVMVC_ERR(
+            "unix_bind '{}', err: {}", usock_path, errno
         ));
     
     if(listen(lfd, 5) == -1)
-        return w->log()->fatal(EVMVC_ERR(
+        return _worker->log()->fatal(EVMVC_ERR(
             "listen: {}", std::to_string(errno)
         ));
     
@@ -865,7 +875,7 @@ void channel::_init_child_channels()
         // this will block until the master process connect.
         usock = accept(lfd, nullptr, nullptr);
         if(usock == -1)
-            w->log()->warn(
+            _worker->log()->warn(
                 EVMVC_ERR("accept err: {}", errno)
             );
     }while(usock == -1);
@@ -876,7 +886,7 @@ void channel::_init_child_channels()
     
     fcntl(ptoc[EVMVC_PIPE_READ_FD], F_SETFL, O_NONBLOCK);
     close(ptoc[EVMVC_PIPE_WRITE_FD]);
-    ptoc[EVMVC_PIPE_WRITE_FD] = -1
+    ptoc[EVMVC_PIPE_WRITE_FD] = -1;
     
     fcntl(ctop[EVMVC_PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
     close(ctop[EVMVC_PIPE_READ_FD]);
@@ -884,17 +894,23 @@ void channel::_init_child_channels()
 }
 
 namespace _internal{
-    
-    void _listen_cb(
+    void _master_listen_cb(
         struct evconnlistener*, int sock,
         sockaddr* saddr, int socklen, void* args)
     {
         evmvc::listener* l = (evmvc::listener*)args;
         
-        sp_server s = l->get_server();
+        sp_master_server s = l->get_server();
+        if(!s){
+            close(sock);
+            return;
+        }
         sp_app a = s->get_app();
-        
-        if(workers().size() == 0){
+        if(!a){
+            close(sock);
+            return;
+        }
+        if(a->workers().empty()){
             close(sock);
             return;
         }
@@ -931,13 +947,35 @@ namespace _internal{
         cmsgp->cmsg_type = SCM_RIGHTS;
         *((int*)CMSG_DATA(cmsgp)) = sock;
         
-        //int res = sendmsg(
-        //    workers()[0]->chan.acm[PIPE_WRITE_FD], &msgh, 0);
-        if(++(*wid) >= workers().size())
-            *wid = 0;
-        int res = sendmsg(workers()[*wid]->chan.usock, &msgh, 0);
+        // select prefered worker;
+        sp_worker pw;
+        for(auto& w : a->workers())
+            if(w->type() == worker_type::http){
+                if(!pw){
+                    pw = w;
+                    continue;
+                }
+                
+                if(w->workload() < pw->workload())
+                    pw = w;
+            }
+            
+        if(!pw)
+            return a->log()->fail(EVMVC_ERR(
+                "Unable to find an available http_worker!"
+            ));
+        
+        // if(++(*wid) >= workers().size())
+        //     *wid = 0;
+        // int res = sendmsg(workers()[*wid]->chan.usock, &msgh, 0);
+        // if(res == -1)
+        //     std::exit(-1);
+        
+        int res = pw->channel().sendmsg(&msgh, 0);
         if(res == -1)
-            std::exit(-1);
+            return a->log()->fatal(EVMVC_ERR(
+                "sendmsg to http_worker failed: {}", errno
+            ));
     }
     
     

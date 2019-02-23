@@ -72,6 +72,8 @@ inline t& operator^=(t & x, t y) \
     return x; \
 }
 
+#define EVMVC_SET_BIT(_v, _f) _v |= _f
+#define EVMVC_UNSET_BIT(_v, _f) _v &= ~_f
 
 
 // #define mm__alloc_(type, ...)

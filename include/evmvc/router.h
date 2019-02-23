@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "logging.h"
-
 #include "cb_def.h"
 #include "methods.h"
 #include "filter_policies.h"

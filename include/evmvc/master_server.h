@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_server_h
-#define _libevmvc_server_h
+#ifndef _libevmvc_master_server_h
+#define _libevmvc_master_server_h
 
 #include "stable_headers.h"
 #include "utils.h"
@@ -33,19 +33,19 @@ SOFTWARE.
 namespace evmvc {
 
 namespace _internal {
-    void _listen_cb(
+    void _master_listen_cb(
         struct evconnlistener* lev, int sock,
         sockaddr* saddr, int socklen, void* args
     );
 }//::_internal
 
 class listener;
-typedef std::shared_ptr<listener> sp_listener;
+typedef std::unique_ptr<listener> up_listener;
 typedef std::weak_ptr<listener> wp_listener;
 
-class server;
-typedef std::shared_ptr<server> sp_server;
-typedef std::weak_ptr<server> wp_server;
+class master_server;
+typedef std::shared_ptr<master_server> sp_master_server;
+typedef std::weak_ptr<master_server> wp_master_server;
 
 
 enum class address_type
@@ -60,13 +60,13 @@ enum class address_type
 class listener
     : public std::enable_shared_from_this<listener>
 {
-    friend void _internal::_listen_cb(
+    friend void _internal::_master_listen_cb(
         struct evconnlistener*, int sock,
         sockaddr* saddr, int socklen, void* args
     );
     
 public:
-    listener(wp_server server, const listen_options& config)
+    listener(wp_master_server server, const listen_options& config)
         : _server(server), _config(config),
         _log(
             evmvc::_internal::default_logger()->add_child(
@@ -82,7 +82,7 @@ public:
         _type(address_type::none),
         _csa(nullptr), _sin_len(0), _sa(nullptr),
         _lsock(-1),
-        _lev(nullptr);
+        _lev(nullptr)
     {
     }
     
@@ -113,7 +113,7 @@ public:
         _lev = nullptr;
     }
     
-    sp_server get_server() const;
+    sp_master_server get_server() const;
     
     void start()
     {
@@ -131,7 +131,7 @@ public:
         
         _lev = evconnlistener_new(
             evmvc::global::ev_base(),
-            evmvc::_internal::_listen_cb,
+            evmvc::_internal::_master_listen_cb,
             this,
             LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
             _config.backlog,
@@ -154,7 +154,7 @@ private:
             _type = address_type::un_path;
             
             struct sockaddr_un* sockun = new struct sockaddr_un();
-            this->sock = sockun;
+            _csa = sockun;
             
             if(strlen(baddr) >= sizeof(sockun->sun_path))
                 throw EVMVC_ERR(
@@ -162,7 +162,7 @@ private:
                     baddr
                 );
             
-            sin_len = sizeof(struct sockaddr_un);
+            _sin_len = sizeof(struct sockaddr_un);
             sockun->sun_family = AF_UNIX;
             
             strncpy(sockun->sun_path, baddr, strlen(baddr));
@@ -177,7 +177,7 @@ private:
             struct sockaddr_in6* sin6 = new struct sockaddr_in6();
             _csa = sin6;
             
-            sin_len = sizeof(struct sockaddr_in6);
+            _sin_len = sizeof(struct sockaddr_in6);
             sin6->sin6_port = htons(_config.port);
             sin6->sin6_family = AF_INET6;
             
@@ -185,16 +185,16 @@ private:
             _sa = (struct sockaddr*)sin6;
             
         }else{
-            if(!strcasecmp(tmp_addr, "localhost"))
+            if(!strcasecmp(tmp_addr.c_str(), "localhost"))
                 tmp_addr = "127.0.0.1";
             _type = address_type::ipv4;
             
             struct sockaddr_in* sin = new struct sockaddr_in();
-            _sac = sin;
+            _csa = sin;
             
-            sin_len = sizeof(struct sockaddr_in);
+            _sin_len = sizeof(struct sockaddr_in);
             sin->sin_family = AF_INET;
-            sin->sin_port = htons(port);
+            sin->sin_port = htons(_config.port);
             sin->sin_addr.s_addr = inet_addr(baddr);
             
             _sa = (struct sockaddr*)sin;
@@ -256,9 +256,7 @@ private:
         }
     }
     
-    void _listen();
-    
-    wp_server _server;
+    wp_master_server _server;
     
     listen_options _config;
     sp_logger _log;
@@ -272,52 +270,75 @@ private:
     struct evconnlistener* _lev;
 };
 
-class server
-    : public std::enable_shared_from_this<server>
+class master_server
+    : public std::enable_shared_from_this<master_server>
 {
 public:
-    server(wp_app app, const server_options& config)
+    master_server(wp_app app, const server_options& config)
         : _app(app), _config(config)
     {
     }
     
+    ~master_server()
+    {
+        if(running())
+            stop();
+    }
+    
+    running_state status() const
+    {
+        return _status;
+    }
+    bool stopped() const { return _status == running_state::stopped;}
+    bool starting() const { return _status == running_state::starting;}
+    bool running() const { return _status == running_state::running;}
+    bool stopping() const { return _status == running_state::stopping;}
+    
     sp_app get_app() const { return _app.lock();}
     
-    const std::string& name() const { return _config.server_name;}
+    const std::string& name() const { return _config.name;}
     
     void start()
     {
-        _start_listeners();
+        if(!stopped())
+            throw EVMVC_ERR(
+                "Server must be in stopped state to start listening again"
+            );
+        _status = running_state::starting;
+        
+        for(auto& l : _config.listeners){
+            auto sl = std::make_unique<listener>(
+                this->shared_from_this(), l
+            );
+            sl->start();
+            _listeners.emplace_back(sl);
+        }
+        
+        _status = running_state::running;
     }
     
     void stop()
     {
-        
+        if(stopped() || stopping())
+            throw EVMVC_ERR(
+                "Server must be in running state to be able to stop it."
+            );
+        this->_status = running_state::stopping;
+        // release listeners instances
+        _listeners.clear();
+        this->_status = running_state::stopped;
     }
     
 private:
     
-    void _start_listeners()
-    {
-        for(auto& l : _config.listeners){
-            
-        }
-    }
-    
-    void _start_listener()
-    {
-        
-    }
-    
-    
+    evmvc::running_state _status;
     wp_app _app;
     server_options _config;
-    
-    
+    std::vector<up_listener> _listeners;
 };
 
 
 
 
 };//::evmvc
-#endif//_libevmvc_server_h
+#endif//_libevmvc_master_server_h

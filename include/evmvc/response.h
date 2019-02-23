@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "logging.h"
+#include "connection.h"
 #include "statuses.h"
 #include "headers.h"
 #include "fields.h"
@@ -103,6 +104,10 @@ public:
     static sp_response null(wp_app a, evhtp_request_t* ev_req);
     
     uint64_t id() const { return _id;}
+    
+    
+    sp_connection connection() const { return _conn;}
+    bool secure() const { return _conn->secure();}
     
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
@@ -467,6 +472,8 @@ private:
     }
     
     uint64_t _id;
+    sp_connection _conn;
+
     sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;
