@@ -74,6 +74,13 @@ public:
     sp_logger log() const { return _log;}
     SSL_CTX* ssl_ctx() const { return _ssl_ctx;}
     
+    const struct timeval& atimeo() const { return _config.atimeo;}
+    struct timeval& atimeo() { return _config.atimeo;}
+    const struct timeval& rtimeo() const { return _config.rtimeo;}
+    struct timeval& rtimeo() { return _config.rtimeo;}
+    const struct timeval& wtimeo() const { return _config.wtimeo;}
+    struct timeval& wtimeo() { return _config.wtimeo;}
+    
     void start()
     {
         if(!stopped())
@@ -101,6 +108,7 @@ public:
         
         this->_status = running_state::stopped;
     }
+    
     
     
 private:
@@ -303,6 +311,8 @@ private:
     sp_logger _log;
     
     SSL_CTX* _ssl_ctx = nullptr;
+    
+    
 };
 
 

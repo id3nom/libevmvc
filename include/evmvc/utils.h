@@ -28,7 +28,6 @@ SOFTWARE.
 #include "stable_headers.h"
 
 // #include <string>
-// #include <sstream>
 // #include <algorithm> 
 // #include <cctype>
 // #include <locale>
@@ -56,17 +55,17 @@ inline constexpr t operator~(t x) \
 { \
     return static_cast<t>(~static_cast<int>(x)); \
 } \
-inline t& operator&=(t & x, t y) \
+inline t& operator&=(t& x, t y) \
 { \
     x = x & y; \
     return x; \
 } \
-inline t& operator|=(t & x, t y) \
+inline t& operator|=(t& x, t y) \
 { \
     x = x | y; \
     return x; \
 } \
-inline t& operator^=(t & x, t y) \
+inline t& operator^=(t& x, t y) \
 { \
     x = x ^ y; \
     return x; \
@@ -74,7 +73,7 @@ inline t& operator^=(t & x, t y) \
 
 #define EVMVC_SET_BIT(_v, _f) _v |= _f
 #define EVMVC_UNSET_BIT(_v, _f) _v &= ~_f
-
+#define EVMVC_TEST_FLAG(_v, _f) ((_v & _f) == _f)
 
 // #define mm__alloc_(type, ...)
 //     (type*)evmvc::_internal::mm__dup_((type[]) {__VA_ARGS__ }, sizeof(type))
@@ -749,7 +748,7 @@ evmvc::json parse_jsonc_string(const std::string jsonwc)
     std::string res;
     // removes comments
     for(size_t i = 0; i < jsonwc.size(); ++i){
-        char pprev_chr = i > 1 ? jsonwc[i-2] : 0;
+        //char pprev_chr = i > 1 ? jsonwc[i-2] : 0;
         char prev_chr = i > 0 ? jsonwc[i-1] : 0;
         char cur_chr = jsonwc[i];
         char nxt_chr = i < jsonwc.size()-1 ? jsonwc[i+1] : 0;

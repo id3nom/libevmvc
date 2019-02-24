@@ -151,8 +151,8 @@ public:
         return ntohs(con_addr_in->sin_port);
     }
     
-    sp_connection connection() const { return _conn;}
-    bool secure() const { return _conn->secure();}
+    sp_connection connection() const;
+    bool secure() const;
     
     std::string ip() const
     {
@@ -202,34 +202,8 @@ public:
         return h->value();
     }
     
-    evmvc::conn_protocol protocol() const
-    {
-        //TODO: add trust proxy options
-        sp_header h = _headers->get("X-Forwarded-Proto");
-        if(h){
-            if(!strcasecmp(h->value(), "https"))
-                return evmvc::conn_protocol::https;
-            else if(!strcasecmp(h->value(), "http"))
-                return evmvc::conn_protocol::http;
-            else
-                throw EVMVC_ERR(
-                    "Invalid 'X-Forwarded-Proto': '{}'", h->value()
-                );
-        }
-        
-        return _conn->protocol();
-    }
-    std::string protocol_string() const
-    {
-        //TODO: add trust proxy options
-        sp_header h = _headers->get("X-Forwarded-Proto");
-        if(h)
-            return boost::to_lower_copy(
-                h->value()
-            );
-        
-        return to_string(_conn->protocol()).to_string();
-    }
+    evmvc::conn_protocol protocol() const;
+    std::string protocol_string() const;
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::request_headers& headers() const { return *(_headers.get());}
@@ -300,9 +274,9 @@ protected:
 
     void _load_multipart_params(
         std::shared_ptr<_internal::multipart_subcontent> ms);
-
+    
     uint64_t _id;
-    sp_connection _conn;
+    wp_connection _conn;
     evmvc::sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;

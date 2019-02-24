@@ -40,6 +40,7 @@
 #include <cstddef>
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <memory>
 #include <mutex>
 #include <condition_variable>
@@ -129,6 +130,12 @@ typedef std::weak_ptr<http_worker> wp_http_worker;
 typedef std::shared_ptr<cache_worker> sp_cache_worker;
 typedef std::weak_ptr<cache_worker> wp_cache_worker;
 
+class connection;
+typedef std::shared_ptr<connection> sp_connection;
+typedef std::weak_ptr<connection> wp_connection;
+class parser;
+typedef std::shared_ptr<parser> sp_parser;
+
 
 
 class route_result;
@@ -170,6 +177,10 @@ evmvc::string_view to_string(evmvc::running_state s)
             return "running";
         case evmvc::running_state::stopping:
             return "stopping";
+        default:
+            throw std::invalid_argument(fmt::format(
+                "UNKNOWN running_sate: '{}'", (int)s
+            ));
     }
 }
 
@@ -362,18 +373,6 @@ private:
     int _line;
     evmvc::string_view _func;
 };
-
-
-struct event_base** ev_base()
-{
-    static struct event_base* __ev_base = nullptr;
-    return &__ev_base;
-}
-struct event_base** thread_ev_base()
-{
-    static thread_local struct event_base* _trd_ev_base = nullptr;
-    return &_trd_ev_base;
-}
 
 
 } //ns evmvc

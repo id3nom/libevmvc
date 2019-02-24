@@ -83,7 +83,9 @@ long parse_ssl_options(const evmvc::json& jopts)
     if(jopts.is_array()){
         for(auto& jopt : jopts){
             if(jopt.is_string()){
-                auto it = _opts_map.find(boost::to_upper_copy(jopt));
+                auto it = _opts_map.find(
+                    boost::to_upper_copy(jopt.get<std::string>())
+                );
                 if(it != _opts_map.end())
                     opts |= it->second;
             }else if(jopt.is_number())
@@ -94,7 +96,7 @@ long parse_ssl_options(const evmvc::json& jopts)
     else if(jopts.is_string()){
         std::string sopts = jopts;
         std::vector<std::string> vopts;
-        std::set<std::string> delims = {",", "|"};
+        std::set<char> delims = {',', '|'};
         boost::split(
             vopts, sopts, boost::is_any_of(delims)
         );

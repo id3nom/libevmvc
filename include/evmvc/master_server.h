@@ -90,17 +90,22 @@ public:
     {
         if(_csa){
             switch(_type){
-                case address_type::ipv4:
+                case address_type::ipv4:{
                     struct sockaddr_in* sin = (struct sockaddr_in*)_csa;
                     delete sin;
                     break;
-                case address_type::ipv6:
+                }
+                case address_type::ipv6:{
                     struct sockaddr_in6* sin6 = (struct sockaddr_in6*)_csa;
                     delete sin6;
                     break;
-                case address_type::un_path:
+                }
+                case address_type::un_path:{
                     struct sockaddr_un* sockun = (struct sockaddr_un*)_csa;
                     delete sockun;
+                    break;
+                }
+                default:
                     break;
             }
             
@@ -294,7 +299,7 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
-    sp_app get_app() const { return _app.lock();}
+    sp_app get_app() const;
     
     const std::string& name() const { return _config.name;}
     
@@ -311,7 +316,7 @@ public:
                 this->shared_from_this(), l
             );
             sl->start();
-            _listeners.emplace_back(sl);
+            _listeners.emplace_back(std::move(sl));
         }
         
         _status = running_state::running;

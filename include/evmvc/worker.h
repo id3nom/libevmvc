@@ -178,6 +178,15 @@ enum class worker_type
     http = 0,
     cache = 1,
 };
+evmvc::string_view to_string(worker_type t)
+{
+    switch(t){
+        case worker_type::http:     return "http";
+        case worker_type::cache:    return "cache";
+        default:
+            throw EVMVC_ERR("UNKNOWN worker_type: '{}'", (int)t);
+    }
+}
 
 class worker
 {
@@ -187,15 +196,27 @@ class worker
         return ++_id;
     }
     
-public:
-    worker(const wp_app& app, const app_options& config)
-        : _id(nxt_id()), _pid(-1), _ptype(process_type::unknown),
-        _app(app),
-        _log(app.lock()->log()->add_child("worker " + std::to_string(_id))),
+protected:
+    worker(const wp_app& app, const app_options& config,
+        worker_type wtype, const sp_logger& log)
+        : _app(app),
         _config(config),
+        _wtype(wtype),
+        _id(nxt_id()),
+        _log(
+            log->add_child(
+                "worker/" +
+                to_string(wtype).to_string() + "/" +
+                std::to_string(_id)
+            )
+        ),
+        _pid(-1),
+        _ptype(process_type::unknown),
         _channel(std::make_unique<evmvc::channel>(this))
     {
     }
+
+public:
     
     ~worker()
     {
@@ -203,7 +224,7 @@ public:
             stop();
     }
     
-    virtual worker_type type() const = 0;
+    worker_type work_type() const { return _wtype;}
     virtual int workload() const = 0;
     
     running_state status() const
@@ -260,13 +281,15 @@ public:
     
 protected:
     running_state _status = running_state::stopped;
+    
+    wp_app _app;
+    app_options _config;
+    worker_type _wtype;
     int _id;
+    sp_logger _log;
+    
     int _pid;
     process_type _ptype;
-    wp_app _app;
-    sp_logger _log;
-    app_options _config;
-    
     std::unique_ptr<evmvc::channel> _channel;
 };
 
@@ -290,6 +313,8 @@ void channel::_init()
         case channel_type::child:
             _init_child_channels();
             break;
+        default:
+            break;
     }
 }
 
@@ -299,16 +324,16 @@ class http_worker
     public worker
 {
 public:
-    http_worker(const wp_app& app, const app_options& config)
-        : worker(app, config)
+    http_worker(const wp_app& app, const app_options& config,
+        const sp_logger& log)
+        : worker(app, config, worker_type::http, log)
     {
     }
     
-    worker_type type() const { return worker_type::http;}
-    
     int workload() const
     {
-        
+        //TODO: implement this...
+        return -1;
     }
     
     sp_child_server find_server_by_name(evmvc::string_view name)
@@ -329,11 +354,19 @@ public:
         return nullptr;
     }
     
-private:
+    void remove_connection(int cid)
+    {
+        auto it = _conns.find(cid);
+        if(it == _conns.end())
+            return;
+        _conns.erase(cid);
+    }
     
+private:
     
     std::unordered_map<int, sp_connection> _conns;
     std::unordered_map<int, sp_child_server> _servers;
+    
 };
 
 class cache_worker
@@ -341,26 +374,206 @@ class cache_worker
     public worker
 {
 public:
-    cache_worker(const wp_app& app, const app_options& config)
-        : worker(app, config)
+    cache_worker(const wp_app& app, const app_options& config,
+        const sp_logger& log)
+        : worker(app, config, worker_type::cache, log)
     {
     }
     
-    worker_type type() const { return worker_type::cache;}
-    
+    int workload() const { return -1;}
     
 private:
-    void _init_ssl()
-    {
-        
-    }
 };
 
+
+// connection
 
 sp_http_worker connection::get_worker() const
 {
     return _worker.lock();
 }
+
+void connection::close()
+{
+    _req.reset();
+    _res.reset();
+    _parser.reset();
+    if(_scratch_buf){
+        evbuffer_free(_scratch_buf);
+        _scratch_buf = nullptr;
+    }
+    if(_resume_ev){
+        event_free(_resume_ev);
+        _resume_ev = nullptr;
+    }
+    if(_bev){
+        if(_ssl){
+            SSL_set_shutdown(_ssl, SSL_RECEIVED_SHUTDOWN);
+            SSL_shutdown(_ssl);
+            _ssl = nullptr;
+        }
+        bufferevent_free(_bev);
+        _bev = nullptr;
+    }
+    
+    if(auto w = _worker.lock())
+        w->remove_connection(this->_id);
+}
+
+
+// request
+
+sp_connection request::connection() const { return _conn.lock();}
+bool request::secure() const { return _conn.lock()->secure();}
+
+evmvc::conn_protocol request::protocol() const
+{
+    //TODO: add trust proxy options
+    sp_header h = _headers->get("X-Forwarded-Proto");
+    if(h){
+        if(!strcasecmp(h->value(), "https"))
+            return evmvc::conn_protocol::https;
+        else if(!strcasecmp(h->value(), "http"))
+            return evmvc::conn_protocol::http;
+        else
+            throw EVMVC_ERR(
+                "Invalid 'X-Forwarded-Proto': '{}'", h->value()
+            );
+    }
+    
+    return _conn.lock()->protocol();
+}
+std::string request::protocol_string() const
+{
+    //TODO: add trust proxy options
+    sp_header h = _headers->get("X-Forwarded-Proto");
+    if(h)
+        return boost::to_lower_copy(
+            std::string(h->value())
+        );
+    
+    return to_string(_conn.lock()->protocol()).to_string();
+}
+
+// response
+
+sp_connection response::connection() const { return _conn.lock();}
+bool response::secure() const { return _conn.lock()->secure();}
+
+void response::send_file(
+    const bfs::path& filepath,
+    const evmvc::string_view& enc, 
+    async_cb cb)
+{
+    this->resume();
+    
+    FILE* file_desc = nullptr;
+    struct evmvc::_internal::file_reply* reply = nullptr;
+    
+    // open up the file
+    file_desc = fopen(filepath.c_str(), "r");
+    BOOST_ASSERT(file_desc != nullptr);
+    
+    // create internal file_reply struct
+    reply = new evmvc::_internal::file_reply({
+        this->shared_from_this(),
+        _ev_req,
+        file_desc,
+        evbuffer_new(),
+        nullptr,
+        0,
+        cb,
+        this->_log
+    });
+    
+    /* here we set a connection hook of the type `evhtp_hook_on_write`
+    *
+    * this will execute the function `http__send_chunk_` each time
+    * all data has been written to the client.
+    */
+    evhtp_connection_set_hook(
+        _ev_req->conn, evhtp_hook_on_write,
+        (evhtp_hook)evmvc::_internal::send_file_chunk,
+        reply
+    );
+    
+    /* set a hook to be called when the client disconnects */
+    evhtp_connection_set_hook(
+        _ev_req->conn, evhtp_hook_on_connection_fini,
+        (evhtp_hook)evmvc::_internal::send_file_fini,
+        reply
+    );
+    
+    // set file content-type
+    auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
+    if(evmvc::mime::compressible(mime_type)){
+        EVMVC_DBG(this->_log, "file is compressible");
+        
+        sp_header hdr = _req->headers().get(
+            evmvc::field::accept_encoding
+        );
+        
+        if(hdr){
+            auto encs = hdr->accept_encodings();
+            int wsize = EVMVC_COMPRESSION_NOT_SUPPORTED;
+            if(encs.size() == 0)
+                wsize = EVMVC_ZLIB_GZIP_WSIZE;
+            for(const auto& cenc : encs){
+                if(cenc.type == encoding_type::gzip){
+                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
+                    break;
+                }
+                if(cenc.type == encoding_type::deflate){
+                    wsize = EVMVC_ZLIB_DEFLATE_WSIZE;
+                    break;
+                }
+                if(cenc.type == encoding_type::star){
+                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
+                    break;
+                }
+            }
+            
+            if(wsize != EVMVC_COMPRESSION_NOT_SUPPORTED){
+                reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
+                memset(reply->zs, 0, sizeof(*reply->zs));
+                
+                int compression_level = Z_DEFAULT_COMPRESSION;
+                if(deflateInit2(
+                    reply->zs,
+                    compression_level,
+                    Z_DEFLATED,
+                    wsize, //MOD_GZIP_ZLIB_WINDOWSIZE + 16,
+                    EVMVC_ZLIB_MEM_LEVEL,// MOD_GZIP_ZLIB_CFACTOR,
+                    EVMVC_ZLIB_STRATEGY// Z_DEFAULT_STRATEGY
+                    ) != Z_OK
+                ){
+                    throw EVMVC_ERR("deflateInit2 failed!");
+                }
+                
+                this->headers().set(
+                    evmvc::field::content_encoding, 
+                    wsize == EVMVC_ZLIB_GZIP_WSIZE ? "gzip" : "deflate"
+                );
+            }
+        }
+    }
+    
+    //TODO: get file encoding
+    this->encoding(enc == "" ? "utf-8" : enc).type(
+        filepath.extension().c_str()
+    );
+    this->_prepare_headers();
+    _started = true;
+    
+    /* we do not have to start sending data from the file from here -
+    * this function will write data to the client, thus when finished,
+    * will call our `http__send_chunk_` callback.
+    */
+    evhtp_send_reply_chunk_start(_ev_req, EVHTP_RES_OK);
+}
+
+
+
 
 namespace _internal {
     
@@ -432,6 +645,157 @@ namespace _internal {
     {
         //TODO: implement shared mem
         return;
+    }
+    
+    
+    void on_connection_resume(int /*fd*/, short /*events*/, void* arg)
+    {
+        connection* c = (connection*)arg;
+        EVMVC_DBG(c->_log, "resuming");
+        
+        c->unset_conn_flag(conn_flags::paused);
+        
+        if(c->_req){
+            //TODO: set status to ok.
+        }
+        
+        if(c->flag_is(conn_flags::wait_release)){
+            c->close();
+            return;
+        }
+        
+        if(evbuffer_get_length(c->bev_out())){
+            EVMVC_DBG(c->_log, "SET WAITING");
+
+            c->set_conn_flag(conn_flags::waiting);
+            if(!(bufferevent_get_enabled(c->_bev) & EV_WRITE)){
+                EVMVC_DBG(c->_log, "ENABLING EV_WRITE");
+                bufferevent_enable(c->_bev, EV_WRITE);
+            }
+            
+        }else{
+            EVMVC_DBG(c->_log, "SET READING");
+            if(!(bufferevent_get_enabled(c->_bev) & EV_READ)){
+                EVMVC_DBG(c->_log, "ENABLING EV_READ | EV_WRITE");
+                bufferevent_enable(c->_bev, EV_READ | EV_WRITE);
+            }
+            
+            if(evbuffer_get_length(c->bev_in())){
+                EVMVC_DBG(c->_log, "data available calling on_connection_read");
+                on_connection_read(c->_bev, arg);
+            }
+        }
+    }
+    
+    void on_connection_read(struct bufferevent* /*bev*/, void* arg)
+    {
+        connection* c = (connection*)arg;
+        
+        size_t ilen = evbuffer_get_length(c->bev_in());
+        if(ilen == 0)
+            return;
+        
+        if(c->flag_is(conn_flags::paused))
+            return EVMVC_DBG(c->log(), "Connection is paused, do nothing!");
+        
+        void* buf = evbuffer_pullup(c->bev_in(), ilen);
+        
+        cb_error ec;
+        size_t nread = c->_parser->parse((const char*)buf, ilen, ec);
+        evbuffer_drain(c->bev_in(), nread);
+        
+        if(ec){
+            c->log()->error("Parse error:\n{}", ec);
+            c->set_conn_flag(conn_flags::error);
+            return;
+        }
+        
+        if(c->_req){
+        //     if(c->_req->status() == request_state::req_too_long){
+        //         c->set_conn_flag(conn_flags::error);
+        //         return;
+        //     }
+        }
+        if(c->_res && c->_res->paused())
+            return;
+        
+        if(nread < ilen){
+            c->resume();
+        }
+    }
+    
+    void on_connection_write(struct bufferevent* /*bev*/, void* arg)
+    {
+        connection* c = (connection*)arg;
+        
+        if(c->flag_is(conn_flags::paused))
+            return;
+        
+        if(c->flag_is(conn_flags::waiting)){
+            c->unset_conn_flag(conn_flags::waiting);
+            if(!(bufferevent_get_enabled(c->_bev) & EV_READ))
+                bufferevent_enable(c->_bev, EV_READ);
+            
+            if(evbuffer_get_length(c->bev_in())){
+                on_connection_read(c->_bev, arg);
+                return;
+            }
+        }
+        
+        if(!c->_res->ended() || evbuffer_get_length(c->bev_out()))
+            return;
+        
+        if(c->flag_is(conn_flags::keepalive)){
+            c->_req.reset();
+            c->_res.reset();
+            c->_parser->reset();
+        }else{
+            c->close();
+        }
+    }
+    
+    void on_connection_event(
+        struct bufferevent* /*bev*/, short events, void* arg)
+    {
+        connection* c = (connection*)arg;
+        
+        EVMVC_DBG(c->_log,
+            "events: {}{}{}{}",
+            events & BEV_EVENT_CONNECTED ? "connected " : "",
+            events & BEV_EVENT_ERROR     ? "error "     : "",
+            events & BEV_EVENT_TIMEOUT   ? "timeout "   : "",
+            events & BEV_EVENT_EOF       ? "eof"       : ""
+        );
+        
+        if((events & BEV_EVENT_CONNECTED)){
+            EVMVC_DBG(c->_log, "CONNECTED");
+            return;
+        }
+        
+        if(c->_ssl && !(events & BEV_EVENT_EOF)){
+            // ssl error
+            c->set_conn_flag(conn_flags::error);
+        }
+        
+        if(events == (BEV_EVENT_EOF | BEV_EVENT_READING)){
+            EVMVC_DBG(c->_log, "EOF | READING");
+            if(errno == EAGAIN){
+                EVMVC_DBG(c->_log, "errno EAGAIN");
+                
+                if(!(bufferevent_get_enabled(c->_bev) & EV_READ))
+                    bufferevent_enable(c->_bev, EV_READ);
+                errno = 0;
+                return;
+            }
+        }
+        
+        c->set_conn_flag(conn_flags::error);
+        c->unset_conn_flag(conn_flags::connected);
+        
+        if(c->flag_is(conn_flags::paused))
+            c->set_conn_flag(conn_flags::wait_release);
+        else
+            c->close();
     }
     
     

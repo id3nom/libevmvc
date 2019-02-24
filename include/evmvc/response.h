@@ -106,8 +106,8 @@ public:
     uint64_t id() const { return _id;}
     
     
-    sp_connection connection() const { return _conn;}
-    bool secure() const { return _conn->secure();}
+    sp_connection connection() const;
+    bool secure() const;
     
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
@@ -295,114 +295,7 @@ public:
     void send_file(
         const bfs::path& filepath,
         const evmvc::string_view& enc = "utf-8", 
-        async_cb cb = evmvc::noop_cb)
-    {
-        this->resume();
-        
-        FILE* file_desc = nullptr;
-        struct evmvc::_internal::file_reply* reply = nullptr;
-        
-        // open up the file
-        file_desc = fopen(filepath.c_str(), "r");
-        BOOST_ASSERT(file_desc != nullptr);
-        
-        // create internal file_reply struct
-        reply = new evmvc::_internal::file_reply({
-            this->shared_from_this(),
-            _ev_req,
-            file_desc,
-            evbuffer_new(),
-            nullptr,
-            0,
-            cb,
-            this->_log
-        });
-        
-        /* here we set a connection hook of the type `evhtp_hook_on_write`
-        *
-        * this will execute the function `http__send_chunk_` each time
-        * all data has been written to the client.
-        */
-        evhtp_connection_set_hook(
-            _ev_req->conn, evhtp_hook_on_write,
-            (evhtp_hook)evmvc::_internal::send_file_chunk,
-            reply
-        );
-        
-        /* set a hook to be called when the client disconnects */
-        evhtp_connection_set_hook(
-            _ev_req->conn, evhtp_hook_on_connection_fini,
-            (evhtp_hook)evmvc::_internal::send_file_fini,
-            reply
-        );
-        
-        // set file content-type
-        auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
-        if(evmvc::mime::compressible(mime_type)){
-            EVMVC_DBG(this->_log, "file is compressible");
-            
-            sp_header hdr = _req->headers().get(
-                evmvc::field::accept_encoding
-            );
-            
-            if(hdr){
-                auto encs = hdr->accept_encodings();
-                int wsize = EVMVC_COMPRESSION_NOT_SUPPORTED;
-                if(encs.size() == 0)
-                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                for(const auto& cenc : encs){
-                    if(cenc.type == encoding_type::gzip){
-                        wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                        break;
-                    }
-                    if(cenc.type == encoding_type::deflate){
-                        wsize = EVMVC_ZLIB_DEFLATE_WSIZE;
-                        break;
-                    }
-                    if(cenc.type == encoding_type::star){
-                        wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                        break;
-                    }
-                }
-                
-                if(wsize != EVMVC_COMPRESSION_NOT_SUPPORTED){
-                    reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
-                    memset(reply->zs, 0, sizeof(*reply->zs));
-                    
-                    int compression_level = Z_DEFAULT_COMPRESSION;
-                    if(deflateInit2(
-                        reply->zs,
-                        compression_level,
-                        Z_DEFLATED,
-                        wsize, //MOD_GZIP_ZLIB_WINDOWSIZE + 16,
-                        EVMVC_ZLIB_MEM_LEVEL,// MOD_GZIP_ZLIB_CFACTOR,
-                        EVMVC_ZLIB_STRATEGY// Z_DEFAULT_STRATEGY
-                        ) != Z_OK
-                    ){
-                        throw EVMVC_ERR("deflateInit2 failed!");
-                    }
-                    
-                    this->headers().set(
-                        evmvc::field::content_encoding, 
-                        wsize == EVMVC_ZLIB_GZIP_WSIZE ? "gzip" : "deflate"
-                    );
-                }
-            }
-        }
-        
-        //TODO: get file encoding
-        this->encoding(enc == "" ? "utf-8" : enc).type(
-            filepath.extension().c_str()
-        );
-        this->_prepare_headers();
-        _started = true;
-        
-        /* we do not have to start sending data from the file from here -
-        * this function will write data to the client, thus when finished,
-        * will call our `http__send_chunk_` callback.
-        */
-        evhtp_send_reply_chunk_start(_ev_req, EVHTP_RES_OK);
-    }
+        async_cb cb = evmvc::noop_cb);
     
     void error(const cb_error& err)
     {
@@ -472,8 +365,8 @@ private:
     }
     
     uint64_t _id;
-    sp_connection _conn;
-
+    wp_connection _conn;
+    
     sp_route _rt;
     evmvc::sp_logger _log;
     evhtp_request_t* _ev_req;

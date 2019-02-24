@@ -22,41 +22,62 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_global_h
-#define _libevmvc_global_h
+#ifndef _libevmvc_http_parser_h
+#define _libevmvc_http_parser_h
 
 #include "stable_headers.h"
+#include "logging.h"
 
-namespace evmvc { namespace global {
+namespace evmvc {
 
-struct event_base* ev_base(
-    struct event_base* reset = nullptr,
-    bool free_on_reset = false,
-    bool debug = false)
+
+class parser
 {
-    static struct event_base* _ev_base = nullptr;
-    if(reset || _ev_base == nullptr){
-        if(_ev_base && free_on_reset)
-            event_base_free(_ev_base);
-        
-        if(reset)
-            _ev_base = reset;
-        else{
-            if(debug)
-                event_enable_debug_mode();
-            _ev_base = event_base_new();
-        }
+public:
+    parser(wp_connection conn, const sp_logger log)
+        : _conn(conn), _log(log)
+    {
     }
     
-    return _ev_base;
-}
+    sp_connection get_connection() const { return _conn.lock();}
+    sp_logger log() const { return _log;}
+    
+    virtual void reset() = 0;
+    virtual size_t parse(const char* buf, size_t len, cb_error& ec) = 0;
+    
+private:
+    wp_connection _conn;
+    sp_logger _log;
+};
 
-void set_event_base(struct event_base* evb)
+class http_parser
+    : public parser
 {
-    if(!evb)
-        throw EVMVC_ERR("event_base must be valid!");
-    evmvc::global::ev_base(evb, true);
-}
+public:
+    http_parser(wp_connection conn, const sp_logger& log)
+        : parser(conn, log->add_child("parser"))
+    {
+    }
+    
 
-}}//::evmvc::global
-#endif//_libevmvc_global_h
+    void reset()
+    {
+        _body_nread = 0;
+        
+    }
+    
+    size_t parse(const char* /*buf*/, size_t /*len*/, cb_error& /*ec*/)
+    {
+        return 0;
+    }
+    
+private:
+    size_t _body_nread = 0;
+    
+    
+};
+
+
+}//::evmvc
+
+#endif//_libevmvc_http_parser_h

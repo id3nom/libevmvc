@@ -326,7 +326,7 @@ private:
 // {
 //     return std::shared_ptr<event_wrapper<void>>(
 //         new event_wrapper<void>(
-//             *evmvc::thread_ev_base(), fd, events, _res, _nxt, _cb
+//             evmvc::global::ev_base(), fd, events, _res, _nxt, _cb
 //         )
 //     );
 // }
@@ -477,13 +477,13 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     size_t ms
 )
 {
-    if(*evmvc::thread_ev_base() == nullptr)
+    if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
-            *evmvc::thread_ev_base(), fd, et, nullptr, nullptr, _cb
+            evmvc::global::ev_base(), fd, et, nullptr, nullptr, _cb
         )
     );
     if(ms == 0){
@@ -518,13 +518,13 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     size_t ms
 )
 {
-    if(*evmvc::thread_ev_base() == nullptr)
+    if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
-            *evmvc::thread_ev_base(), -1, event_type::none, nullptr, nullptr, 
+            evmvc::global::ev_base(), -1, event_type::none, nullptr, nullptr, 
             [_cb](auto ew, int /*fd*/, evmvc::event_type /*et*/){
                 _cb(ew);
             }
@@ -563,13 +563,13 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     size_t ms
 )
 {
-    if(*evmvc::thread_ev_base() == nullptr)
+    if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
-            *evmvc::thread_ev_base(), fd, et | event_type::persist,
+            evmvc::global::ev_base(), fd, et | event_type::persist,
             nullptr, nullptr, _cb
         )
     );
@@ -604,13 +604,13 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     size_t ms
 )
 {
-    if(*evmvc::thread_ev_base() == nullptr)
+    if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
     auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
-            *evmvc::thread_ev_base(), -1, event_type::persist,
+            evmvc::global::ev_base(), -1, event_type::persist,
             nullptr, nullptr, 
             [_cb](auto ew, int /*fd*/, evmvc::event_type /*et*/){
                 _cb(ew);

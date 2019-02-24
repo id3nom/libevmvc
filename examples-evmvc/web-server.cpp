@@ -329,7 +329,7 @@ int main(int argc, char** argv)
     
     
     
-    srv->listen();
+    //srv->listen();
     
     event_base_loop(_ev_base, 0);
     

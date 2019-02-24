@@ -53,14 +53,13 @@ public:
         evmvc::app_options&& opts)
         : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
-        _router(),
-        _ev_base(ev_base), _evhtp(nullptr)//, _ar(nullptr)
+        _router()//,
+        //_evhtp(nullptr)//, _ar(nullptr)
     {
         // force get_field_table initialization
         evmvc::detail::get_field_table();
         
-        *evmvc::ev_base() = ev_base;
-        *evmvc::thread_ev_base() = ev_base;
+        evmvc::global::set_event_base(ev_base);
         
         // init the default logger
         if(_options.use_default_logger){
@@ -74,7 +73,7 @@ public:
             
             bfs::create_directories(_options.log_dir);
             auto file_sink = std::make_shared<evmvc::sinks::rotating_file_sink>(
-                _ev_base,
+                evmvc::global::ev_base(),
                 (_options.log_dir / "libevmvc.log").c_str(),
                 _options.log_file_max_size,
                 _options.log_file_max_files
@@ -149,9 +148,8 @@ public:
         
         for(size_t i = 0; i < _options.worker_count; ++i){
             sp_http_worker w = std::make_shared<evmvc::http_worker>(
-                this->shared_from_this(), _options
+                this->shared_from_this(), _options, this->_log
             );
-            
         }
         
         for(auto w : _workers){
@@ -181,13 +179,7 @@ public:
         
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
-            
-            for(auto w : _workers)
-                kill(w->pid(), SIGINT);
-            _workers.clear();
-            _servers.clear();
-            
-            event_base_free(global::ev_base());
+            stop();
         }
     }
     
@@ -248,20 +240,26 @@ public:
     //     _status = running_state::running;
     // }
     
-    void stop()
+    void stop(bool free_ev_base = false)
     {
         if(stopped() || stopping())
             throw EVMVC_ERR(
                 "app must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
-        evhtp_unbind_socket(_evhtp);
-        evhtp_free(_evhtp);
+        //evhtp_unbind_socket(_evhtp);
+        //evhtp_free(_evhtp);
+        
+        for(auto w : _workers)
+            kill(w->pid(), SIGINT);
+        _workers.clear();
+        _servers.clear();
+        
+        if(free_ev_base)
+            event_base_free(global::ev_base());
         
         this->_status = running_state::stopped;
     }
-    
-    #pragma region
     
     sp_router all(
         const evmvc::string_view& route_path, route_handler_cb cb,
@@ -378,8 +376,6 @@ public:
         return _router->register_router(router);
     }
     
-    #pragma endregion
-    
 private:
     
     inline void _init_router()
@@ -426,8 +422,7 @@ private:
     running_state _status;
     app_options _options;
     sp_router _router;
-    struct event_base* _ev_base;
-    struct evhtp* _evhtp;
+    //struct evhtp* _evhtp;
     evmvc::sp_logger _log;
     
     std::vector<evmvc::sp_worker> _workers;
@@ -950,7 +945,7 @@ namespace _internal{
         // select prefered worker;
         sp_worker pw;
         for(auto& w : a->workers())
-            if(w->type() == worker_type::http){
+            if(w->work_type() == worker_type::http){
                 if(!pw){
                     pw = w;
                     continue;

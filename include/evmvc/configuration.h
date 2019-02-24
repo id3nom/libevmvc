@@ -53,10 +53,46 @@ enum class ssl_cache_type
     builtin
 };
 
+#define _EVMVC_DEF_SSL_OPTS SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | \
+    SSL_MODE_RELEASE_BUFFERS | SSL_OP_NO_COMPRESSION
+#define _EVMVC_DEF_SSL_VERIF_MODE ssl_verify_mode::none
+#define _EVMVC_DEF_SSL_CACHE_TYPE evmvc::ssl_cache_type::disabled
+#define _EVMVC_DEF_SSL_CIPHERS ""
+#define _EVMVC_DEF_SSL_NC "prime256v1"
+
 class ssl_options
 {
 public:
-    ssl_options() = default;
+    ssl_options()
+        :
+        cert_file(""),
+        cert_key_file(""),
+        cafile(""),
+        capath(""),
+        
+        ciphers(_EVMVC_DEF_SSL_CIPHERS),
+        named_curve(_EVMVC_DEF_SSL_NC),
+        dhparams(""),
+        
+        ssl_opts(_EVMVC_DEF_SSL_OPTS),
+        ssl_ctx_timeout(0),
+        
+        verify_mode(_EVMVC_DEF_SSL_VERIF_MODE),
+        verify_depth(0),
+        
+        x509_verify_cb(nullptr),
+        x509_chk_issued_cb(nullptr),
+        decrypt_cb(nullptr),
+        
+        store_flags(0),
+        
+        cache_type(_EVMVC_DEF_SSL_CACHE_TYPE),
+        cache_timeout(0),
+        cache_size(0),
+        cache_init_cb(nullptr),
+        cache_args(nullptr)
+    {
+    }
     
     ssl_options(const evmvc::ssl_options& o)
         : cert_file(o.cert_file),
@@ -116,10 +152,13 @@ public:
         cache_init_cb(o.cache_init_cb),
         cache_args(o.cache_args)
     {
-        o.ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
+        o.ciphers = _EVMVC_DEF_SSL_CIPHERS;
+        o.named_curve = _EVMVC_DEF_SSL_NC;
+
+        o.ssl_opts = _EVMVC_DEF_SSL_OPTS;
         o.ssl_ctx_timeout = 0;
         
-        o.verify_mode = ssl_verify_mode::none;
+        o.verify_mode = _EVMVC_DEF_SSL_VERIF_MODE;
         o.verify_depth = 0;
         
         o.x509_verify_cb = nullptr;
@@ -128,7 +167,7 @@ public:
         
         o.store_flags = 0;
         
-        o.cache_type = evmvc::ssl_cache_type::disabled;
+        o.cache_type = _EVMVC_DEF_SSL_CACHE_TYPE;
         o.cache_timeout = 0;
         o.cache_size = 0;
         o.cache_init_cb = nullptr;
@@ -164,10 +203,13 @@ public:
         cache_init_cb = o.cache_init_cb;
         cache_args = o.cache_args;
         
-        o.ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
+        o.ciphers = _EVMVC_DEF_SSL_CIPHERS;
+        o.named_curve = _EVMVC_DEF_SSL_NC;
+        
+        o.ssl_opts = _EVMVC_DEF_SSL_OPTS;
         o.ssl_ctx_timeout = 0;
         
-        o.verify_mode = ssl_verify_mode::none;
+        o.verify_mode = _EVMVC_DEF_SSL_VERIF_MODE;
         o.verify_depth = 0;
         
         o.x509_verify_cb = nullptr;
@@ -176,7 +218,7 @@ public:
         
         o.store_flags = 0;
         
-        o.cache_type = evmvc::ssl_cache_type::disabled;
+        o.cache_type = _EVMVC_DEF_SSL_CACHE_TYPE;
         o.cache_timeout = 0;
         o.cache_size = 0;
         o.cache_init_cb = nullptr;
@@ -196,8 +238,6 @@ public:
     
     std::string cert_file;
     std::string cert_key_file;
-    evmvc::ssl_decrypt_cb decrypt_cb = nullptr;
-    
     std::string cafile;
     std::string capath;
     
@@ -205,23 +245,28 @@ public:
     std::string named_curve;
     std::string dhparams;
     
-    long ssl_opts = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1;
-    long ssl_ctx_timeout = 0;
+    long ssl_opts;
+    long ssl_ctx_timeout;
     
-    evmvc::ssl_verify_mode verify_mode = ssl_verify_mode::none;
-    SSL_verify_cb x509_verify_cb = nullptr;
-    int verify_depth = 0;
+    evmvc::ssl_verify_mode verify_mode;
+    int verify_depth;
+
+    SSL_verify_cb x509_verify_cb;
+    X509_STORE_CTX_check_issued_fn x509_chk_issued_cb;
+    evmvc::ssl_decrypt_cb decrypt_cb;
     
-    X509_STORE_CTX_check_issued_fn x509_chk_issued_cb = nullptr;
+    unsigned long store_flags;
     
-    unsigned long store_flags = 0;
-    
-    evmvc::ssl_cache_type cache_type = evmvc::ssl_cache_type::disabled;
-    long cache_timeout = 0;
-    long cache_size = 0;
-    evmvc::ssl_scache_init cache_init_cb = nullptr;
-    void* cache_args = nullptr;
+    evmvc::ssl_cache_type cache_type;
+    long cache_timeout;
+    long cache_size;
+    evmvc::ssl_scache_init cache_init_cb;
+    void* cache_args;
 };
+#undef _EVMVC_DEF_SSL_OPTS
+#undef _EVMVC_DEF_SSL_VERIF_MODE
+#undef _EVMVC_DEF_SSL_CACHE_TYPE
+
 
 class listen_options
 {
@@ -246,7 +291,7 @@ public:
     {
         o.port = 80;
         o.ssl = false;
-        o.backlog = -1
+        o.backlog = -1;
     }
     
     listen_options& operator=(listen_options&& o)
@@ -258,7 +303,9 @@ public:
         
         o.port = 80;
         o.ssl = false;
-        o.backlog = -1
+        o.backlog = -1;
+        
+        return *this;
     }
     
     std::string address = "*";
@@ -278,18 +325,25 @@ public:
         : name(o.name),
         aliases(o.aliases),
         listeners(o.listeners),
-        enable_ssl(o.enable_ssl),
-        ssl(o.ssl)
+        ssl(o.ssl),
+        atimeo(o.atimeo),
+        rtimeo(o.rtimeo),
+        wtimeo(o.wtimeo)
     {
     }
-
+    
     server_options(server_options&& o)
         : name(std::move(o.name)),
         aliases(std::move(o.aliases)),
         listeners(std::move(o.listeners)),
-        enable_ssl(std::move(o.enable_ssl)),
-        ssl(std::move(o.ssl))
+        ssl(std::move(o.ssl)),
+        atimeo(o.atimeo),
+        rtimeo(o.rtimeo),
+        wtimeo(o.wtimeo)
     {
+        o.atimeo = {3,0};
+        o.rtimeo = {3,0};
+        o.wtimeo = {3,0};
     }
     
     server_options& operator=(server_options&& o)
@@ -297,10 +351,15 @@ public:
         name = std::move(o.name);
         aliases = std::move(o.aliases);
         listeners = std::move(o.listeners);
-        enable_ssl = o.enable_ssl;
         ssl = std::move(ssl);
         
-        o.enable_ssl = false;
+        atimeo = o.atimeo;
+        rtimeo = o.rtimeo;
+        wtimeo = o.wtimeo;
+
+        o.atimeo = {3,0};
+        o.rtimeo = {3,0};
+        o.wtimeo = {3,0};
         
         return *this;
     }
@@ -308,8 +367,11 @@ public:
     std::string name = "";
     std::vector<std::string> aliases;
     std::vector<listen_options> listeners;
-    bool enable_ssl = false;
     ssl_options ssl;
+    
+    struct timeval atimeo = {3,0};
+    struct timeval rtimeo = {3,0};
+    struct timeval wtimeo = {3,0};
 };
 
 class app_options
@@ -424,6 +486,8 @@ public:
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
         other.worker_count = get_nprocs_conf();
+        
+        return *this;
     }
     
     bfs::path base_dir;
@@ -442,7 +506,7 @@ public:
     size_t log_file_max_files;
     
     bool stack_trace_enabled;
-    int worker_count;
+    size_t worker_count;
     
     std::vector<server_options> servers;
 };
