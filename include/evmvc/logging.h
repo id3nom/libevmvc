@@ -177,6 +177,15 @@ public:
         _sinks.emplace_back(sink);
     }
     
+    void replace_sink(evmvc::sinks::sp_logger_sink sink)
+    {
+        _sinks.clear();
+        if(_parent)
+            ((logger*)_parent.get())->replace_sink(sink);
+        else
+            register_sink(sink);
+    }
+    
     void log(
         evmvc::string_view log_path,
         log_level lvl,
@@ -339,8 +348,8 @@ namespace sinks{
         {
             std::clog <<
                 _gen_header(color, log_path, lvl) <<
-                evmvc::replace_substring_copy(msg.data(), "\n", "\n  ") <<
-                _gen_footer(color, lvl) << "\n";
+                evmvc::replace_substring_copy(msg.to_string(), "\n", "\n  ")
+                << _gen_footer(color, lvl) << "\n";
         }
         
         bool color;
@@ -379,14 +388,14 @@ namespace sinks{
                     _level_color(lvl).data(),
                     _internal::get_timestamp(),
                     to_string(lvl).data(),
-                    log_path.data()
+                    log_path.to_string()
                 );
             else
                 return fmt::format(
                     "[{}] [{}:{}]\n",
                     _internal::get_timestamp(),
                     to_string(lvl).data(),
-                    log_path.data()
+                    log_path.to_string()
                 );
         }
         
@@ -441,7 +450,7 @@ namespace sinks{
                 return;
             
             std::string log_str =
-                _gen_header(log_path, lvl) + msg.data() + "\n";
+                _gen_header(log_path, lvl) + msg.to_string() + "\n";
             evmvc::_internal::writen(_fd, log_str.c_str(), log_str.size());
         }
         
@@ -624,7 +633,7 @@ namespace sinks{
                 "[{}] [{}:{}] ",
                 _internal::get_timestamp(),
                 to_string(lvl).data(),
-                log_path.data()
+                log_path.to_string()
             );
         }
         

@@ -37,6 +37,11 @@ SOFTWARE.
 #define EVMVC_PIPE_WRITE_FD 1
 #define EVMVC_PIPE_READ_FD 0
 
+#define EVMVC_CMD_PING 0
+#define EVMVC_CMD_PONG 1
+#define EVMVC_CMD_LOG 2
+
+
 namespace evmvc {
 namespace _internal {
     void sig_received(int sig)
@@ -75,6 +80,14 @@ enum class channel_type
     child
 };
 
+typedef struct cmd_log_t
+{
+    const char* label;
+    size_t label_size;
+    const char* msg;
+    size_t msg_size;
+} cmd_log;
+
 class channel
 {
     friend class worker;
@@ -111,6 +124,62 @@ public:
     }
     
     
+    ssize_t sendcmd(int cmd_id, const char* payload, size_t payload_len)
+    {
+        // #if EVMVC_BUILD_DEBUG
+        // std::clog << fmt::format(
+        //     "Sending command, cmd_id: {}, size: {}\n", cmd_id, payload_len
+        // ) << std::endl;
+        // #endif
+        
+        int fd = _type == channel_type::child ?
+            ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
+        
+        ssize_t tn = 0;
+        ssize_t n = _internal::writen(
+            fd,
+            &cmd_id,
+            sizeof(int)
+        );
+        if(n == -1){
+            std::cerr << fmt::format(
+                "Unable to send cmd, err: '{}'\n", errno
+            );
+            return -1;
+        }
+        tn += n;
+        n = _internal::writen(
+            fd,
+            &payload_len,
+            sizeof(size_t)
+        );
+        if(n == -1){
+            std::cerr << fmt::format(
+                "Unable to send cmd, err: '{}'\n", errno
+            );
+            return -1;
+        }
+        tn += n;
+        if(payload_len > 0){
+            n = _internal::writen(
+                fd,
+                payload,
+                payload_len
+            );
+            if(n == -1){
+                std::cerr << fmt::format(
+                    "Unable to send cmd, err: '{}'\n", errno
+                );
+                return -1;
+            }
+            tn += n;
+        }
+        
+        // send the command
+        fsync(fd);
+        
+        return tn;
+    }
     
 private:
     void _init();
@@ -137,13 +206,18 @@ private:
             rcmd_ev = nullptr;
         }
         
-        if(ptoc[EVMVC_PIPE_READ_FD] > -1){
-            close(ptoc[EVMVC_PIPE_READ_FD]);
-            ptoc[EVMVC_PIPE_READ_FD] = -1;
+        if(rcmd_buf){
+            evbuffer_free(rcmd_buf);
+            rcmd_buf = nullptr;
         }
-        if(ctop[EVMVC_PIPE_WRITE_FD] > -1){
-            close(ctop[EVMVC_PIPE_WRITE_FD]);
-            ctop[EVMVC_PIPE_WRITE_FD] = -1;
+        
+        if(ptoc[EVMVC_PIPE_WRITE_FD] > -1){
+            close(ptoc[EVMVC_PIPE_WRITE_FD]);
+            ptoc[EVMVC_PIPE_WRITE_FD] = -1;
+        }
+        if(ctop[EVMVC_PIPE_READ_FD] > -1){
+            close(ctop[EVMVC_PIPE_READ_FD]);
+            ctop[EVMVC_PIPE_READ_FD] = -1;
         }
     }
     
@@ -173,6 +247,11 @@ private:
             rcmd_ev = nullptr;
         }
         
+        if(rcmd_buf){
+            evbuffer_free(rcmd_buf);
+            rcmd_buf = nullptr;
+        }
+        
         if(ptoc[EVMVC_PIPE_READ_FD] > -1){
             close(ptoc[EVMVC_PIPE_READ_FD]);
             ptoc[EVMVC_PIPE_READ_FD] = -1;
@@ -190,6 +269,7 @@ public:
     int ptoc[2] = {-1,-1};
     int ctop[2] = {-1,-1};
     struct event* rcmd_ev = nullptr;
+    struct evbuffer* rcmd_buf = nullptr;
     // access control messages (ancillary data) socket
     int usock = -1;
     std::string usock_path = "";
@@ -218,8 +298,31 @@ evmvc::string_view to_string(worker_type t)
     }
 }
 
-class worker
+namespace sinks{
+class child_sink
+    : public logger_sink
 {
+public:
+    child_sink(std::weak_ptr<worker> w)
+        : logger_sink(log_level::info), _w(w)
+    {
+    }
+    
+    void log(
+        evmvc::string_view log_path,
+        log_level lvl, evmvc::string_view msg
+    ) const;
+private:
+    std::weak_ptr<worker> _w;
+};
+}//::sinks
+
+void channel_cmd_read(int fd, short events, void* arg);
+
+class worker
+    : public std::enable_shared_from_this<worker>
+{
+    friend void channel_cmd_read(int fd, short events, void* arg);
     static int nxt_id()
     {
         static int _id = -1;
@@ -234,11 +337,9 @@ protected:
         _wtype(wtype),
         _id(nxt_id()),
         _log(
-            log->add_child(
-                "worker/" +
-                to_string(wtype).to_string() + "/" +
-                std::to_string(_id)
-            )
+            log->add_child(fmt::format(
+                "worker-{}-{}", to_string(wtype), _id
+            ))
         ),
         _pid(-1),
         _ptype(process_type::unknown),
@@ -288,13 +389,15 @@ public:
             _pid = pid;
             
         }else if(pid == 0){
+            signal(SIGINT, _internal::sig_received);
+
             _ptype = process_type::child;
             _pid = getpid();
-
+            
+            // change proctitle
             char ppname[17]{0};
             prctl(PR_GET_NAME, ppname);
             
-            // change proctitle
             std::string pname = 
                 fmt::format(
                     "evmvc-worker"
@@ -307,7 +410,15 @@ public:
             size_t pname_size = strlen(argv[0]);
             strncpy(argv[0], pname.c_str(), pname_size);
             
-            signal(SIGINT, _internal::sig_received);
+            auto c_sink = std::make_shared<evmvc::sinks::child_sink>(
+                this->shared_from_this()
+            );
+            c_sink->set_level(_log->level());
+            _log->replace_sink(c_sink);
+            //_log->info("Sink level set to '{}'", to_string(_log->level()));
+            std::clog << fmt::format(
+                "Sink level set to '{}'", to_string(_log->level())
+            ) << std::endl;
         }
         
         _channel->_init();
@@ -327,7 +438,98 @@ public:
         this->_status = running_state::stopped;
     }
     
+    
+    bool ping()
+    {
+        try{
+            _channel->sendcmd(EVMVC_CMD_PING, nullptr, 0);
+            return true;
+        }catch(const std::exception& err){
+            
+            return false;
+        }
+    }
+    
+    ssize_t send_log(
+        evmvc::log_level lvl, evmvc::string_view path, evmvc::string_view msg)
+    {
+        size_t pl =
+            sizeof(int) + // log level
+            (sizeof(size_t) * 2) + // lengths of path and msg
+            path.size() + msg.size();
+        
+        char p[pl];
+        char* pp = p;
+        *((int*)pp) = (int)lvl;
+        pp += sizeof(int);
+        
+        *((size_t*)pp) = path.size();
+        pp += sizeof(size_t);
+        for(size_t i = 0; i < path.size(); ++i)
+            *((char*)pp++) = path.data()[i];
+
+        *((size_t*)pp) = msg.size();
+        pp += sizeof(size_t);
+        for(size_t i = 0; i < msg.size(); ++i)
+            *((char*)pp++) = msg.data()[i];
+        
+        return _channel->sendcmd(EVMVC_CMD_LOG, p, pl);
+    }
+
 protected:
+    virtual void parse_cmd(int cmd_id, const char* p, size_t plen)
+    {
+        switch(cmd_id){
+            case EVMVC_CMD_PING:{
+                EVMVC_DBG(_log, "CMD PING recv");
+                _channel->sendcmd(EVMVC_CMD_PONG, nullptr, 0);
+                break;
+            }
+            case EVMVC_CMD_PONG:{
+                EVMVC_DBG(_log, "CMD PONG recv");
+                
+                break;
+            }
+            case EVMVC_CMD_LOG:{
+                EVMVC_DBG(_log, "CMD LOG recv");
+                log_level lvl = (log_level)(*(int*)p);
+                p += sizeof(int);
+                
+                size_t log_path_size = *(size_t*)p;
+                p += sizeof(size_t);
+                const char* log_path = p;
+                p += log_path_size;
+                
+                size_t log_msg_size = *(size_t*)p;
+                p += sizeof(size_t);
+                const char* log_msg = p;
+                p += log_msg_size;
+                
+                _log->log(
+                    evmvc::string_view(log_path, log_path_size),
+                    lvl,
+                    evmvc::string_view(log_msg, log_msg_size)
+                );
+                
+                break;
+            }
+            default:
+                if(plen)
+                    _log->warn(
+                        "unknown cmd_id: '{}', payload len: '{}'\n"
+                        "payload: '{}'",
+                        cmd_id, plen,
+                        evmvc::base64_encode(evmvc::string_view(p, plen))
+                    );
+                else
+                    _log->warn(
+                        "unknown cmd_id: '{}', payload len: '{}'",
+                        cmd_id, plen
+                    );
+                break;
+        }
+    }
+    
     running_state _status = running_state::stopped;
     
     wp_app _app;
@@ -340,6 +542,23 @@ protected:
     process_type _ptype;
     std::unique_ptr<evmvc::channel> _channel;
 };
+
+void sinks::child_sink::log(
+    evmvc::string_view log_path,
+    log_level lvl, evmvc::string_view msg) const
+{
+    if(auto w = _w.lock())
+        w->send_log(lvl, log_path, msg);
+    #if EVMVC_BUILD_DEBUG
+    else
+        std::cerr << fmt::format(
+            "\nWorker weak pointer is null, unable to send log:\n"
+            "level: {}, path:{}\nmsg:{}\n",
+            (int)lvl, log_path, msg
+        ) << std::endl;
+    #endif
+}
+
 
 void channel::_init()
 {
@@ -368,8 +587,7 @@ void channel::_init()
 
 
 class http_worker
-    : public std::enable_shared_from_this<http_worker>,
-    public worker
+    : public worker
 {
     friend void _internal::on_http_worker_accept(
         int fd, short events, void* arg
@@ -454,6 +672,20 @@ public:
         _conns.erase(cid);
     }
     
+    sp_http_worker shared_from_self()
+    {
+        return std::static_pointer_cast<http_worker>(
+            this->shared_from_this()
+        );
+    }
+
+    std::shared_ptr<const http_worker> shared_from_self() const
+    {
+        return std::static_pointer_cast<const http_worker>(
+            this->shared_from_this()
+        );
+    }
+    
 private:
     void _revc_sock(size_t srv_id, int iproto, int sock_fd)
     {
@@ -466,7 +698,7 @@ private:
         
         sp_connection c = std::make_shared<connection>(
             this->_log,
-            this->shared_from_this(),
+            this->shared_from_self(),
             srv,
             sock_fd,
             proto
@@ -506,6 +738,11 @@ sp_http_worker connection::get_worker() const
 
 void connection::close()
 {
+    if(_closed)
+        return;
+    _closed = true;
+    EVMVC_TRACE(this->_log, "closing\n{}", this->debug_string());
+    
     _req.reset();
     _res.reset();
     _parser.reset();
@@ -538,6 +775,26 @@ struct bufferevent* http_parser::bev() const
     return c->bev();
 }
 
+void http_parser::send_test_response()
+{
+    _status = http_parser::state::end;
+    
+    std::string m = fmt::format(
+        "conn-{}\n",
+        this->_conn.lock()->id()
+    );
+    
+    std::string s = fmt::format(
+        "HTTP/1.1 200 OK\r\n"
+        "Content-Type: text/html; charset=utf-8\r\n"
+        "Content-Length: {}\r\n\r\n{}",
+        m.size(), m
+    );
+    _log->trace("sending response:\n{}", s);
+    bufferevent_write(
+        bev(), s.c_str(), s.size()
+    );
+}
 
 // request
 
@@ -753,7 +1010,10 @@ namespace _internal {
             if (cmsgp->cmsg_type != SCM_RIGHTS)
                 w->_log->fatal(EVMVC_ERR("cmsg_type != SCM_RIGHTS"));
             
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wstrict-aliasing"
             int sock = *((int*)CMSG_DATA(cmsgp));
+            #pragma GCC diagnostic pop
             w->_revc_sock(data.srv_id, data.iproto, sock);
         }
     }
@@ -871,6 +1131,7 @@ namespace _internal {
     void on_connection_read(struct bufferevent* /*bev*/, void* arg)
     {
         connection* c = (connection*)arg;
+        EVMVC_TRACE(c->_log, "on_connection_read\n{}", c->debug_string());
         
         size_t ilen = evbuffer_get_length(c->bev_in());
         if(ilen == 0)
@@ -885,6 +1146,7 @@ namespace _internal {
         size_t nread = c->_parser->parse((const char*)buf, ilen, ec);
         if(nread > 0)
             evbuffer_drain(c->bev_in(), nread);
+        EVMVC_TRACE(c->_log, "Parsing done, nread: {}", nread);
         
         if(ec){
             c->log()->error("Parse error:\n{}", ec);
@@ -902,6 +1164,7 @@ namespace _internal {
             return;
         
         if(nread < ilen){
+            c->set_conn_flag(conn_flags::waiting);
             c->resume();
         }
     }
@@ -909,6 +1172,8 @@ namespace _internal {
     void on_connection_write(struct bufferevent* /*bev*/, void* arg)
     {
         connection* c = (connection*)arg;
+        EVMVC_TRACE(c->_log, "on_connection_write\n{}", c->debug_string());
+        
         
         if(c->flag_is(conn_flags::paused))
             return;
@@ -933,7 +1198,7 @@ namespace _internal {
             c->_res.reset();
             c->_parser->reset();
         }else{
-            c->close();
+            //c->close();
         }
     }
     
@@ -942,8 +1207,10 @@ namespace _internal {
     {
         connection* c = (connection*)arg;
         
-        EVMVC_DBG(c->_log,
+        EVMVC_TRACE(c->_log,
+            "conn: {}\n"
             "events: {}{}{}{}",
+            c->debug_string(),
             events & BEV_EVENT_CONNECTED ? "connected " : "",
             events & BEV_EVENT_ERROR     ? "error "     : "",
             events & BEV_EVENT_TIMEOUT   ? "timeout "   : "",

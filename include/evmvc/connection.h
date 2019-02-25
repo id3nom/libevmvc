@@ -86,12 +86,12 @@ public:
         sp_child_server server,
         int sock_fd, evmvc::url_scheme p)
         :
+        _closed(false),
         _id(nxt_id()),
         _log(
-            log->add_child(
-                "conn/" + to_string(p).to_string() +
-                "/sock:" + std::to_string(sock_fd)
-            )
+            log->add_child(fmt::format(
+                "conn-{}-{}", to_string(p), _id
+            ))
         ),
         _worker(worker),
         _server(server),
@@ -141,8 +141,20 @@ public:
             
         }
         
-        struct timeval rto = rtimeo();
-        struct timeval wto = wtimeo();
+        struct timeval rto =
+            #if EVMVC_BUILD_DEBUG
+                // set to 5 minutes in debug build
+                {300,0};
+            #else
+                rtimeo();
+            #endif
+        struct timeval wto =
+            #if EVMVC_BUILD_DEBUG
+                // set to 5 minutes in debug build
+                {300,0};
+            #else 
+                wtimeo();
+            #endif
         bufferevent_set_timeouts(_bev, &rto, &wto);
         
         _resume_ev = event_new(
@@ -159,6 +171,8 @@ public:
             this
         );
         bufferevent_enable(_bev, EV_READ);
+        
+        _log->success("connection initialized");
     }
     
     int id() const { return _id;}
@@ -252,6 +266,38 @@ public:
     
     void close();
     
+    #if EVMVC_BUILD_DEBUG
+        std::string debug_string() const
+        {
+            /*
+                none            = 0,
+                error           = (1 << 1),
+                paused          = (1 << 2),
+                connected       = (1 << 3),
+                waiting         = (1 << 4),
+                keepalive       = (1 << 5),
+                server_via_sni  = (1 << 6),
+                wait_release    = (1 << 7),
+            */
+            return fmt::format(
+                "proto: {}\n"
+                "flags: {}{}{}{}{}{}{}",
+                to_string(_protocol),
+                (int)_flags & (int)conn_flags::error ? "error " : "",
+                (int)_flags & (int)conn_flags::paused ? "paused " : "",
+                (int)_flags & (int)conn_flags::connected ? "connected " : "",
+                (int)_flags & (int)conn_flags::waiting ? "waiting " : "",
+                (int)_flags & (int)conn_flags::keepalive ? "keepalive " : "",
+                (int)_flags & (int)conn_flags::server_via_sni ?
+                    "server_via_sni " : "",
+                (int)_flags & (int)conn_flags::wait_release ?
+                    "wait_release " : ""
+            );
+        }
+        
+    #endif //EVMVC_BUILD_DEBUG
+    
+    
 private:
     void set_sock_opts()
     {
@@ -290,7 +336,7 @@ private:
         }
     }
 
-
+    int _closed;
     int _id;
     sp_logger _log;
     wp_http_worker _worker;

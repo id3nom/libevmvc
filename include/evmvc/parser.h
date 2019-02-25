@@ -89,6 +89,7 @@ class http_parser
         parse_req_line = 0,
         parse_header_section,
         parse_body_section,
+        end
     };
     
     
@@ -117,10 +118,15 @@ public:
     
     size_t parse(const char* in_data, size_t in_len, cb_error& ec)
     {
-        EVMVC_DBG(_log, "parsing:\n{}", std::string(in_data, in_len));
+        EVMVC_DBG(_log,
+            "parsing, len: {}\n{}", in_len, std::string(in_data, in_len)
+        );
         
         if(in_len == 0)
             return 0;
+        
+        if(_status == http_parser::state::end)
+            reset();
         
         _bytes_read = 0;
         
@@ -164,18 +170,27 @@ public:
                 }
                 case http_parser::state::parse_header_section:{
                     if(line_len == 0){
+                        //TODO: validate required header section
+                        auto it = _hdrs->find("host");
+                        if(it == _hdrs->end() || it->second.size() == 0)
+                            _log->success(
+                                "REQ received,"
+                                "host: '{}', method: '{}', uri: '{}'",
+                                "Not Found",
+                                _method,
+                                _uri
+                            );
+                        else
+                            _log->success(
+                                "REQ received,"
+                                "host: '{}', method: '{}', uri: '{}'",
+                                it->second[0],
+                                _method,
+                                _uri
+                            );
                         _status = http_parser::state::parse_body_section;
                         _bytes_read += EVMVC_EOL_SIZE;
-                        
-                        std::string s(
-                            "HTTP/1.1 200 OK\r\n"
-                            "Content-Type: text/html; charset=utf-8\r\n"
-                            "Content-Length: 0\r\n\r\n"
-                        );
-                        _log->trace("sending response:\n{}", s);
-                        bufferevent_write(
-                            bev(), s.c_str(), s.size()
-                        );
+                        send_test_response();
                         break;
                     }
                     
@@ -186,6 +201,10 @@ public:
                     }
                     
                     std::string hn(line, sep);
+                    EVMVC_TRACE(_log,
+                        "Inserting header, name: '{}', value: '{}'",
+                        hn, data_substring(line, sep+1, line_len)
+                    );
                     auto it = _hdrs->find(hn);
                     if(it != _hdrs->end())
                         it->second.emplace_back(
@@ -225,7 +244,7 @@ public:
     }
     
 private:
-    
+    void send_test_response();
     
     http_parser::error _err = http_parser::error::none;
     http_parser::flag _flags = http_parser::flag::none;

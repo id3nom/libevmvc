@@ -240,9 +240,12 @@ namespace _internal{
         nleft = n;
         while(nleft > 0){
             if((nwritten = write(fd, ptr, nleft)) <= 0){
-                if (errno == EINTR)
+                if(errno == EINTR)
                     nwritten = 0;/* and call write() again */
-                else
+                else if(errno == EAGAIN || errno == EWOULDBLOCK){
+                    fsync(fd);
+                    nwritten = 0;/* and call write() again */
+                }else
                     return(-1);/* error */
             }
             

@@ -57,7 +57,7 @@ struct ci_less_eq
     };
     bool operator()(const std::string& s1, const std::string& s2) const
     {
-        return strcasecmp(s1.c_str(), s2.c_str()) < 0;
+        return strcasecmp(s1.c_str(), s2.c_str()) == 0;
         // return std::lexicographical_compare(
         //     s1.begin (), s1.end (),   // source range
         //     s2.begin (), s2.end (),   // dest range

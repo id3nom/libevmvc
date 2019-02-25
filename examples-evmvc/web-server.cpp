@@ -79,7 +79,7 @@ void _on_event_fatal_error(int err)
 
 int main(int argc, char** argv)
 {
-    std::set_terminate(_on_terminate);
+    //std::set_terminate(_on_terminate);
     
     event_set_log_callback(_on_event_log);
     event_set_fatal_callback(_on_event_fatal_error);
@@ -94,14 +94,29 @@ int main(int argc, char** argv)
     //opts.log_file_max_size = 10000;
     if(argc > 1)
         opts.worker_count = evmvc::str_to_num<int>(argv[1]);
+    if(argc > 2)
+        opts.log_console_level = 
+            (evmvc::log_level)evmvc::str_to_num<int>(argv[2]);
     
     auto l_opts = evmvc::listen_options();
     l_opts.address = "0.0.0.0";
     l_opts.port = 8080;
     l_opts.ssl = false;
     
+    auto sl_opts = evmvc::listen_options();
+    sl_opts.address = "0.0.0.0";
+    sl_opts.port = 4343;
+    sl_opts.ssl = true;
+    
     auto srv_opts = evmvc::server_options("localhost");
     srv_opts.listeners.emplace_back(l_opts);
+    srv_opts.listeners.emplace_back(sl_opts);
+    
+    // to generate certificates:
+    // openssl req -x509 -nodes -newkey rsa:4096 -keyout key.pem
+    //     -out cert.pem -days 365
+    srv_opts.ssl.cert_file = "./cert.pem";
+    srv_opts.ssl.cert_key_file = "./key.pem";
     
     opts.servers.emplace_back(srv_opts);
     

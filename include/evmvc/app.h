@@ -859,15 +859,62 @@ sp_router& router::null(wp_app a)
 sp_master_server evmvc::listener::get_server() const { return _server.lock();}
 sp_app evmvc::master_server::get_app() const { return _app.lock();}
 
+#define EVMVC_CMD_HEADER_SIZE (sizeof(int) + sizeof(size_t))
+void channel_cmd_read(int fd, short events, void* arg)
+{
+    channel* chan = (channel*)arg;
+    while(true){
+        ssize_t l = evbuffer_read(chan->rcmd_buf, fd, 4096);
+        if(l == -1){
+            int err = errno;
+            if(err == EAGAIN || err == EWOULDBLOCK)
+                return;
+            chan->worker()->log()->error(EVMVC_ERR(
+                "Unable to read from pipe: {}, err: {}",
+                fd, err
+            ));
+            return;
+        }
+        
+        if(l > 0){
+            while(true){
+                size_t bl = evbuffer_get_length(chan->rcmd_buf);
+                if(bl < EVMVC_CMD_HEADER_SIZE)
+                    break;
+                    
+                char* cmd_head = (char*)evbuffer_pullup(
+                    chan->rcmd_buf, EVMVC_CMD_HEADER_SIZE
+                );
+                
+                int t = *(int*)cmd_head;
+                cmd_head += sizeof(int);
+                size_t ps = *(size_t*)cmd_head;
+                
+                if(bl < EVMVC_CMD_HEADER_SIZE + ps)
+                    break;
+                
+                evbuffer_drain(chan->rcmd_buf, EVMVC_CMD_HEADER_SIZE);
+                if(ps == 0){
+                    chan->worker()->parse_cmd(t, nullptr, ps);
+                    continue;
+                }
+                
+                char* cmd_payload = (char*)evbuffer_pullup(
+                    chan->rcmd_buf, ps
+                );
+                chan->worker()->parse_cmd(t, cmd_payload, ps);
+                evbuffer_drain(chan->rcmd_buf, ps);
+            }
+        }
+    }
+}
+
 void channel::_init_master_channels()
 {
     usock_path = (
         _worker->get_app()->options().run_dir /
         ("evmvc." + std::to_string(_worker->id()))
     ).string();
-    // usock_path = _worker->get_app()->abs_path(
-    //     "~/.run/evmvc." + std::to_string(_worker->id())
-    // ).string();
     
     fcntl(ptoc[EVMVC_PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
     close(ptoc[EVMVC_PIPE_READ_FD]);
@@ -875,7 +922,18 @@ void channel::_init_master_channels()
     fcntl(ctop[EVMVC_PIPE_READ_FD], F_SETFL, O_NONBLOCK);
     close(ctop[EVMVC_PIPE_WRITE_FD]);
     ctop[EVMVC_PIPE_WRITE_FD] = -1;
+    
+    // init the command listener
+    rcmd_buf = evbuffer_new();
+    this->rcmd_ev = event_new(
+        global::ev_base(),
+        ctop[EVMVC_PIPE_READ_FD], EV_READ | EV_PERSIST,
+        channel_cmd_read,
+        this
+    );
+    event_add(this->rcmd_ev, nullptr);
 }
+
 
 void channel::_init_child_channels()
 {
@@ -927,6 +985,16 @@ void channel::_init_child_channels()
     fcntl(ctop[EVMVC_PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
     close(ctop[EVMVC_PIPE_READ_FD]);
     ctop[EVMVC_PIPE_READ_FD] = -1;
+    
+    // init the command listener
+    rcmd_buf = evbuffer_new();
+    this->rcmd_ev = event_new(
+        global::ev_base(),
+        ptoc[EVMVC_PIPE_READ_FD], EV_READ | EV_PERSIST,
+        channel_cmd_read,
+        this
+    );
+    event_add(this->rcmd_ev, nullptr);
 }
 
 namespace _internal{
@@ -934,6 +1002,7 @@ namespace _internal{
         struct evconnlistener*, int sock,
         sockaddr* saddr, int socklen, void* args)
     {
+        static size_t rridx = 100000;
         evmvc::listener* l = (evmvc::listener*)args;
         
         sp_master_server s = l->get_server();
@@ -984,31 +1053,48 @@ namespace _internal{
         cmsgp->cmsg_len = CMSG_LEN(sizeof(int));
         cmsgp->cmsg_level = SOL_SOCKET;
         cmsgp->cmsg_type = SCM_RIGHTS;
+
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wstrict-aliasing"
         *((int*)CMSG_DATA(cmsgp)) = sock;
+        #pragma GCC diagnostic pop
         
         // select prefered worker;
-        sp_worker pw;
-        for(auto& w : a->workers())
-            if(w->work_type() == worker_type::http){
-                if(!pw){
-                    pw = w;
-                    continue;
+        if(++rridx >= a->workers().size())
+            rridx = 0;
+        size_t cur_idx = rridx;
+        
+        sp_worker pw = nullptr;
+        while(!pw){
+            if(a->workers()[rridx]->work_type() == worker_type::http)
+                pw = a->workers()[rridx];
+            else{
+                ++rridx;
+                if(rridx >= a->workers().size())
+                    rridx = 0;
+                if(rridx == cur_idx &&
+                    a->workers()[rridx]->work_type() != worker_type::http
+                ){
+                    break;
                 }
-                
-                if(w->workload() < pw->workload())
-                    pw = w;
             }
+        }
+        // sp_worker pw;
+        // for(auto& w : a->workers())
+        //     if(w->work_type() == worker_type::http){
+        //         if(!pw){
+        //             pw = w;
+        //             continue;
+        //         }
+                
+        //         if(w->workload() < pw->workload())
+        //             pw = w;
+        //     }
             
         if(!pw)
             return a->log()->fail(EVMVC_ERR(
                 "Unable to find an available http_worker!"
             ));
-        
-        // if(++(*wid) >= workers().size())
-        //     *wid = 0;
-        // int res = sendmsg(workers()[*wid]->chan.usock, &msgh, 0);
-        // if(res == -1)
-        //     std::exit(-1);
         
         int res = pw->channel().sendmsg(&msgh, 0);
         if(res == -1)
