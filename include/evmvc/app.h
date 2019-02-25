@@ -138,7 +138,7 @@ public:
             return _options.base_dir / rp;
     }
     
-    void start(bool start_event_loop = true)
+    int start(int argc, char** argv, bool start_event_loop = true)
     {
         if(!stopped())
             throw EVMVC_ERR(
@@ -159,16 +159,18 @@ public:
                 _log->fatal(
                     "Unable to create new worker process!"
                 );
-                return;
+                return -1;
             }else if(pid == 0){// in child process
-                w->start(pid);
-                return;
+                w->start(argc, argv, pid);
+                return 1;
             }else{// in master process
-                w->start(pid);
+                w->start(argc, argv, pid);
                 twks.emplace_back(w);
             }
         }
         
+        // sleep to let time for children to open the unix socket.
+        usleep(30000);
         for(auto w : twks){
             _workers.emplace_back(w);
             int tryout = 0;
@@ -177,28 +179,37 @@ public:
                     w->channel().usock_path.c_str(), SOCK_STREAM
                 );
                 if(w->channel().usock == -1){
-                    _log->warn(EVMVC_ERR(
+                    _log->info(EVMVC_ERR(
                         "unix connect err: {}", errno
                     ));
                 }else
                     break;
                 
-                if(++tryout >= 5)
-                    return _log->fatal(EVMVC_ERR(
+                if(++tryout >= 5){
+                    _log->fatal(EVMVC_ERR(
                         "unable to connect to client: {}",
                         w->id()
                     ));
+                    return -1;
+                }
             }while(w->channel().usock == -1);
             _internal::unix_set_sock_opts(w->channel().usock);
         }
         
-        for(auto s : _servers)
+        for(auto sc : _options.servers){
+            auto s = std::make_shared<master_server>(
+                this->shared_from_this(), sc, _log
+            );
             s->start();
+            _servers.emplace_back(s);
+        }
         
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
             stop();
         }
+        
+        return 0;
     }
     
     // void listen(
@@ -943,7 +954,7 @@ namespace _internal{
         // send the sock via cmsg
         ctrl_msg_data data{
             s->id(),
-            (int)(l->ssl() ? conn_protocol::https : conn_protocol::http)
+            (int)(l->ssl() ? url_scheme::https : url_scheme::http)
         };
         struct msghdr msgh;
         struct iovec iov;

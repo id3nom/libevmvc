@@ -25,6 +25,25 @@
                 "kind": "build",
                 "isDefault": true
             }
+        }/*,
+        {
+            "label": "launch web_server",
+            "type": "shell",
+            "command": "${workspaceFolder}/build/bin/evmvc_web_server 1",
+            //"_runner": "terminal",
+            "presentation": {
+                "clear": true,
+                "echo": true,
+                "reveal": "always",
+                "focus": true,
+                "panel": "shared",
+                "showReuseMessage": true
+            },
+            "options": {
+                "cwd":"${workspaceFolder}/build/bin/"
+            }
         }
+        */
+        
     ]
 }

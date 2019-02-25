@@ -46,9 +46,26 @@ namespace _internal {
             event_base_loopbreak(global::ev_base());
         }
     }
-
+    
+    void _on_event_log(int severity, const char *msg)
+    {
+        if(severity == _EVENT_LOG_DEBUG)
+            evmvc::_internal::default_logger()->debug(msg);
+        else
+            evmvc::_internal::default_logger()->error(msg);
+    }
+    
+    void _on_event_fatal_error(int err)
+    {
+        evmvc::_internal::default_logger()->fatal(
+            "Exiting because libevent send a fatal error: '{}'",
+            err
+        );
+    }
+    
     
     void on_http_worker_accept(int fd, short events, void* arg);
+    
 }//::_internal
 
 enum class channel_type
@@ -258,7 +275,7 @@ public:
     sp_app get_app() const { return _app.lock();}
     evmvc::channel& channel() const { return *(_channel.get());}
     
-    virtual void start(int pid)
+    virtual void start(int argc, char** argv, int pid)
     {
         if(!stopped())
             throw EVMVC_ERR(
@@ -273,6 +290,24 @@ public:
         }else if(pid == 0){
             _ptype = process_type::child;
             _pid = getpid();
+
+            char ppname[17]{0};
+            prctl(PR_GET_NAME, ppname);
+            
+            // change proctitle
+            std::string pname = 
+                fmt::format(
+                    "evmvc-worker"
+                );
+            prctl(PR_SET_NAME, pname.c_str());
+            
+            pname += ":";
+            pname += ppname;
+            
+            size_t pname_size = strlen(argv[0]);
+            strncpy(argv[0], pname.c_str(), pname_size);
+            
+            signal(SIGINT, _internal::sig_received);
         }
         
         _channel->_init();
@@ -332,8 +367,6 @@ void channel::_init()
 }
 
 
-
-
 class http_worker
     : public std::enable_shared_from_this<http_worker>,
     public worker
@@ -355,17 +388,19 @@ public:
         return -1;
     }
     
-    void start(int pid)
+    void start(int argc, char** argv, int pid)
     {
-        worker::start(pid);
+        worker::start(argc, argv, pid);
         if(_ptype == process_type::master)
             return;
         
-        signal(SIGINT, _internal::sig_received);
+        _log->info("Starting worker");
         
         // will send a SIGINT when the parent dies
         prctl(PR_SET_PDEATHSIG, SIGINT);
         
+        event_set_log_callback(_internal::_on_event_log);
+        event_set_fatal_callback(_internal::_on_event_fatal_error);
         global::ev_base(event_base_new(), false, true);
         
         _channel->rcmsg_ev = event_new(
@@ -383,8 +418,9 @@ public:
         
         event_base_loop(global::ev_base(), 0);
         event_base_free(global::ev_base());
+        _log->info("Closing worker");
     }
-
+    
     sp_child_server find_server_by_id(size_t id)
     {
         auto it = _servers.find(id);
@@ -426,7 +462,7 @@ private:
             _log->fatal(EVMVC_ERR(
                 "Invalid server id: '{}'", srv_id
             ));
-        conn_protocol proto = (conn_protocol)iproto;
+        url_scheme proto = (url_scheme)iproto;
         
         sp_connection c = std::make_shared<connection>(
             this->_log,
@@ -458,6 +494,7 @@ public:
     
 private:
 };
+
 
 
 // connection
@@ -494,21 +531,28 @@ void connection::close()
         w->remove_connection(this->_id);
 }
 
+// parser
+struct bufferevent* http_parser::bev() const
+{
+    sp_connection c = get_connection();
+    return c->bev();
+}
+
 
 // request
 
 sp_connection request::connection() const { return _conn.lock();}
 bool request::secure() const { return _conn.lock()->secure();}
 
-evmvc::conn_protocol request::protocol() const
+evmvc::url_scheme request::protocol() const
 {
     //TODO: add trust proxy options
     sp_header h = _headers->get("X-Forwarded-Proto");
     if(h){
         if(!strcasecmp(h->value(), "https"))
-            return evmvc::conn_protocol::https;
+            return evmvc::url_scheme::https;
         else if(!strcasecmp(h->value(), "http"))
-            return evmvc::conn_protocol::http;
+            return evmvc::url_scheme::http;
         else
             throw EVMVC_ERR(
                 "Invalid 'X-Forwarded-Proto': '{}'", h->value()
@@ -650,6 +694,7 @@ void response::send_file(
 
 
 namespace _internal {
+    
     
     void on_http_worker_accept(int fd, short events, void* arg)
     {
@@ -879,7 +924,8 @@ namespace _internal {
             }
         }
         
-        if(!c->_res->ended() || evbuffer_get_length(c->bev_out()))
+        if((c->_res && !c->_res->ended()) || evbuffer_get_length(c->bev_out())
+            )
             return;
         
         if(c->flag_is(conn_flags::keepalive)){
@@ -903,6 +949,11 @@ namespace _internal {
             events & BEV_EVENT_TIMEOUT   ? "timeout "   : "",
             events & BEV_EVENT_EOF       ? "eof"       : ""
         );
+        
+        if((events & BEV_EVENT_TIMEOUT)){
+            c->close();
+            return;
+        }
         
         if((events & BEV_EVENT_CONNECTED)){
             EVMVC_DBG(c->_log, "CONNECTED");

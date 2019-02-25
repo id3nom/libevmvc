@@ -157,15 +157,16 @@ public:
         return _path;
     }
     
-    sp_logger add_child(const std::string& path) const
+    //sp_logger add_child(const std::string& path) const
+    sp_logger add_child(evmvc::string_view path) const
     {
         std::string np;
         if(_path[_path.size() -1] != '/' && path[0] != '/')
-            np = _path + "/" + path;
+            np = _path + "/" + path.to_string();
         else if(_path[_path.size() -1] == '/' && path[0] == '/')
-            np = _path + path.substr(1);
+            np = _path + path.to_string().substr(1);
         else
-            np = _path + path;
+            np = _path + path.to_string();
         
         auto p = this->shared_from_this();
         return sp_logger(new logger(p, np.c_str()));

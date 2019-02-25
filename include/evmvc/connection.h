@@ -28,6 +28,7 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "logging.h"
 #include "child_server.h"
+#include "url.h"
 #include "parser.h"
 #include "request.h"
 #include "response.h"
@@ -55,23 +56,7 @@ enum class conn_flags
 };
 EVMVC_ENUM_FLAGS(evmvc::conn_flags);
 
-enum class conn_protocol
-{
-    http,
-    https
-};
 
-evmvc::string_view to_string(evmvc::conn_protocol p)
-{
-    switch(p){
-        case evmvc::conn_protocol::http:
-            return "http";
-        case evmvc::conn_protocol::https:
-            return "https";
-        default:
-            throw EVMVC_ERR("UNKNOWN conn_protocol: '{}'", (int)p);
-    }
-}
 
 
 
@@ -99,7 +84,7 @@ public:
         const sp_logger& log,
         wp_http_worker worker,
         sp_child_server server,
-        int sock_fd, evmvc::conn_protocol p)
+        int sock_fd, evmvc::url_scheme p)
         :
         _id(nxt_id()),
         _log(
@@ -124,9 +109,11 @@ public:
     {
         log()->debug("Initializing connection");
         
+        set_sock_opts();
+        
         switch(_protocol){
-            case conn_protocol::http:
-            case conn_protocol::https:
+            case url_scheme::http:
+            case url_scheme::https:
                 _parser = std::make_shared<http_parser>(
                     this->shared_from_this(), _log
                 );
@@ -135,7 +122,7 @@ public:
                 throw EVMVC_ERR("Unkonwn protocol: '{}'", (int)_protocol);
         }
         
-        if(_protocol == conn_protocol::https){
+        if(_protocol == url_scheme::https){
             _ssl = SSL_new(_server->ssl_ctx());
             _bev = bufferevent_openssl_socket_new(
                 global::ev_base(),
@@ -178,7 +165,7 @@ public:
     const sp_logger& log() const { return _log;}
     sp_http_worker get_worker() const;
     sp_child_server server() const { return _server;}
-    evmvc::conn_protocol protocol() const { return _protocol;}
+    evmvc::url_scheme protocol() const { return _protocol;}
     
     bool flag_is(conn_flags flag)
     {
@@ -266,12 +253,50 @@ public:
     void close();
     
 private:
+    void set_sock_opts()
+    {
+        evutil_make_socket_closeonexec(_sock_fd);
+        evutil_make_socket_nonblocking(_sock_fd);
+        
+        int on = 1;
+        if(setsockopt(_sock_fd, SOL_SOCKET, SO_KEEPALIVE,
+            (void*)&on, sizeof(on)) == -1
+        )
+            return _log->fatal("SOL_SOCKET, SO_KEEPALIVE");
+        if(setsockopt(_sock_fd, SOL_SOCKET, SO_REUSEADDR,
+            (void*)&on, sizeof(on)) == -1
+        )
+            return _log->fatal("SOL_SOCKET, SO_REUSEADDR");
+        if(setsockopt(_sock_fd, SOL_SOCKET, SO_REUSEPORT,
+            (void*)&on, sizeof(on)) == -1
+        ){
+            if(errno != EOPNOTSUPP)
+                return _log->fatal("SOL_SOCKET, SO_REUSEPORT");
+            EVMVC_DBG(_log, "SO_REUSEPORT NOT SUPPORTED");
+        }
+        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_NODELAY, 
+            (void*)&on, sizeof(on)) == -1
+        ){
+            if(errno != EOPNOTSUPP)
+                return _log->fatal("IPPROTO_TCP, TCP_NODELAY");
+            EVMVC_DBG(_log, "TCP_NODELAY NOT SUPPORTED");
+        }
+        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, 
+            (void*)&on, sizeof(on)) == -1
+        ){
+            if(errno != EOPNOTSUPP)
+                return _log->fatal("IPPROTO_TCP, TCP_DEFER_ACCEPT");
+            EVMVC_DBG(_log, "TCP_DEFER_ACCEPT NOT SUPPORTED");
+        }
+    }
+
+
     int _id;
     sp_logger _log;
     wp_http_worker _worker;
     sp_child_server _server;
     int _sock_fd;
-    evmvc::conn_protocol _protocol;
+    evmvc::url_scheme _protocol;
     
     conn_flags _flags = conn_flags::none;
     

@@ -5,7 +5,7 @@
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "(gdb) Launch",
+            "name": "(gdb) Launch TESTS",
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/libevmvc_tests",
@@ -31,7 +31,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/evmvc_web_server",
             "args": [
-                "2"
+                "1"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/bin/",
@@ -45,7 +45,33 @@
                     "ignoreFailures": true
                 }
             ]
+        },
+        
+        {
+            "name": "(gdb) Attach web_server",
+            "type": "cppdbg",
+            "request": "attach",
+            //"preLaunchTask": "launch web_server",
+            "processId":"${command:pickProcess}",
+            "program": "${workspaceFolder}/build/bin/evmvc_web_server",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
         }
         
-    ]
+    ],
+	"compounds": [
+		{
+			"name": "main+worker",
+			"configurations": [
+				"(gdb) Launch web_server", "(gdb) Attach web_server"
+			]
+		}
+	]
+    
 }

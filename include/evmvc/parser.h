@@ -26,6 +26,7 @@ SOFTWARE.
 #define _libevmvc_http_parser_h
 
 #include "stable_headers.h"
+#include "utils.h"
 #include "logging.h"
 
 #include "headers.h"
@@ -37,7 +38,7 @@ namespace evmvc {
 class parser
 {
 public:
-    parser(wp_connection conn, const sp_logger log)
+    parser(wp_connection conn, const sp_logger& log)
         : _conn(conn), _log(log)
     {
     }
@@ -48,7 +49,7 @@ public:
     virtual void reset() = 0;
     virtual size_t parse(const char* buf, size_t len, cb_error& ec) = 0;
     
-private:
+protected:
     wp_connection _conn;
     sp_logger _log;
 };
@@ -97,8 +98,12 @@ public:
     {
     }
     
+    struct bufferevent* bev() const;
+    
     void reset()
     {
+        EVMVC_DBG(_log, "parser reset");
+        
         _flags = http_parser::flag::none;
         _status = http_parser::state::parse_req_line;
         
@@ -112,13 +117,15 @@ public:
     
     size_t parse(const char* in_data, size_t in_len, cb_error& ec)
     {
+        EVMVC_DBG(_log, "parsing:\n{}", std::string(in_data, in_len));
+        
         if(in_len == 0)
             return 0;
         
         _bytes_read = 0;
         
         size_t sol_idx = 0;
-        ssize_t eol_idx = _find_eol(in_data, in_len);
+        ssize_t eol_idx = find_eol(in_data, in_len, 0);
         if(eol_idx == -1)
             return 0;
         
@@ -133,24 +140,22 @@ public:
                         return _bytes_read;
                     }
                     
-                    ssize_t em_idx = _find_ch(line, line_len, ' ');
+                    ssize_t em_idx = find_ch(line, line_len, ' ', 0);
                     if(em_idx == -1){
                         ec = EVMVC_ERR("Bad request line format");
                         return _bytes_read;
                     }
-                    ssize_t eu_idx = _find_ch(
-                        line + em_idx +1, line_len - em_idx -1, ' '
-                    );
+                    ssize_t eu_idx = find_ch(line, line_len, ' ', em_idx+1);
                     if(eu_idx == -1){
                         ec = EVMVC_ERR("Bad request line format");
                         return _bytes_read;
                     }
                     
-                    _method = std::string(line, em_idx);
-                    _uri = std::string(line + em_idx +1, eu_idx - em_idx);
-                    _http_ver = std::string(
-                        line + eu_idx +1, line_len - eu_idx
-                    );
+                    _method = data_substr(line, 0, em_idx);
+                    _uri = data_substring(line, em_idx+1, eu_idx);
+                    _http_ver = data_substring(line, eu_idx+1, line_len);
+                    
+                    _url = url(_uri);
                     
                     _bytes_read += eol_idx + EVMVC_EOL_SIZE;
                     _status = http_parser::state::parse_header_section;
@@ -161,10 +166,20 @@ public:
                     if(line_len == 0){
                         _status = http_parser::state::parse_body_section;
                         _bytes_read += EVMVC_EOL_SIZE;
+                        
+                        std::string s(
+                            "HTTP/1.1 200 OK\r\n"
+                            "Content-Type: text/html; charset=utf-8\r\n"
+                            "Content-Length: 0\r\n\r\n"
+                        );
+                        _log->trace("sending response:\n{}", s);
+                        bufferevent_write(
+                            bev(), s.c_str(), s.size()
+                        );
                         break;
                     }
                     
-                    ssize_t sep = _find_ch(line, line_len, ':');
+                    ssize_t sep = find_ch(line, line_len, ':', 0);
                     if(sep == -1){
                         ec = EVMVC_ERR("Bad header line format");
                         return _bytes_read;
@@ -174,16 +189,20 @@ public:
                     auto it = _hdrs->find(hn);
                     if(it != _hdrs->end())
                         it->second.emplace_back(
-                            std::string(line + sep +1, line_len - sep)
+                            data_substring(line, sep+1, line_len)
+                            //std::string(line + sep +1, line_len - sep)
                         );
                     else
                         _hdrs->emplace(std::make_pair(
                             std::move(hn),
                             std::vector<std::string>{
-                                std::string(line + sep +1, line_len - sep)
+                                data_substring(line, sep+1, line_len)
+                                //std::string(line + sep +1, line_len - sep)
                             }
                         ));
+                    
                     _bytes_read += line_len + EVMVC_EOL_SIZE;
+                    break;
                 }
                 case http_parser::state::parse_body_section:{
                     _bytes_read += line_len + EVMVC_EOL_SIZE;
@@ -194,7 +213,7 @@ public:
             }
             
             sol_idx = eol_idx + EVMVC_EOL_SIZE;
-            eol_idx = _find_eol(in_data + sol_idx, in_len - sol_idx);
+            eol_idx = find_eol(in_data, in_len, sol_idx);
             if(eol_idx == -1)
                 break;
             
@@ -207,26 +226,6 @@ public:
     
 private:
     
-    ssize_t _find_ch(const char* data, size_t len, char ch)
-    {
-        for(size_t i = 0; i < len; ++i)
-            if(data[i] == ch)
-                return i;
-        return -1;
-    }
-    
-    ssize_t _find_eol(const char* data, size_t len)
-    {
-        for(size_t i = 0; i < len -1; ++i)
-            if(data[i] == '\r' && data[i+1] == '\n')
-                return i;
-        return -1;
-    }
-    
-    void _parse_request_line(const char* data, size_t len)
-    {
-        
-    }
     
     http_parser::error _err = http_parser::error::none;
     http_parser::flag _flags = http_parser::flag::none;
@@ -239,6 +238,7 @@ private:
     
     std::string _method;
     std::string _uri;
+    evmvc::url _url;
     std::string _http_ver;
     
     std::string _scheme;

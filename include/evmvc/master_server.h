@@ -66,10 +66,12 @@ class listener
     );
     
 public:
-    listener(wp_master_server server, const listen_options& config)
+    listener(wp_master_server server,
+        const listen_options& config,
+        const sp_logger& log)
         : _server(server), _config(config),
         _log(
-            evmvc::_internal::default_logger()->add_child(
+            log->add_child(
                 fmt::format(
                     "{}:{}{}",
                     _config.address,
@@ -146,6 +148,12 @@ public:
             LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
             _config.backlog,
             _lsock
+        );
+        
+        _log->info(
+            "Listening at: {}:{} ssl: {}, backlog: {}",
+            _config.address, _config.port,
+            _config.ssl ? "on" : "off", _config.backlog
         );
     }
     
@@ -284,11 +292,13 @@ class master_server
     : public std::enable_shared_from_this<master_server>
 {
 public:
-    master_server(wp_app app, const server_options& config)
+    master_server(wp_app app, const server_options& config,
+        const sp_logger& log)
         : 
         _id(std::hash<std::string>{}(config.name)),
         _status(evmvc::running_state::stopped),
-        _app(app), _config(config)
+        _app(app), _config(config),
+        _log(log->add_child("master-server:" + std::to_string(_id)))
     {
     }
     
@@ -323,7 +333,7 @@ public:
         
         for(auto& l : _config.listeners){
             auto sl = std::make_unique<listener>(
-                this->shared_from_this(), l
+                this->shared_from_this(), l, _log
             );
             sl->start();
             _listeners.emplace_back(std::move(sl));
@@ -350,6 +360,8 @@ private:
     evmvc::running_state _status;
     wp_app _app;
     server_options _config;
+    sp_logger _log;
+    
     std::vector<up_listener> _listeners;
 };
 

@@ -95,14 +95,15 @@ int main(int argc, char** argv)
     if(argc > 1)
         opts.worker_count = evmvc::str_to_num<int>(argv[1]);
     
-    auto srv_opts = evmvc::server_options("localhost");
-    opts.servers.emplace_back(srv_opts);
-    
     auto l_opts = evmvc::listen_options();
-    srv_opts.listeners.emplace_back(l_opts);
     l_opts.address = "0.0.0.0";
     l_opts.port = 8080;
     l_opts.ssl = false;
+    
+    auto srv_opts = evmvc::server_options("localhost");
+    srv_opts.listeners.emplace_back(l_opts);
+    
+    opts.servers.emplace_back(srv_opts);
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
@@ -338,7 +339,8 @@ int main(int argc, char** argv)
     
     
     //srv->listen();
-    srv->start();
+    if(srv->start(argc, argv))
+        return 0;
     
     event_base_loop(_ev_base, 0);
     

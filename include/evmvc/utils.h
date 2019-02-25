@@ -838,6 +838,36 @@ evmvc::json parse_jsonc_file(
 }
 
 
+inline std::string data_substring(
+    const char* data, size_t offset, size_t end_idx)
+{
+    return std::string(data+offset, end_idx-offset);
+}
+
+inline std::string data_substr(
+    const char* data, size_t offset, size_t len)
+{
+    return std::string(data+offset, len);
+}
+
+inline ssize_t find_ch(
+    const char* data, size_t len, char ch, size_t start_pos)
+{
+    for(size_t i = start_pos; i < len; ++i)
+        if(data[i] == ch)
+            return i;
+    return -1;
+}
+
+inline ssize_t find_eol(const char* data, size_t len, size_t start_pos)
+{
+    for(size_t i = start_pos; i < len -1; ++i)
+        if(data[i] == '\r' && data[i+1] == '\n')
+            return i;
+    return -1;
+}
+
+
 } //ns evmvc
 
 namespace fmt {

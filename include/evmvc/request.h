@@ -202,7 +202,7 @@ public:
         return h->value();
     }
     
-    evmvc::conn_protocol protocol() const;
+    evmvc::url_scheme protocol() const;
     std::string protocol_string() const;
     
     evhtp_request_t* evhtp_request(){ return _ev_req;}

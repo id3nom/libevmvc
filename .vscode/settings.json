@@ -38,7 +38,8 @@
         "cstring": "cpp",
         "ctime": "cpp",
         "cwctype": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "iostream": "cpp"
     },
     "C_Cpp.dimInactiveRegions": false,
     "editor.tokenColorCustomizations": {
