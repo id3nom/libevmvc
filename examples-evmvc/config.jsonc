@@ -14,6 +14,9 @@
     // application instance default file logging directory
     // if null is "$base_dir/logs"
     "log_dir": null,
+    // application instance default file logging directory
+    // if null is "$base_dir/.run"
+    "run_dir": null,
     
     "logging":{
         // if the default logger may be used if console and file logger are off.

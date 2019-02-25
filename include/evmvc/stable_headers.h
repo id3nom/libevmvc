@@ -253,6 +253,12 @@ namespace _internal{
     }
     /* end writen */
     
+    typedef struct ctrl_msg_data_t
+    {
+        size_t srv_id;
+        int iproto;
+    } ctrl_msg_data;
+    
 }}//ns evmvc::_internal
 
 #include "stack_debug.h"

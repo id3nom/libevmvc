@@ -32,11 +32,24 @@ SOFTWARE.
 #include "child_server.h"
 #include "connection.h"
 
+#include <sys/prctl.h>
+
 #define EVMVC_PIPE_WRITE_FD 1
 #define EVMVC_PIPE_READ_FD 0
 
 namespace evmvc {
+namespace _internal {
+    void sig_received(int sig)
+    {
+        if(sig == SIGINT){
+            //_run = false;
+            event_base_loopbreak(global::ev_base());
+        }
+    }
 
+    
+    void on_http_worker_accept(int fd, short events, void* arg);
+}//::_internal
 
 enum class channel_type
 {
@@ -319,10 +332,16 @@ void channel::_init()
 }
 
 
+
+
 class http_worker
     : public std::enable_shared_from_this<http_worker>,
     public worker
 {
+    friend void _internal::on_http_worker_accept(
+        int fd, short events, void* arg
+    );
+    
 public:
     http_worker(const wp_app& app, const app_options& config,
         const sp_logger& log)
@@ -336,6 +355,43 @@ public:
         return -1;
     }
     
+    void start(int pid)
+    {
+        worker::start(pid);
+        if(_ptype == process_type::master)
+            return;
+        
+        signal(SIGINT, _internal::sig_received);
+        
+        // will send a SIGINT when the parent dies
+        prctl(PR_SET_PDEATHSIG, SIGINT);
+        
+        global::ev_base(event_base_new(), false, true);
+        
+        _channel->rcmsg_ev = event_new(
+            global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
+            _internal::on_http_worker_accept,
+            this
+        );
+        event_add(_channel->rcmsg_ev, nullptr);
+        
+        for(auto& sc : _config.servers){
+            auto s = std::make_shared<child_server>(sc, _log);
+            s->start();
+            _servers.emplace(s->id(), s);
+        }
+        
+        event_base_loop(global::ev_base(), 0);
+        event_base_free(global::ev_base());
+    }
+
+    sp_child_server find_server_by_id(size_t id)
+    {
+        auto it = _servers.find(id);
+        if(it == _servers.end())
+            return nullptr;
+        return it->second;
+    }
     sp_child_server find_server_by_name(evmvc::string_view name)
     {
         for(auto& s : _servers)
@@ -363,10 +419,28 @@ public:
     }
     
 private:
+    void _revc_sock(size_t srv_id, int iproto, int sock_fd)
+    {
+        sp_child_server srv = find_server_by_id(srv_id);
+        if(!srv)
+            _log->fatal(EVMVC_ERR(
+                "Invalid server id: '{}'", srv_id
+            ));
+        conn_protocol proto = (conn_protocol)iproto;
+        
+        sp_connection c = std::make_shared<connection>(
+            this->_log,
+            this->shared_from_this(),
+            srv,
+            sock_fd,
+            proto
+        );
+        c->initialize();
+        _conns.emplace(c->id(), c);
+    }
     
     std::unordered_map<int, sp_connection> _conns;
-    std::unordered_map<int, sp_child_server> _servers;
-    
+    std::unordered_map<size_t, sp_child_server> _servers;
 };
 
 class cache_worker
@@ -577,6 +651,68 @@ void response::send_file(
 
 namespace _internal {
     
+    void on_http_worker_accept(int fd, short events, void* arg)
+    {
+        http_worker* w = (http_worker*)arg;
+        
+        while(true){
+            //int data;
+            ctrl_msg_data data;
+            struct msghdr msgh;
+            struct iovec iov;
+            
+            union
+            {
+                char buf[CMSG_SPACE(sizeof(ctrl_msg_data))];
+                struct cmsghdr align;
+            } ctrl_msg;
+            struct cmsghdr* cmsgp;
+            
+            msgh.msg_name = NULL;
+            msgh.msg_namelen = 0;
+            
+            msgh.msg_iov = &iov;
+            msgh.msg_iovlen = 1;
+            iov.iov_base = &data;
+            iov.iov_len = sizeof(ctrl_msg_data);
+            
+            msgh.msg_control = ctrl_msg.buf;
+            msgh.msg_controllen = sizeof(ctrl_msg.buf);
+            
+            int nr = recvmsg(fd, &msgh, 0);
+            if(nr == 0)
+                return;
+            if(nr == -1){
+                int terrno = errno;
+                if(terrno == EAGAIN || terrno == EWOULDBLOCK)
+                    return;
+                
+                w->_log->fatal(EVMVC_ERR(
+                    "recvmsg: " + std::to_string(terrno)
+                ));
+            }
+            
+            if(nr > 0)
+                w->_log->debug(
+                    "received data, srv_id: {}, iproto: {}",
+                    data.srv_id, data.iproto
+                );
+                //fprintf(stderr, "Received data = %d\n", data);
+            
+            cmsgp = CMSG_FIRSTHDR(&msgh);
+            /* Check the validity of the 'cmsghdr' */
+            if (cmsgp == NULL || cmsgp->cmsg_len != CMSG_LEN(sizeof(int)))
+                w->_log->fatal(EVMVC_ERR("bad cmsg header / message length"));
+            if (cmsgp->cmsg_level != SOL_SOCKET)
+                w->_log->fatal(EVMVC_ERR("cmsg_level != SOL_SOCKET"));
+            if (cmsgp->cmsg_type != SCM_RIGHTS)
+                w->_log->fatal(EVMVC_ERR("cmsg_type != SCM_RIGHTS"));
+            
+            int sock = *((int*)CMSG_DATA(cmsgp));
+            w->_revc_sock(data.srv_id, data.iproto, sock);
+        }
+    }
+    
     int _ssl_sni_servername(SSL* s, int *al, void *arg)
     {
         const char* name = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
@@ -702,7 +838,8 @@ namespace _internal {
         
         cb_error ec;
         size_t nread = c->_parser->parse((const char*)buf, ilen, ec);
-        evbuffer_drain(c->bev_in(), nread);
+        if(nread > 0)
+            evbuffer_drain(c->bev_in(), nread);
         
         if(ec){
             c->log()->error("Parse error:\n{}", ec);

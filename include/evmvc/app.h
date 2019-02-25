@@ -146,13 +146,31 @@ public:
             );
         _status = running_state::starting;
         
+        _init_directories();
+        
+        std::vector<sp_http_worker> twks;
         for(size_t i = 0; i < _options.worker_count; ++i){
             sp_http_worker w = std::make_shared<evmvc::http_worker>(
                 this->shared_from_this(), _options, this->_log
             );
+            
+            int pid = fork();
+            if(pid == -1){// fork failed
+                _log->fatal(
+                    "Unable to create new worker process!"
+                );
+                return;
+            }else if(pid == 0){// in child process
+                w->start(pid);
+                return;
+            }else{// in master process
+                w->start(pid);
+                twks.emplace_back(w);
+            }
         }
         
-        for(auto w : _workers){
+        for(auto w : twks){
+            _workers.emplace_back(w);
             int tryout = 0;
             do{
                 w->channel().usock = _internal::unix_connect(
@@ -412,6 +430,10 @@ private:
         if(bfs::create_directories(_options.cache_dir))
             this->_log->info(
                 "Creating cache directory '{}'\n", _options.cache_dir.c_str()
+            );
+        if(bfs::create_directories(_options.run_dir))
+            this->_log->info(
+                "Creating run directory '{}'\n", _options.run_dir.c_str()
             );
         
         this->_init_router();
@@ -828,9 +850,13 @@ sp_app evmvc::master_server::get_app() const { return _app.lock();}
 
 void channel::_init_master_channels()
 {
-    usock_path = _worker->get_app()->abs_path(
-        "~/.run/evmvc." + std::to_string(_worker->id())
+    usock_path = (
+        _worker->get_app()->options().run_dir /
+        ("evmvc." + std::to_string(_worker->id()))
     ).string();
+    // usock_path = _worker->get_app()->abs_path(
+    //     "~/.run/evmvc." + std::to_string(_worker->id())
+    // ).string();
     
     fcntl(ptoc[EVMVC_PIPE_WRITE_FD], F_SETFL, O_NONBLOCK);
     close(ptoc[EVMVC_PIPE_READ_FD]);
@@ -842,9 +868,13 @@ void channel::_init_master_channels()
 
 void channel::_init_child_channels()
 {
-    usock_path = _worker->get_app()->abs_path(
-        "~/.run/evmvc." + std::to_string(_worker->id())
+    usock_path = (
+        _worker->get_app()->options().run_dir /
+        ("evmvc." + std::to_string(_worker->id()))
     ).string();
+    // usock_path = _worker->get_app()->abs_path(
+    //     "~/.run/evmvc." + std::to_string(_worker->id())
+    // ).string();
     
     if(remove(usock_path.c_str()) == -1){
         int err = errno;
@@ -911,13 +941,16 @@ namespace _internal{
         }
         
         // send the sock via cmsg
-        int data;
+        ctrl_msg_data data{
+            s->id(),
+            (int)(l->ssl() ? conn_protocol::https : conn_protocol::http)
+        };
         struct msghdr msgh;
         struct iovec iov;
         
         union
         {
-            char buf[CMSG_SPACE(sizeof(int))];
+            char buf[CMSG_SPACE(sizeof(ctrl_msg_data))];
             struct cmsghdr align;
         } ctrl_msg;
         struct cmsghdr* cmsgp;
@@ -928,8 +961,8 @@ namespace _internal{
         
         msgh.msg_iovlen = 1;
         iov.iov_base = &data;
-        iov.iov_len = sizeof(int);
-        data = 12345;
+        iov.iov_len = sizeof(ctrl_msg_data);
+        //data = 12345;
         
         msgh.msg_control = ctrl_msg.buf;
         msgh.msg_controllen = sizeof(ctrl_msg.buf);

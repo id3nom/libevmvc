@@ -66,9 +66,9 @@ public:
             ev_req->uri->path->full
         )),
         _ev_req(ev_req),
-        _headers(std::make_shared<evmvc::request_headers>(
-            ev_req->headers_in
-        )),
+        // _headers(std::make_shared<evmvc::request_headers>(
+        //     ev_req->headers_in
+        // )),
         _cookies(http_cookies),
         _rt_params(std::make_unique<http_params_t>(p)),
         _qry_params(std::make_unique<http_params_t>()),

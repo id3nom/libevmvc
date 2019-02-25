@@ -47,17 +47,22 @@ namespace _internal {
 class child_server
     : public std::enable_shared_from_this<child_server>
 {
+    static int nxt_id()
+    {
+        static int _id = -1;
+        return ++_id;
+    }
 public:
-    child_server(const server_options& config)
-        : _config(config),
-        _log(
-            _internal::default_logger()->add_child(
+    child_server(const server_options& config, const sp_logger& log)
+        : _id(std::hash<std::string>{}(config.name)),
+        _config(config),
+        _log(log->add_child(
                 "child server-" + config.name
-            )
-        )
+        ))
     {
     }
     
+    size_t id() const { return _id;}
     std::string name() const { return _config.name;}
     const std::vector<std::string>& aliases() const { return _config.aliases;}
     
@@ -89,7 +94,11 @@ public:
             );
         _status = running_state::starting;
         
-        //TODO: work here
+        for(auto& l : _config.listeners)
+            if(l.ssl){
+                _init_ssl_ctx();
+                break;
+            }
         
         _status = running_state::running;
     }
@@ -108,7 +117,6 @@ public:
         
         this->_status = running_state::stopped;
     }
-    
     
     
 private:
@@ -307,6 +315,7 @@ private:
     }
     
     evmvc::running_state _status = running_state::stopped;
+    size_t _id;
     server_options _config;
     sp_logger _log;
     

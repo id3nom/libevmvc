@@ -94,7 +94,15 @@ int main(int argc, char** argv)
     //opts.log_file_max_size = 10000;
     if(argc > 1)
         opts.worker_count = evmvc::str_to_num<int>(argv[1]);
-
+    
+    auto srv_opts = evmvc::server_options("localhost");
+    opts.servers.emplace_back(srv_opts);
+    
+    auto l_opts = evmvc::listen_options();
+    srv_opts.listeners.emplace_back(l_opts);
+    l_opts.address = "0.0.0.0";
+    l_opts.port = 8080;
+    l_opts.ssl = false;
     
     evmvc::sp_app srv = std::make_shared<evmvc::app>(
         _ev_base,
@@ -330,6 +338,7 @@ int main(int argc, char** argv)
     
     
     //srv->listen();
+    srv->start();
     
     event_base_loop(_ev_base, 0);
     

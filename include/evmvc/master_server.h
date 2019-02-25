@@ -120,6 +120,11 @@ public:
     
     sp_master_server get_server() const;
     
+    std::string address() const { return _config.address;}
+    int port() const { return _config.port;}
+    bool ssl() const { return _config.ssl;}
+    int backlog() const { return _config.backlog;}
+    
     void start()
     {
         // try to parse the address param
@@ -280,7 +285,10 @@ class master_server
 {
 public:
     master_server(wp_app app, const server_options& config)
-        : _app(app), _config(config)
+        : 
+        _id(std::hash<std::string>{}(config.name)),
+        _status(evmvc::running_state::stopped),
+        _app(app), _config(config)
     {
     }
     
@@ -290,6 +298,8 @@ public:
             stop();
     }
     
+    size_t id() const { return _id;}
+
     running_state status() const
     {
         return _status;
@@ -336,6 +346,7 @@ public:
     
 private:
     
+    size_t _id;
     evmvc::running_state _status;
     wp_app _app;
     server_options _config;

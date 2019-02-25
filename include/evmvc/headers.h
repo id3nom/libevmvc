@@ -28,6 +28,49 @@
 
 namespace evmvc {
 
+// // recommended in Meyers, Effective STL when internationalization and embedded
+// // NULLs aren't an issue.  Much faster than the STL or Boost lex versions.
+// struct ci_less
+//     : public std::binary_function<std::string, std::string, bool>
+// {
+//     bool operator()(const std::string &lhs, const std::string &rhs) const
+//     {
+//         return strcasecmp(lhs.c_str(), rhs.c_str()) < 0 ;
+//     }
+// };
+struct ci_less_hash
+{
+    size_t operator()(const std::string& kv) const
+    {
+        return std::hash<std::string>{}(boost::to_lower_copy(kv));
+    }
+};
+struct ci_less_eq
+{
+    // case-independent (ci) compare_less binary function
+    struct nocase_compare
+    {
+        bool operator()(const unsigned char& c1, const unsigned char& c2) const
+        {
+            return tolower(c1) < tolower(c2);
+        }
+    };
+    bool operator()(const std::string& s1, const std::string& s2) const
+    {
+        return strcasecmp(s1.c_str(), s2.c_str()) < 0;
+        // return std::lexicographical_compare(
+        //     s1.begin (), s1.end (),   // source range
+        //     s2.begin (), s2.end (),   // dest range
+        //     nocase_compare()
+        // );// comparison
+    }
+};
+typedef std::unordered_map<
+    std::string, 
+    std::vector<std::string>,
+    ci_less_hash, ci_less_eq
+    > header_map;
+
 enum class encoding_type
 {
     unsupported,
@@ -249,7 +292,9 @@ template<bool READ_ONLY>
 class http_headers
 {
 public:
-    http_headers(evhtp_headers_t* hdrs)
+    http_headers(/*evhtp_headers_t* hdrs*/
+        std::shared_ptr<std::unordered_map<std::string, std::string>> hdrs
+    )
         : _hdrs(hdrs)
     {
     }
@@ -261,14 +306,9 @@ public:
 
     bool exists(evmvc::string_view header_name) const
     {
-        evhtp_kv_t* header = nullptr;
-        if((header = evhtp_headers_find_header(
-            _hdrs, header_name.data()
-        )) != nullptr)
-            return true;
-        return false;
+        auto it = _hdrs->find(header_name.to_string());
+        return it != _hdrs->end();
     }
-    
     
     evmvc::sp_header get(evmvc::field header_name) const
     {
@@ -277,15 +317,13 @@ public:
     
     evmvc::sp_header get(evmvc::string_view header_name) const
     {
-        evhtp_kv_t* header = nullptr;
-        if((header = evhtp_headers_find_header(
-            _hdrs, header_name.data()
-        )) != nullptr)
-            return std::make_shared<evmvc::header>(
-                header->key,
-                header->val
-            );
-        return nullptr;
+        auto it = _hdrs->find(header_name.to_string());
+        if(it == _hdrs->end())
+            return nullptr;
+        return std::make_shared<evmvc::header>(
+            header_name,
+            it->second[0]
+        );
     }
 
     bool compare_value(
@@ -317,16 +355,17 @@ public:
     {
         std::vector<evmvc::sp_header> vals;
         
-        evhtp_kv_t* kv;
-        TAILQ_FOREACH(kv, _hdrs, next){
-            if(strcmp(kv->key, header_name.data()) == 0)
-                vals.emplace_back(
-                    std::make_shared<evmvc::header>(
-                        kv->key,
-                        kv->val
-                    )
-                );
-        }
+        auto it = _hdrs->find(header_name.to_string());
+        if(it == _hdrs->end())
+            return vals;
+        
+        for(auto& el : it->second)
+            vals.emplace_back(
+                std::make_shared<evmvc::header>(
+                    header_name,
+                    el
+                )
+            );
         
         return vals;
     }
@@ -387,15 +426,29 @@ public:
         evmvc::string_view header_name, evmvc::string_view header_val,
         bool clear_existing = true)
     {
-        evhtp_kv_t* header = nullptr;
-        if(clear_existing)
-            while((header = evhtp_headers_find_header(
-                _hdrs, header_name.data()
-            )) != nullptr)
-                evhtp_header_rm_and_free(_hdrs, header);
+        std::string hn = header_name.to_string();
+        auto it = _hdrs->find(hn);
         
-        header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
-        evhtp_headers_add_header(_hdrs, header);
+        if(clear_existing && it != _hdrs->end())
+            it->second.clear();
+        if(it == _hdrs->end())
+            _hdrs->emplace(
+                std::move(hn),
+                std::vector<std::string>{
+                    header_val.to_string()
+                }
+            );
+        else
+            it->second.emplace_back(header_val.to_string());
+        // evhtp_kv_t* header = nullptr;
+        // if(clear_existing)
+        //     while((header = evhtp_headers_find_header(
+        //         _hdrs, header_name.data()
+        //     )) != nullptr)
+        //         evhtp_header_rm_and_free(_hdrs, header);
+        
+        // header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
+        // evhtp_headers_add_header(_hdrs, header);
         
         return *this;
     }
@@ -412,18 +465,19 @@ public:
     typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type remove(
         evmvc::string_view header_name)
     {
-        evhtp_kv_t* header = nullptr;
-        while((header = evhtp_headers_find_header(
-            _hdrs, header_name.data()
-        )) != nullptr)
-            evhtp_header_rm_and_free(_hdrs, header);
+        _hdrs->erase(header_name.to_string());
+        // evhtp_kv_t* header = nullptr;
+        // while((header = evhtp_headers_find_header(
+        //     _hdrs, header_name.data()
+        // )) != nullptr)
+        //     evhtp_header_rm_and_free(_hdrs, header);
         
         return *this;
     }
     
-    
 private:
-    evhtp_headers_t* _hdrs;
+    //evhtp_headers_t* _hdrs;
+    std::shared_ptr<header_map> _hdrs;
 };
 
 

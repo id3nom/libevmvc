@@ -317,7 +317,8 @@ public:
 class server_options
 {
 public:
-    server_options()
+    server_options(const std::string& server_name)
+        : name(server_name)
     {
     }
     
@@ -383,6 +384,7 @@ public:
         temp_dir(base_dir / "temp"),
         cache_dir(base_dir / "cache"),
         log_dir(base_dir / "logs"),
+        run_dir(base_dir / ".run"),
         use_default_logger(true),
         
         log_console_level(log_level::warning),
@@ -401,6 +403,7 @@ public:
         temp_dir(base_dir / "temp"),
         cache_dir(base_dir / "cache"),
         log_dir(base_dir / "logs"),
+        run_dir(base_dir / ".run"),
         use_default_logger(true),
         
         log_console_level(log_level::warning),
@@ -419,6 +422,7 @@ public:
         temp_dir(other.temp_dir),
         cache_dir(other.cache_dir),
         log_dir(other.log_dir),
+        run_dir(other.run_dir),
         use_default_logger(other.use_default_logger),
         
         log_console_level(other.log_console_level),
@@ -438,6 +442,7 @@ public:
         temp_dir(std::move(other.temp_dir)),
         cache_dir(std::move(other.cache_dir)),
         log_dir(std::move(other.log_dir)),
+        run_dir(std::move(other.run_dir)),
         use_default_logger(other.use_default_logger),
         
         log_console_level(other.log_console_level),
@@ -466,6 +471,7 @@ public:
         temp_dir = std::move(other.temp_dir);
         cache_dir = std::move(other.cache_dir);
         log_dir = std::move(other.log_dir);
+        run_dir = std::move(other.run_dir);
         use_default_logger = other.use_default_logger;
         
         log_console_level = other.log_console_level;
@@ -495,6 +501,7 @@ public:
     bfs::path temp_dir;
     bfs::path cache_dir;
     bfs::path log_dir;
+    bfs::path run_dir;
     
     bool use_default_logger;
     

@@ -82,9 +82,9 @@ public:
             ev_req->uri->path->full
         )),
         _ev_req(ev_req), 
-        _headers(std::make_shared<response_headers>(
-            ev_req->headers_out
-        )),
+        // _headers(std::make_shared<response_headers>(
+        //     ev_req->headers_out
+        // )),
         _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc(""), _paused(false)
