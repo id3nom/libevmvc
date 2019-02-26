@@ -54,16 +54,23 @@
 #include "fmt/format.h"
 //#include <spdlog/spdlog.h>
 
-extern "C" {
-#ifndef EVHTP_DISABLE_REGEX
-    #define EVHTP_DISABLE_REGEX
-#endif
+#include <event2/event.h>
+#include <event2/util.h>
 #include <event2/http.h>
-#include <evhtp/evhtp.h>
-
+#include <event2/buffer.h>
+#include <event2/bufferevent.h>
+#include <event2/bufferevent_ssl.h>
+#include <event2/listener.h>
 #include <pcre.h>
-
-}
+// extern "C" {
+// // #ifndef EVHTP_DISABLE_REGEX
+// //     #define EVHTP_DISABLE_REGEX
+// // #endif
+// // #include <evhtp/evhtp.h>
+//
+// #include <pcre.h>
+//
+// }
 #include <zlib.h>
 
 #include <boost/logic/tribool.hpp>
@@ -135,7 +142,7 @@ typedef std::shared_ptr<connection> sp_connection;
 typedef std::weak_ptr<connection> wp_connection;
 class parser;
 typedef std::shared_ptr<parser> sp_parser;
-
+class url;
 
 
 class route_result;
@@ -184,6 +191,14 @@ evmvc::string_view to_string(evmvc::running_state s)
     }
 }
 
+enum class http_version
+{
+    http_10,
+    http_11,
+    http_2
+};
+
+
 // evmvc::_internal namespace
 namespace _internal{
     struct multipart_content_t;
@@ -206,27 +221,52 @@ namespace _internal{
     
     evmvc::sp_logger& default_logger();
     
-    evmvc::sp_response create_http_response(
-        wp_app a,
-        evhtp_request_t* ev_req,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& params
-    );
+    // evmvc::sp_response create_http_response(
+    //     wp_app a,
+    //     evhtp_request_t* ev_req,
+    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
+    // );
+    //
+    // evmvc::sp_response create_http_response(
+    //     sp_logger log,
+    //     evhtp_request_t* ev_req, sp_route rt,
+    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
+    // );
+    //
+    
+    // evhtp_res on_headers(
+    //     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
+    // void on_multipart_request(evhtp_request_t* req, void* arg);
+    // void on_app_noop_request(evhtp_request_t* /*req*/, void* /*arg*/);
+    // void on_app_request(evhtp_request_t* req, void* arg);
     
     evmvc::sp_response create_http_response(
+        wp_connection conn,
+        http_version ver,
+        url uri,
         sp_logger log,
-        evhtp_request_t* ev_req, sp_route rt,
+        sp_header_map hdrs,
+        sp_route rt,
         const std::vector<std::shared_ptr<evmvc::http_param>>& params
     );
-    
-    evhtp_res on_headers(
-        evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
-    void on_multipart_request(evhtp_request_t* req, void* arg);
-    void on_app_noop_request(evhtp_request_t* /*req*/, void* /*arg*/);
-    void on_app_request(evhtp_request_t* req, void* arg);
+    evmvc::sp_response on_headers_completed(
+        wp_connection conn,
+        sp_logger log,
+        url uri,
+        http_version ver,
+        sp_header_map hdrs,
+        sp_app a
+    );
+    void on_multipart_request_completed(
+        sp_request req,
+        sp_response res,
+        sp_app a
+    );
     
     void send_error(
         evmvc::sp_response res, int status_code,
-        evmvc::string_view msg = "");
+        evmvc::string_view msg = ""
+    );
     
     
     /* Write "n" bytes to a descriptor. */

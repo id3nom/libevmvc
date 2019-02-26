@@ -63,18 +63,23 @@ class url
 {
 public:
     url()
-        : _valid(false)
+        : _empty(true)
     {
     }
     
     url(evmvc::string_view u)
+        : _empty(u.size() == 0)
     {
         _parse(u);
     }
     
-    url(const url& base, evmvc::string_view u)
+    url(const evmvc::string_view sbase, evmvc::string_view u)
+        : _empty(sbase.size() == 0 && u.size() == 0)
     {
+        url base(sbase);
         _parse(u);
+        bool is_abs = is_absolute();
+
         _scheme = base._scheme;
         _scheme_string = base._scheme_string;
         
@@ -84,35 +89,60 @@ public:
         
         _hostname = base._hostname;
         _port = base._port;
+        _port_string = base._port_string;
         
-        if(_path.size() > 0 && !_absolute)
+        if(_path.size() > 0 && !is_abs)
             _path = base._path + _path;
+    }
+    
+    url(const url& base, evmvc::string_view u)
+        : _empty(base.empty() && u.size() == 0)
+    {
+        _parse(u);
+        bool is_abs = is_absolute();
+
+        _scheme = base._scheme;
+        _scheme_string = base._scheme_string;
         
-        _absolute = base._absolute;
+        _userinfo = base._userinfo;
+        _username = base._username;
+        _password = base._password;
+        
+        _hostname = base._hostname;
+        _port = base._port;
+        _port_string = base._port_string;
+        
+        if(_path.size() > 0 && !is_abs)
+            _path = base._path + _path;
     }
     
     url(const url& o)
-        : _valid(o._valid),
-        _absolute(o._absolute),
+        : _empty(o._empty),
         _scheme_string(o._scheme_string),
         _userinfo(o._userinfo),
         _username(o._username),
         _password(o._password),
         _hostname(o._hostname),
         _port(o._port),
+        _port_string(o._port_string),
         _path(o._path),
         _query(o._query),
         _fragment(o._fragment)
     {
     }
     
-    bool valid() const { return _valid;}
-    bool is_absolute() const { return _absolute;}
-    bool is_relative() const { return !_absolute;}
+    operator std::string() const
+    {
+        return to_string();
+    }
+    
+    bool empty() const { return _empty;}
+    bool is_absolute() const { return _hostname.size() > 0;}
+    bool is_relative() const { return _hostname.size() == 0;}
     
     url_scheme scheme() const
     {
-        if(!_absolute)
+        if(!is_absolute())
             return url_scheme::unknown;
         return _scheme;
     }
@@ -137,12 +167,104 @@ public:
         _password = "";
     }
     
+    std::string userinfo() const
+    {
+        std::string r;
+        if(_userinfo){
+            r += _username;
+            if(_password.size() > 0)
+                r += ":" + _password;
+        }
+        return r;
+    }
+    
+    std::string host() const
+    {
+        std::string r;
+        if(_hostname.size() > 0){
+            r += _hostname;
+            if(_port_string.size() > 0)
+                r += ":";
+        }
+        
+        if(_port_string.size() > 0)
+            r += _port_string;
+        return r;
+    }
+    
+    std::string authority() const
+    {
+        std::string r;
+        if(_userinfo || _hostname.size() > 0 || _port_string.size() > 0){
+            if(_userinfo){
+                r += _username;
+                if(_password.size() > 0)
+                    r += ":" + _password;
+                    
+                if(_hostname.size() > 0 || _port_string.size() > 0)
+                    r += "@";
+            }
+            
+            if(_hostname.size() > 0){
+                r += _hostname;
+                if(_port_string.size() > 0)
+                    r += ":";
+            }
+            
+            if(_port_string.size() > 0)
+                r += _port_string;
+        }
+        return r;
+    }
+    
     std::string hostname() const { return _hostname;}
     uint16_t port() const { return _port;}
+    std::string port_string() const { return _port_string;}
     
-    std::string path() const { return _path;}
+    std::string path() const { return is_absolute() ? "/" + _path : _path;}
     std::string query() const { return _query;}
     std::string fragment() const { return _fragment;}
+    
+    std::string to_string() const
+    {
+        std::string surl;
+        if(_scheme_string.size())
+            surl += _scheme_string + ":";
+        if(_userinfo || _hostname.size() > 0 || _port_string.size() > 0){
+            surl += "//";
+            if(_userinfo){
+                surl += _username;
+                if(_password.size() > 0)
+                    surl += ":" + _password;
+                    
+                if(_hostname.size() > 0 || _port_string.size() > 0)
+                    surl += "@";
+            }
+            
+            if(_hostname.size() > 0){
+                surl += _hostname;
+                if(_port_string.size() > 0)
+                    surl += ":";
+            }
+            
+            if(_port_string.size() > 0)
+                surl += _port_string;
+            
+            if(_path.size() > 0)
+                surl += "/";
+        }
+        
+        if(_path.size() > 0)
+            surl += _path;
+        
+        if(_query.size() > 0)
+            surl += "?" + _query;
+        
+        if(_fragment.size() > 0)
+            surl += "?" + _fragment;
+        
+        return surl;
+    }
     
 private:
     void _parse(evmvc::string_view u)
@@ -299,10 +421,12 @@ private:
                                 (qidx == -1 || qidx > fidx) &&
                                 (pidx == -1 || pidx > fidx)
                             ){
-                                std::string sport = data_substring(
+                                _port_string = data_substring(
                                     data, spos, fidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(sport);
+                                _port = evmvc::str_to_num<uint16_t>(
+                                    _port_string
+                                );
                                 spos += fidx +1;
                                 section = EVMVC_URL_PARSE_FRAG;
                                 break;
@@ -310,30 +434,36 @@ private:
                             if(qidx > -1 &&
                                 (pidx == -1 || pidx > qidx)
                             ){
-                                std::string sport = data_substring(
+                                _port_string = data_substring(
                                     data, spos, qidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(sport);
+                                _port = evmvc::str_to_num<uint16_t>(
+                                    _port_string
+                                );
                                 spos += qidx +1;
                                 section = EVMVC_URL_PARSE_QUERY;
                                 break;
                             }
                             if(pidx > -1){
-                                std::string sport = data_substring(
+                                _port_string = data_substring(
                                     data, spos, pidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(sport);
+                                _port = evmvc::str_to_num<uint16_t>(
+                                    _port_string
+                                );
                                 spos += pidx +1;
                                 section = EVMVC_URL_PARSE_PATH;
                                 break;
                             }
                             
                             {
-                                std::string sport = data_substring(
+                                _port_string = data_substring(
                                     data, spos, len
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(sport);
-                                spos += sport.size();
+                                _port = evmvc::str_to_num<uint16_t>(
+                                    _port_string
+                                );
+                                spos += _port_string.size();
                                 break;
                             }
                         }
@@ -416,8 +546,7 @@ private:
         }
     }
     
-    bool _valid = false;
-    bool _absolute = false;
+    bool _empty = false;
     
     std::string _scheme_string = "unknown";
     url_scheme _scheme = url_scheme::unknown;
@@ -428,6 +557,8 @@ private:
     
     std::string _hostname;
     uint16_t _port = 0;
+    std::string _port_string;
+
     
     std::string _path;
     std::string _query;

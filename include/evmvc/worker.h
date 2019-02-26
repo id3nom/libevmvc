@@ -775,9 +775,54 @@ struct bufferevent* http_parser::bev() const
     return c->bev();
 }
 
-void http_parser::send_test_response()
+void http_parser::validate_headers()
 {
-    _status = http_parser::state::end;
+    sp_connection c = this->_conn.lock();
+    if(!c){
+        _status = http_parser::state::error;
+        return;
+    }
+    
+    std::string base_url = c->secure() ? "https://" : "http://";
+    
+    auto it = _hdrs->find("host");
+    if(it == _hdrs->end()){
+        _status = http_parser::state::error;
+        return;
+    }
+    base_url += evmvc::trim_copy(it->second.front());
+    url uri(base_url, _uri);
+    
+    
+    _log->success(
+        "REQ received,"
+        "host: '{}', method: '{}', uri: '{}'",
+        "Not Found",
+        _method,
+        _uri
+    );
+    else
+        _log->success(
+            "REQ received,"
+            "host: '{}', method: '{}', uri: '{}'",
+            it->second[0],
+            _method,
+            _uri
+        );
+    
+    
+    sp_response res = _internal::on_headers_completed(
+        c->log(),
+        uri,
+        _hdrs,
+        c->get_worker()->get_app()
+    );
+    
+    
+    
+    
+    
+    
     
     std::string m = fmt::format(
         "conn-{}\n",

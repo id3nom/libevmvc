@@ -43,7 +43,7 @@ namespace evmvc {
 namespace _internal {
     struct file_reply {
         sp_response res;
-        evhtp_request_t* request;
+        //evhtp_request_t* request;
         FILE* file_desc;
         struct evbuffer* buffer;
         z_stream* zs;
@@ -51,40 +51,41 @@ namespace _internal {
         evmvc::async_cb cb;
         evmvc::sp_logger log;
     };
-    
-    static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg);
-    static evhtp_res send_file_fini(
-        struct evhtp_connection* c, void* arg);
+
+    // static evhtp_res send_file_chunk(evhtp_connection_t* conn, void* arg);
+    // static evhtp_res send_file_fini(
+    //     struct evhtp_connection* c, void* arg);
 }
 
 
 class response
     : public std::enable_shared_from_this<response>
 {
-    friend evmvc::sp_response _internal::create_http_response(
-        sp_logger log,
-        evhtp_request_t* ev_req,
-        sp_route rt,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& params
-        );
+    // friend evmvc::sp_response _internal::create_http_response(
+    //     sp_logger log,
+    //     evhtp_request_t* ev_req,
+    //     sp_route rt,
+    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
+    //     );
     
 public:
     
     response(
         uint64_t id,
-        const sp_route& rt,
+        sp_request req,
+        wp_connection conn,
         evmvc::sp_logger log,
-        evhtp_request_t* ev_req,
+        const sp_route& rt,
+        url uri,
         const sp_http_cookies& http_cookies)
-        : _id(id), _rt(rt),
+        : _id(id),
+        _req(req),
+        _conn(conn),
         _log(log->add_child(
-            "res-" + evmvc::num_to_str(id, false) + 
-            ev_req->uri->path->full
+            "res-" + evmvc::num_to_str(id, false) + uri.path()
         )),
-        _ev_req(ev_req), 
-        // _headers(std::make_shared<response_headers>(
-        //     ev_req->headers_out
-        // )),
+        _rt(rt),
+        _headers(std::make_shared<response_headers>()),
         _cookies(http_cookies),
         _started(false), _ended(false),
         _status(-1), _type(""), _enc(""), _paused(false)
@@ -101,7 +102,7 @@ public:
         );
     }
     
-    static sp_response null(wp_app a, evhtp_request_t* ev_req);
+    //static sp_response null(wp_app a, evhtp_request_t* ev_req);
     
     uint64_t id() const { return _id;}
     
@@ -114,7 +115,7 @@ public:
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
     
-    evhtp_request_t* evhtp_request(){ return _ev_req;}
+    //evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
     evmvc::sp_request req() const { return _req;}
@@ -366,10 +367,8 @@ private:
     
     uint64_t _id;
     wp_connection _conn;
-    
-    sp_route _rt;
     evmvc::sp_logger _log;
-    evhtp_request_t* _ev_req;
+    sp_route _rt;
     evmvc::sp_response_headers _headers;
     evmvc::sp_request _req;
     sp_http_cookies _cookies;

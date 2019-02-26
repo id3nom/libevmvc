@@ -1106,45 +1106,71 @@ namespace _internal{
     
     
     
-    inline evmvc::sp_response create_http_response(
-        wp_app a,
-        evhtp_request_t* ev_req,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& params =
-            std::vector<std::shared_ptr<evmvc::http_param>>()
-        )
-    {
-        return _internal::create_http_response(
-            a.lock()->log(), 
-            ev_req,
-            evmvc::route::null(a),
-            params
-        );
-    }
+    // inline evmvc::sp_response create_http_response(
+    //     wp_app a,
+    //     evhtp_request_t* ev_req,
+    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params =
+    //         std::vector<std::shared_ptr<evmvc::http_param>>()
+    //     )
+    // {
+    //     return _internal::create_http_response(
+    //         a.lock()->log(), 
+    //         ev_req,
+    //         evmvc::route::null(a),
+    //         params
+    //     );
+    // }
     
-    inline evmvc::sp_response create_http_response(
+    // inline evmvc::sp_response create_http_response(
+    //     sp_logger log,
+    //     evhtp_request_t* ev_req,
+    //     sp_route rt,
+    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params =
+    //         std::vector<std::shared_ptr<evmvc::http_param>>()
+    //     )
+    // {
+    //     static uint64_t cur_id = 0;
+    //     uint64_t rid = ++cur_id;
+        
+    //     evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
+    //         rid, rt, log, ev_req
+    //     );
+    //     evmvc::sp_response res = std::make_shared<evmvc::response>(
+    //         rid, rt, log, ev_req, cks
+    //     );
+    //     evmvc::sp_request req = std::make_shared<evmvc::request>(
+    //         rid, rt, log, ev_req, cks, params
+    //     );
+    //     res->_req = req;
+        
+    //     return res;
+    // }
+    evmvc::sp_response create_http_response(
+        wp_connection conn,
+        http_version ver,
+        url uri,
         sp_logger log,
-        evhtp_request_t* ev_req,
+        sp_header_map hdrs,
         sp_route rt,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& params =
-            std::vector<std::shared_ptr<evmvc::http_param>>()
-        )
+        const std::vector<std::shared_ptr<evmvc::http_param>>& params)
     {
         static uint64_t cur_id = 0;
         uint64_t rid = ++cur_id;
         
         evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
-            rid, rt, log, ev_req
-        );
-        evmvc::sp_response res = std::make_shared<evmvc::response>(
-            rid, rt, log, ev_req, cks
+            rid, log, rt, uri, hdrs
         );
         evmvc::sp_request req = std::make_shared<evmvc::request>(
-            rid, rt, log, ev_req, cks, params
+            rid, ver, conn, log, rt, uri, hdrs, cks, params
         );
-        res->_req = req;
+        evmvc::sp_response res = std::make_shared<evmvc::response>(
+            rid, req, conn, log, rt, uri, cks
+        );
         
         return res;
     }
+    
+    
 }// ns: evmvc::internal
 }// ns evmvc
 #endif //_libevmvc_app_h

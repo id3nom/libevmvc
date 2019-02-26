@@ -5,7 +5,6 @@
 #include "globals.h"
 #include "sockets_util.h"
 
-#include <event2/bufferevent_ssl.h>
 #include <openssl/dh.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
@@ -18,7 +17,6 @@ typedef SSL_CTX                 evhtp_ssl_ctx_t;
 typedef X509                    evhtp_x509_t;
 typedef X509_STORE_CTX          evhtp_x509_store_ctx_t;
 typedef const unsigned char     evhtp_ssl_data_t;
-
 */
 
 #define PIPE_WRITE_FD 1

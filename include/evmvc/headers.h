@@ -70,6 +70,7 @@ typedef std::unordered_map<
     std::vector<std::string>,
     ci_less_hash, ci_less_eq
     > header_map;
+typedef std::shared_ptr<header_map> sp_header_map;
 
 enum class encoding_type
 {
@@ -292,9 +293,12 @@ template<bool READ_ONLY>
 class http_headers
 {
 public:
-    http_headers(/*evhtp_headers_t* hdrs*/
-        std::shared_ptr<std::unordered_map<std::string, std::string>> hdrs
-    )
+    http_headers()
+        : _hdrs(std::make_shared<header_map>())
+    {
+    }
+
+    http_headers(sp_header_map hdrs)
         : _hdrs(hdrs)
     {
     }
@@ -477,7 +481,7 @@ public:
     
 private:
     //evhtp_headers_t* _hdrs;
-    std::shared_ptr<header_map> _hdrs;
+    sp_header_map _hdrs;
 };
 
 

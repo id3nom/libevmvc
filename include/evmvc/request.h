@@ -39,6 +39,7 @@ SOFTWARE.
 
 namespace evmvc {
 
+
 namespace policies {
 class jwt_filter_rule_t;
 }
@@ -47,28 +48,39 @@ class request
     : public std::enable_shared_from_this<request>
 {
     friend class policies::jwt_filter_rule_t;
-    friend void _internal::on_multipart_request(
-        evhtp_request_t* req, void* arg);
+    // friend void _internal::on_multipart_request(
+    //     evhtp_request_t* req, void* arg);
+    friend void _internal::on_multipart_request_completed(
+        sp_request req,
+        sp_response res,
+        sp_app a
+    );
     
 public:
     request(
         uint64_t id,
-        const evmvc::sp_route& rt,
+        http_version ver,
+        wp_connection conn,
         evmvc::sp_logger log,
-        evhtp_request_t* ev_req,
+        const evmvc::sp_route& rt,
+        url uri,
+        //evhtp_request_t* ev_req,
+        sp_header_map hdrs,
         const sp_http_cookies& http_cookies,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p/*,
         _internal::multipart_parser* mp*/
         )
-        : _id(id), _rt(rt),
+        : _id(id),
+        _version(ver),
+        _conn(conn),
         _log(log->add_child(
             "req-" + evmvc::num_to_str(id, false) +
             ev_req->uri->path->full
         )),
-        _ev_req(ev_req),
-        // _headers(std::make_shared<evmvc::request_headers>(
-        //     ev_req->headers_in
-        // )),
+        _rt(rt),
+        _uri(uri),
+        //_ev_req(ev_req),
+        _headers(std::make_shared<evmvc::request_headers>(hdrs)),
         _cookies(http_cookies),
         _rt_params(std::make_unique<http_params_t>(p)),
         _qry_params(std::make_unique<http_params_t>()),
@@ -276,10 +288,12 @@ protected:
         std::shared_ptr<_internal::multipart_subcontent> ms);
     
     uint64_t _id;
+    http_version _version;
     wp_connection _conn;
-    evmvc::sp_route _rt;
     evmvc::sp_logger _log;
-    evhtp_request_t* _ev_req;
+    evmvc::sp_route _rt;
+    evmvc::url _uri;
+    //evhtp_request_t* _ev_req;
     evmvc::sp_request_headers _headers;
     sp_http_cookies _cookies;
     //param_map _rt_params;

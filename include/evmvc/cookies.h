@@ -45,7 +45,7 @@ typedef std::shared_ptr<http_cookies> sp_http_cookies;
 
 class http_cookies
 {
-    friend void _internal::on_app_request(evhtp_request_t* req, void* arg);
+    //friend void _internal::on_app_request(evhtp_request_t* req, void* arg);
     friend class request;
     friend class response;
     
@@ -101,15 +101,21 @@ public:
     http_cookies() = delete;
     http_cookies(
         uint64_t id,
-        const evmvc::sp_route& rt,
         evmvc::sp_logger log,
-        evhtp_request_t* ev_req)
-        : _id(id), _rt(rt),
+        const evmvc::sp_route& rt,
+        const url& uri,
+        sp_header_map hdrs
+        //evhtp_request_t* ev_req
+        )
+        : _id(id),
         _log(log->add_child(
-            "cookies-" + evmvc::num_to_str(id, false) + 
-            ev_req->uri->path->full
+            "cookies-" + evmvc::num_to_str(id, false) + uri.path()
         )),
-        _ev_req(ev_req), _init(false), _cookies(), _locked(false)
+        _rt(rt),
+        _in_hdrs(hdrs),
+        _out_hdrs(std::make_shared<header_map>()),
+        //_ev_req(ev_req),
+        _init(false), _cookies(), _locked(false)
     {
         EVMVC_DEF_TRACE(
             "cookies '{}' created", this->id()
@@ -511,9 +517,12 @@ private:
     }
     
     uint64_t _id;
-    evmvc::sp_route _rt;
     evmvc::sp_logger _log;
-    evhtp_request_t* _ev_req;
+    evmvc::sp_route _rt;
+    sp_header_map _in_hdrs;
+    sp_header_map _out_hdrs;
+    
+    //evhtp_request_t* _ev_req;
     mutable bool _init;
     mutable cookie_map _cookies;
     bool _locked;

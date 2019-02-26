@@ -89,9 +89,9 @@ class http_parser
         parse_req_line = 0,
         parse_header_section,
         parse_body_section,
-        end
+        end,
+        error
     };
-    
     
 public:
     http_parser(wp_connection conn, const sp_logger& log)
@@ -116,7 +116,7 @@ public:
         _hdrs_eol_count = 0;
     }
     
-    size_t parse(const char* in_data, size_t in_len, cb_error& ec)
+    ssize_t parse(const char* in_data, size_t in_len, cb_error& ec)
     {
         EVMVC_DBG(_log,
             "parsing, len: {}\n{}", in_len, std::string(in_data, in_len)
@@ -125,7 +125,8 @@ public:
         if(in_len == 0)
             return 0;
         
-        if(_status == http_parser::state::end)
+        if(_status == http_parser::state::end ||
+            _status == http_parser::state::error)
             reset();
         
         _bytes_read = 0;
@@ -140,6 +141,9 @@ public:
         
         while(eol_idx > -1){
             switch(_status){
+                case http_parser::state::error:{
+                    return -1;
+                }
                 case http_parser::state::parse_req_line:{
                     if(line_len == 0){
                         ec = EVMVC_ERR("Bad request line format");
@@ -170,27 +174,9 @@ public:
                 }
                 case http_parser::state::parse_header_section:{
                     if(line_len == 0){
-                        //TODO: validate required header section
-                        auto it = _hdrs->find("host");
-                        if(it == _hdrs->end() || it->second.size() == 0)
-                            _log->success(
-                                "REQ received,"
-                                "host: '{}', method: '{}', uri: '{}'",
-                                "Not Found",
-                                _method,
-                                _uri
-                            );
-                        else
-                            _log->success(
-                                "REQ received,"
-                                "host: '{}', method: '{}', uri: '{}'",
-                                it->second[0],
-                                _method,
-                                _uri
-                            );
                         _status = http_parser::state::parse_body_section;
                         _bytes_read += EVMVC_EOL_SIZE;
-                        send_test_response();
+                        validate_headers();
                         break;
                     }
                     
@@ -244,7 +230,7 @@ public:
     }
     
 private:
-    void send_test_response();
+    void validate_headers();
     
     http_parser::error _err = http_parser::error::none;
     http_parser::flag _flags = http_parser::flag::none;
