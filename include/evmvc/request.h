@@ -28,7 +28,7 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "logging.h"
 #include "utils.h"
-#include "connection.h"
+#include "url.h"
 #include "headers.h"
 #include "fields.h"
 #include "methods.h"
@@ -48,8 +48,6 @@ class request
     : public std::enable_shared_from_this<request>
 {
     friend class policies::jwt_filter_rule_t;
-    // friend void _internal::on_multipart_request(
-    //     evhtp_request_t* req, void* arg);
     friend void _internal::on_multipart_request_completed(
         sp_request req,
         sp_response res,
@@ -75,10 +73,10 @@ public:
         _conn(conn),
         _log(log->add_child(
             "req-" + evmvc::num_to_str(id, false) +
-            ev_req->uri->path->full
+            uri.to_string()
         )),
         _rt(rt),
-        _uri(uri),
+        _uri(std::move(uri)),
         //_ev_req(ev_req),
         _headers(std::make_shared<evmvc::request_headers>(hdrs)),
         _cookies(http_cookies),
@@ -92,48 +90,49 @@ public:
         );
         
         if(_log->should_log(log_level::trace)){
-            std::string hdrs;
-            evhtp_kv_t * kv;
-            TAILQ_FOREACH(kv, ev_req->headers_in, next){
-                hdrs += kv->key;
-                hdrs += ": ";
-                hdrs += kv->val;
-                hdrs += "\n";
-            }
-            EVMVC_TRACE(_log, hdrs);
+            std::string hdrs_dbg;
+            for(auto& it : *hdrs.get())
+                hdrs_dbg += fmt::format(
+                    "{}: {}\n",
+                    it.first,
+                    evmvc::join(it.second, "; ")
+                );
+            EVMVC_TRACE(_log, hdrs_dbg);
         }
         
         // building the _qry_params object
-        if(!_ev_req->uri->query)
-            return;
-
-        auto qp = _ev_req->uri->query->tqh_first;
-        if(qp == nullptr)
+        std::string qry = uri.query();
+        if(qry.empty())
             return;
         
-        while(qp != nullptr){
-            if(!qp->val){
-                _qry_params->emplace_back(
-                    std::make_shared<evmvc::http_param>(
-                        qp->key, ""
-                    )
-                );
+        size_t it_idx = 0;
+        do{
+            size_t nit_idx = evmvc::find_ch(
+                qry.c_str(), qry.size(), '&', it_idx
+            );
+            
+            if(nit_idx == -1)
+                nit_idx = qry.size();
+            
+            size_t sep_idx = evmvc::find_ch(
+                qry.c_str(), qry.size(), '=', it_idx
+            );
+            
+            if(sep_idx > -1 && sep_idx < nit_idx){
+                _qry_params->emplace_back(std::make_shared<evmvc::http_param>(
+                    sep_idx == it_idx ? "" : 
+                        evmvc::data_substring(qry.c_str(), it_idx, sep_idx),
+                    evmvc::data_substring(qry.c_str(), sep_idx+1, nit_idx)
+                ));
             }else{
-                char* pval = evhttp_decode_uri(qp->val);
-                std::string sval(pval);
-                free(pval);
-                _qry_params->emplace_back(
-                    std::make_shared<evmvc::http_param>(
-                        qp->key, sval
-                    )
-                );
+                _qry_params->emplace_back(std::make_shared<evmvc::http_param>(
+                    evmvc::data_substring(qry.c_str(), it_idx, nit_idx),
+                    ""
+                ));
             }
             
-            qp = qp->next.tqe_next;
-            if(qp == *_ev_req->uri->query->tqh_last)
-                break;
-        }
-        
+            it_idx = nit_idx +1;
+        }while(it_idx > -1 && it_idx < qry.size());
     }
     
     ~request()

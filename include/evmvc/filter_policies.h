@@ -34,7 +34,6 @@ SOFTWARE.
 #include "cookies.h"
 #include "request.h"
 #include "response.h"
-#include "multipart_parser.h"
 #include "jwt.h"
 
 namespace evmvc { namespace policies {

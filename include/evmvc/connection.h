@@ -40,7 +40,7 @@ namespace _internal {
     void on_connection_read(struct bufferevent* bev, void* arg);
     void on_connection_write(struct bufferevent* bev, void* arg);
     void on_connection_event(struct bufferevent* bev, short events, void* arg);
-    
+
 }//::_internal
 
 enum class conn_flags
@@ -50,9 +50,12 @@ enum class conn_flags
     paused          = (1 << 2),
     connected       = (1 << 3),
     waiting         = (1 << 4),
+    
     keepalive       = (1 << 5),
     server_via_sni  = (1 << 6),
     wait_release    = (1 << 7),
+    
+    sending_file    = (1 << 8),
 };
 EVMVC_ENUM_FLAGS(evmvc::conn_flags);
 
@@ -84,7 +87,10 @@ public:
         const sp_logger& log,
         wp_http_worker worker,
         sp_child_server server,
-        int sock_fd, evmvc::url_scheme p)
+        int sock_fd,
+        evmvc::url_scheme p,
+        evmvc::string_view remote_addr,
+        uint16_t remote_port)
         :
         _closed(false),
         _id(nxt_id()),
@@ -96,7 +102,9 @@ public:
         _worker(worker),
         _server(server),
         _sock_fd(sock_fd),
-        _protocol(p)
+        _protocol(p),
+        _remote_addr(remote_addr),
+        _remote_port(remote_port)
     {
     }
     
@@ -180,6 +188,8 @@ public:
     sp_http_worker get_worker() const;
     sp_child_server server() const { return _server;}
     evmvc::url_scheme protocol() const { return _protocol;}
+    std::string remote_address() const { return _remote_addr;}
+    uint16_t remote_port() const { return _remote_port;}
     
     bool flag_is(conn_flags flag)
     {
@@ -266,6 +276,15 @@ public:
     
     void close();
     
+    void send_file(_internal::sp_file_reply file)
+    {
+        if(this->flag_is(conn_flags::sending_file))
+            throw EVMVC_ERR("Already sending a file");
+        
+        set_conn_flag(conn_flags::sending_file);
+        _file = file;
+    }
+    
     #if EVMVC_BUILD_DEBUG
         std::string debug_string() const
         {
@@ -335,7 +354,12 @@ private:
             EVMVC_DBG(_log, "TCP_DEFER_ACCEPT NOT SUPPORTED");
         }
     }
-
+    
+    void _send_file_chunk_start();
+    evmvc::status _send_file_chunk();
+    void _send_file_chunk_end();
+    void _send_chunk(evbuffer* chunk);
+    
     int _closed;
     int _id;
     sp_logger _log;
@@ -343,6 +367,8 @@ private:
     sp_child_server _server;
     int _sock_fd;
     evmvc::url_scheme _protocol;
+    std::string _remote_addr;
+    uint16_t _remote_port;
     
     conn_flags _flags = conn_flags::none;
     
@@ -362,6 +388,8 @@ private:
     sp_response _res = nullptr;
     
     size_t _body_nread = 0;
+    
+    _internal::sp_file_reply _file;
 };
 
 

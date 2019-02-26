@@ -687,7 +687,8 @@ public:
     }
     
 private:
-    void _revc_sock(size_t srv_id, int iproto, int sock_fd)
+    void _revc_sock(size_t srv_id, int iproto,
+        const char* remote_addr, uint16_t remote_port, int sock_fd)
     {
         sp_child_server srv = find_server_by_id(srv_id);
         if(!srv)
@@ -701,7 +702,9 @@ private:
             this->shared_from_self(),
             srv,
             sock_fd,
-            proto
+            proto,
+            remote_addr,
+            remote_port
         );
         c->initialize();
         _conns.emplace(c->id(), c);
@@ -775,71 +778,6 @@ struct bufferevent* http_parser::bev() const
     return c->bev();
 }
 
-void http_parser::validate_headers()
-{
-    sp_connection c = this->_conn.lock();
-    if(!c){
-        _status = http_parser::state::error;
-        return;
-    }
-    
-    std::string base_url = c->secure() ? "https://" : "http://";
-    
-    auto it = _hdrs->find("host");
-    if(it == _hdrs->end()){
-        _status = http_parser::state::error;
-        return;
-    }
-    base_url += evmvc::trim_copy(it->second.front());
-    url uri(base_url, _uri);
-    
-    
-    _log->success(
-        "REQ received,"
-        "host: '{}', method: '{}', uri: '{}'",
-        "Not Found",
-        _method,
-        _uri
-    );
-    else
-        _log->success(
-            "REQ received,"
-            "host: '{}', method: '{}', uri: '{}'",
-            it->second[0],
-            _method,
-            _uri
-        );
-    
-    
-    sp_response res = _internal::on_headers_completed(
-        c->log(),
-        uri,
-        _hdrs,
-        c->get_worker()->get_app()
-    );
-    
-    
-    
-    
-    
-    
-    
-    std::string m = fmt::format(
-        "conn-{}\n",
-        this->_conn.lock()->id()
-    );
-    
-    std::string s = fmt::format(
-        "HTTP/1.1 200 OK\r\n"
-        "Content-Type: text/html; charset=utf-8\r\n"
-        "Content-Length: {}\r\n\r\n{}",
-        m.size(), m
-    );
-    _log->trace("sending response:\n{}", s);
-    bufferevent_write(
-        bev(), s.c_str(), s.size()
-    );
-}
 
 // request
 
@@ -875,129 +813,11 @@ std::string request::protocol_string() const
     return to_string(_conn.lock()->protocol()).to_string();
 }
 
-// response
-
-sp_connection response::connection() const { return _conn.lock();}
-bool response::secure() const { return _conn.lock()->secure();}
-
-void response::send_file(
-    const bfs::path& filepath,
-    const evmvc::string_view& enc, 
-    async_cb cb)
-{
-    this->resume();
-    
-    FILE* file_desc = nullptr;
-    struct evmvc::_internal::file_reply* reply = nullptr;
-    
-    // open up the file
-    file_desc = fopen(filepath.c_str(), "r");
-    BOOST_ASSERT(file_desc != nullptr);
-    
-    // create internal file_reply struct
-    reply = new evmvc::_internal::file_reply({
-        this->shared_from_this(),
-        _ev_req,
-        file_desc,
-        evbuffer_new(),
-        nullptr,
-        0,
-        cb,
-        this->_log
-    });
-    
-    /* here we set a connection hook of the type `evhtp_hook_on_write`
-    *
-    * this will execute the function `http__send_chunk_` each time
-    * all data has been written to the client.
-    */
-    evhtp_connection_set_hook(
-        _ev_req->conn, evhtp_hook_on_write,
-        (evhtp_hook)evmvc::_internal::send_file_chunk,
-        reply
-    );
-    
-    /* set a hook to be called when the client disconnects */
-    evhtp_connection_set_hook(
-        _ev_req->conn, evhtp_hook_on_connection_fini,
-        (evhtp_hook)evmvc::_internal::send_file_fini,
-        reply
-    );
-    
-    // set file content-type
-    auto mime_type = evmvc::mime::get_type(filepath.extension().c_str());
-    if(evmvc::mime::compressible(mime_type)){
-        EVMVC_DBG(this->_log, "file is compressible");
-        
-        sp_header hdr = _req->headers().get(
-            evmvc::field::accept_encoding
-        );
-        
-        if(hdr){
-            auto encs = hdr->accept_encodings();
-            int wsize = EVMVC_COMPRESSION_NOT_SUPPORTED;
-            if(encs.size() == 0)
-                wsize = EVMVC_ZLIB_GZIP_WSIZE;
-            for(const auto& cenc : encs){
-                if(cenc.type == encoding_type::gzip){
-                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                    break;
-                }
-                if(cenc.type == encoding_type::deflate){
-                    wsize = EVMVC_ZLIB_DEFLATE_WSIZE;
-                    break;
-                }
-                if(cenc.type == encoding_type::star){
-                    wsize = EVMVC_ZLIB_GZIP_WSIZE;
-                    break;
-                }
-            }
-            
-            if(wsize != EVMVC_COMPRESSION_NOT_SUPPORTED){
-                reply->zs = (z_stream*)malloc(sizeof(*reply->zs));
-                memset(reply->zs, 0, sizeof(*reply->zs));
-                
-                int compression_level = Z_DEFAULT_COMPRESSION;
-                if(deflateInit2(
-                    reply->zs,
-                    compression_level,
-                    Z_DEFLATED,
-                    wsize, //MOD_GZIP_ZLIB_WINDOWSIZE + 16,
-                    EVMVC_ZLIB_MEM_LEVEL,// MOD_GZIP_ZLIB_CFACTOR,
-                    EVMVC_ZLIB_STRATEGY// Z_DEFAULT_STRATEGY
-                    ) != Z_OK
-                ){
-                    throw EVMVC_ERR("deflateInit2 failed!");
-                }
-                
-                this->headers().set(
-                    evmvc::field::content_encoding, 
-                    wsize == EVMVC_ZLIB_GZIP_WSIZE ? "gzip" : "deflate"
-                );
-            }
-        }
-    }
-    
-    //TODO: get file encoding
-    this->encoding(enc == "" ? "utf-8" : enc).type(
-        filepath.extension().c_str()
-    );
-    this->_prepare_headers();
-    _started = true;
-    
-    /* we do not have to start sending data from the file from here -
-    * this function will write data to the client, thus when finished,
-    * will call our `http__send_chunk_` callback.
-    */
-    evhtp_send_reply_chunk_start(_ev_req, EVHTP_RES_OK);
-}
 
 
 
 
 namespace _internal {
-    
-    
     void on_http_worker_accept(int fd, short events, void* arg)
     {
         http_worker* w = (http_worker*)arg;
@@ -1059,7 +879,9 @@ namespace _internal {
             #pragma GCC diagnostic ignored "-Wstrict-aliasing"
             int sock = *((int*)CMSG_DATA(cmsgp));
             #pragma GCC diagnostic pop
-            w->_revc_sock(data.srv_id, data.iproto, sock);
+            w->_revc_sock(
+                data.srv_id, data.iproto, data.addr, data.port, sock
+            );
         }
     }
     
@@ -1133,170 +955,6 @@ namespace _internal {
         return;
     }
     
-    
-    void on_connection_resume(int /*fd*/, short /*events*/, void* arg)
-    {
-        connection* c = (connection*)arg;
-        EVMVC_DBG(c->_log, "resuming");
-        
-        c->unset_conn_flag(conn_flags::paused);
-        
-        if(c->_req){
-            //TODO: set status to ok.
-        }
-        
-        if(c->flag_is(conn_flags::wait_release)){
-            c->close();
-            return;
-        }
-        
-        if(evbuffer_get_length(c->bev_out())){
-            EVMVC_DBG(c->_log, "SET WAITING");
-
-            c->set_conn_flag(conn_flags::waiting);
-            if(!(bufferevent_get_enabled(c->_bev) & EV_WRITE)){
-                EVMVC_DBG(c->_log, "ENABLING EV_WRITE");
-                bufferevent_enable(c->_bev, EV_WRITE);
-            }
-            
-        }else{
-            EVMVC_DBG(c->_log, "SET READING");
-            if(!(bufferevent_get_enabled(c->_bev) & EV_READ)){
-                EVMVC_DBG(c->_log, "ENABLING EV_READ | EV_WRITE");
-                bufferevent_enable(c->_bev, EV_READ | EV_WRITE);
-            }
-            
-            if(evbuffer_get_length(c->bev_in())){
-                EVMVC_DBG(c->_log, "data available calling on_connection_read");
-                on_connection_read(c->_bev, arg);
-            }
-        }
-    }
-    
-    void on_connection_read(struct bufferevent* /*bev*/, void* arg)
-    {
-        connection* c = (connection*)arg;
-        EVMVC_TRACE(c->_log, "on_connection_read\n{}", c->debug_string());
-        
-        size_t ilen = evbuffer_get_length(c->bev_in());
-        if(ilen == 0)
-            return;
-        
-        if(c->flag_is(conn_flags::paused))
-            return EVMVC_DBG(c->log(), "Connection is paused, do nothing!");
-        
-        void* buf = evbuffer_pullup(c->bev_in(), ilen);
-        
-        cb_error ec;
-        size_t nread = c->_parser->parse((const char*)buf, ilen, ec);
-        if(nread > 0)
-            evbuffer_drain(c->bev_in(), nread);
-        EVMVC_TRACE(c->_log, "Parsing done, nread: {}", nread);
-        
-        if(ec){
-            c->log()->error("Parse error:\n{}", ec);
-            c->set_conn_flag(conn_flags::error);
-            return;
-        }
-        
-        if(c->_req){
-        //     if(c->_req->status() == request_state::req_too_long){
-        //         c->set_conn_flag(conn_flags::error);
-        //         return;
-        //     }
-        }
-        if(c->_res && c->_res->paused())
-            return;
-        
-        if(nread < ilen){
-            c->set_conn_flag(conn_flags::waiting);
-            c->resume();
-        }
-    }
-    
-    void on_connection_write(struct bufferevent* /*bev*/, void* arg)
-    {
-        connection* c = (connection*)arg;
-        EVMVC_TRACE(c->_log, "on_connection_write\n{}", c->debug_string());
-        
-        
-        if(c->flag_is(conn_flags::paused))
-            return;
-        
-        if(c->flag_is(conn_flags::waiting)){
-            c->unset_conn_flag(conn_flags::waiting);
-            if(!(bufferevent_get_enabled(c->_bev) & EV_READ))
-                bufferevent_enable(c->_bev, EV_READ);
-            
-            if(evbuffer_get_length(c->bev_in())){
-                on_connection_read(c->_bev, arg);
-                return;
-            }
-        }
-        
-        if((c->_res && !c->_res->ended()) || evbuffer_get_length(c->bev_out())
-            )
-            return;
-        
-        if(c->flag_is(conn_flags::keepalive)){
-            c->_req.reset();
-            c->_res.reset();
-            c->_parser->reset();
-        }else{
-            //c->close();
-        }
-    }
-    
-    void on_connection_event(
-        struct bufferevent* /*bev*/, short events, void* arg)
-    {
-        connection* c = (connection*)arg;
-        
-        EVMVC_TRACE(c->_log,
-            "conn: {}\n"
-            "events: {}{}{}{}",
-            c->debug_string(),
-            events & BEV_EVENT_CONNECTED ? "connected " : "",
-            events & BEV_EVENT_ERROR     ? "error "     : "",
-            events & BEV_EVENT_TIMEOUT   ? "timeout "   : "",
-            events & BEV_EVENT_EOF       ? "eof"       : ""
-        );
-        
-        if((events & BEV_EVENT_TIMEOUT)){
-            c->close();
-            return;
-        }
-        
-        if((events & BEV_EVENT_CONNECTED)){
-            EVMVC_DBG(c->_log, "CONNECTED");
-            return;
-        }
-        
-        if(c->_ssl && !(events & BEV_EVENT_EOF)){
-            // ssl error
-            c->set_conn_flag(conn_flags::error);
-        }
-        
-        if(events == (BEV_EVENT_EOF | BEV_EVENT_READING)){
-            EVMVC_DBG(c->_log, "EOF | READING");
-            if(errno == EAGAIN){
-                EVMVC_DBG(c->_log, "errno EAGAIN");
-                
-                if(!(bufferevent_get_enabled(c->_bev) & EV_READ))
-                    bufferevent_enable(c->_bev, EV_READ);
-                errno = 0;
-                return;
-            }
-        }
-        
-        c->set_conn_flag(conn_flags::error);
-        c->unset_conn_flag(conn_flags::connected);
-        
-        if(c->flag_is(conn_flags::paused))
-            c->set_conn_flag(conn_flags::wait_release);
-        else
-            c->close();
-    }
     
     
 }//::_internal

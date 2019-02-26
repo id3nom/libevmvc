@@ -154,6 +154,35 @@ typedef std::shared_ptr<route> sp_route;
 class router;
 typedef std::shared_ptr<router> sp_router;
 
+
+struct ci_less_hash
+{
+    size_t operator()(const std::string& kv) const
+    {
+        return std::hash<std::string>{}(boost::to_lower_copy(kv));
+    }
+};
+struct ci_less_eq
+{
+    struct nocase_compare
+    {
+        bool operator()(const unsigned char& c1, const unsigned char& c2) const
+        {
+            return tolower(c1) < tolower(c2);
+        }
+    };
+    bool operator()(const std::string& s1, const std::string& s2) const
+    {
+        return strcasecmp(s1.c_str(), s2.c_str()) == 0;
+    }
+};
+typedef std::unordered_map<
+    std::string, 
+    std::vector<std::string>,
+    ci_less_hash, ci_less_eq
+    > header_map;
+typedef std::shared_ptr<header_map> sp_header_map;
+
 class http_param;
 typedef std::shared_ptr<http_param> sp_http_param;
 //typedef std::vector<sp_http_param> http_params;
@@ -193,10 +222,24 @@ evmvc::string_view to_string(evmvc::running_state s)
 
 enum class http_version
 {
+    unknown,
     http_10,
     http_11,
     http_2
 };
+evmvc::string_view to_string(http_version v)
+{
+    switch(v){
+        case http_version::http_10:
+            return "HTTP/1.0";
+        case http_version::http_11:
+            return "HTTP/1.1";
+        case http_version::http_2:
+            return "HTTP/2";
+        default:
+            return "unknown";
+    }
+}
 
 
 // evmvc::_internal namespace
@@ -212,14 +255,55 @@ namespace _internal{
     struct multipart_parser_t;
     typedef struct multipart_parser_t multipart_parser;
     
-    typedef struct request_args_t
-    {
-        bool ready;
-        evmvc::sp_route_result rr;
-        evmvc::sp_response res;
-    } request_args;
+    // typedef struct request_args_t
+    // {
+    //     bool ready;
+    //     evmvc::sp_route_result rr;
+    //     evmvc::sp_response res;
+    // } request_args;
     
     evmvc::sp_logger& default_logger();
+    
+    class file_reply {
+    public:
+        file_reply(
+            sp_response _res,
+            wp_connection _conn,
+            FILE* _file_desc,
+            async_cb _cb,
+            sp_logger _log)
+            :
+            res(_res),
+            conn(_conn),
+            file_desc(_file_desc),
+            buffer(evbuffer_new()),
+            zs(nullptr),
+            zs_size(0),
+            cb(_cb),
+            log(_log)
+        {
+        }
+        ~file_reply()
+        {
+            if(this->zs){
+                deflateEnd(this->zs);
+                free(this->zs);
+                this->zs = nullptr;
+            }
+            
+            fclose(this->file_desc);
+            evbuffer_free(this->buffer);
+        }
+        sp_response res;
+        wp_connection conn;
+        FILE* file_desc;
+        struct evbuffer* buffer;
+        z_stream* zs;
+        uLong zs_size;
+        evmvc::async_cb cb;
+        evmvc::sp_logger log;
+    };
+    typedef std::shared_ptr<file_reply> sp_file_reply;
     
     // evmvc::sp_response create_http_response(
     //     wp_app a,
@@ -244,10 +328,8 @@ namespace _internal{
         wp_connection conn,
         http_version ver,
         url uri,
-        sp_logger log,
         sp_header_map hdrs,
-        sp_route rt,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& params
+        sp_route_result rr
     );
     evmvc::sp_response on_headers_completed(
         wp_connection conn,
@@ -296,10 +378,13 @@ namespace _internal{
     }
     /* end writen */
     
+    #define EVMVC_CTRL_MSG_MAX_ADDR_LEN 113
     typedef struct ctrl_msg_data_t
     {
         size_t srv_id;
         int iproto;
+        char addr[EVMVC_CTRL_MSG_MAX_ADDR_LEN];
+        uint16_t port;
     } ctrl_msg_data;
     
 }}//ns evmvc::_internal

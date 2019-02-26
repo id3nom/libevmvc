@@ -32,17 +32,17 @@ namespace evmvc {
 enum class method
     : unsigned int
 {
-    get = htp_method_GET,
-    head = htp_method_HEAD,
-    post = htp_method_POST,
-    put = htp_method_PUT,
-    del = htp_method_DELETE,
-    options = htp_method_OPTIONS,
-    trace = htp_method_TRACE,
-    connect = htp_method_CONNECT,
-    patch = htp_method_PATCH,
+    get,
+    head,
+    post,
+    put,
+    del,
+    options,
+    trace,
+    connect,
+    patch,
     
-    unknown = htp_method_UNKNOWN
+    unknown,
 };
 
 evmvc::string_view to_string(evmvc::method v)
@@ -69,6 +69,36 @@ evmvc::string_view to_string(evmvc::method v)
         default:
             return "UNKNOWN";
     }
+}
+
+evmvc::method parse_method(evmvc::string_view s)
+{
+    if(s.size() == 3){
+        if(!strncasecmp("get", s.data(), 3))
+            return evmvc::method::get;
+        if(!strncasecmp("put", s.data(), 3))
+            return evmvc::method::put;
+    }else if(s.size() == 4){
+        if(!strncasecmp("head", s.data(), 4))
+            return evmvc::method::head;
+        if(!strncasecmp("post", s.data(), 4))
+            return evmvc::method::post;
+    }else if(s.size() == 5){
+        if(!strncasecmp("patch", s.data(), 5))
+            return evmvc::method::patch;
+        if(!strncasecmp("trace", s.data(), 5))
+            return evmvc::method::trace;
+    }else if(s.size() == 6){
+        if(!strncasecmp("delete", s.data(), 6))
+            return evmvc::method::del;
+    }else if(s.size() == 7){
+        if(!strncasecmp("options", s.data(), 7))
+            return evmvc::method::options;
+        if(!strncasecmp("connect", s.data(), 7))
+            return evmvc::method::connect;
+    }
+    
+    return evmvc::method::unknown;
 }
 
 } //ns evmvc

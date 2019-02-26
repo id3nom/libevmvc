@@ -558,22 +558,11 @@ private:
     std::string _hostname;
     uint16_t _port = 0;
     std::string _port_string;
-
     
     std::string _path;
     std::string _query;
     std::string _fragment;
 };
-
-#undef EVMVC_URL_PARSE_SCHEME
-#undef EVMVC_URL_PARSE_AUTH
-#undef EVMVC_URL_PARSE_USERINFO
-#undef EVMVC_URL_PARSE_HOST
-#undef EVMVC_URL_PARSE_PORT
-#undef EVMVC_URL_PARSE_PATH
-#undef EVMVC_URL_PARSE_QUERY
-#undef EVMVC_URL_PARSE_FRAG
-
 
 }//::evmvc
 #endif//_libevmvc_url_h

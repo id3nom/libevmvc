@@ -122,6 +122,7 @@ public:
     
     sp_master_server get_server() const;
     
+    address_type type() const { return _type;}
     std::string address() const { return _config.address;}
     int port() const { return _config.port;}
     bool ssl() const { return _config.ssl;}
