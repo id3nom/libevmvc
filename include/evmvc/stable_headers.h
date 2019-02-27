@@ -359,8 +359,8 @@ namespace _internal{
     {
         size_t srv_id;
         int iproto;
-        char addr[EVMVC_CTRL_MSG_MAX_ADDR_LEN];
-        uint16_t port;
+        //char addr[EVMVC_CTRL_MSG_MAX_ADDR_LEN];
+        //uint16_t port;
     } ctrl_msg_data;
     
 }}//ns evmvc::_internal

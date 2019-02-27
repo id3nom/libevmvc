@@ -94,7 +94,6 @@ void http_parser::validate_headers()
         );
         
         _status = parser_state::error;
-
         
         _res = _internal::create_http_response(
             _conn, _http_ver, uri, _hdrs,
@@ -108,7 +107,7 @@ void http_parser::validate_headers()
                 _uri.to_string()
             )
         );
-        
+        return;
     }
     
     c->log()->success(

@@ -58,33 +58,8 @@ void listener::master_listen_cb(
     // send the sock via cmsg
     _internal::ctrl_msg_data data{
         s->id(),
-        (int)(l->ssl() ? url_scheme::https : url_scheme::http),
-        0,
-        0
+        (int)(l->ssl() ? url_scheme::https : url_scheme::http)
     };
-    
-    if(saddr->sa_family == AF_UNIX){
-        memcpy(
-            data.addr,
-            l->address().c_str(),
-            l->address().size()
-        );
-        
-    }else if(saddr->sa_family == AF_INET){
-        auto addr_in = (sockaddr_in*)saddr;
-        inet_ntop(
-            AF_INET, &addr_in->sin_addr, data.addr, INET_ADDRSTRLEN
-        );
-        data.port = ntohs(addr_in->sin_port);
-        
-    }else if(saddr->sa_family == AF_INET6){
-        auto addr_in6 = (sockaddr_in6*)saddr;
-        inet_ntop(
-            AF_INET6, &addr_in6->sin6_addr, data.addr, INET6_ADDRSTRLEN
-        );
-        data.port = ntohs(addr_in6->sin6_port);
-        
-    }
     
     struct msghdr msgh;
     struct iovec iov;

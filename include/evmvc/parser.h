@@ -189,7 +189,7 @@ public:
                             break;
                     }
                     
-                    if(_res->paused())
+                    if(_res && _res->paused())
                         break;
                     
                     if(parsing_payload()){

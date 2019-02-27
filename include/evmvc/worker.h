@@ -688,9 +688,46 @@ public:
     }
     
 private:
-    void _revc_sock(size_t srv_id, int iproto,
-        const char* remote_addr, uint16_t remote_port, int sock_fd)
+    void _revc_sock(size_t srv_id, int iproto, int sock_fd)
     {
+        // fetch socket info
+        char remote_addr[EVMVC_CTRL_MSG_MAX_ADDR_LEN]{0};
+        uint16_t remote_port = 0;
+        struct sockaddr saddr;
+        socklen_t slen;
+        
+        if(getpeername(sock_fd, &saddr, &slen) == -1)
+            _log->error("getpeername failed, err: {}", errno);
+            
+        else{
+            if(saddr.sa_family == AF_UNIX){
+                auto addr_un = (sockaddr_un*)&saddr;
+                memcpy(
+                    remote_addr,
+                    addr_un->sun_path,
+                    sizeof(addr_un->sun_path)
+                );
+            
+            }else if(saddr.sa_family == AF_INET){
+                auto addr_in = (sockaddr_in*)&saddr;
+                inet_ntop(
+                    AF_INET, &addr_in->sin_addr, remote_addr, INET_ADDRSTRLEN
+                );
+                remote_port = ntohs(addr_in->sin_port);
+                
+            }else if(saddr.sa_family == AF_INET6){
+                auto addr_in6 = (sockaddr_in6*)&saddr;
+                inet_ntop(
+                    AF_INET6,
+                    &addr_in6->sin6_addr,
+                    remote_addr,
+                    INET6_ADDRSTRLEN
+                );
+                remote_port = ntohs(addr_in6->sin6_port);
+            }
+        }
+        
+        
         sp_child_server srv = find_server_by_id(srv_id);
         if(!srv)
             _log->fatal(EVMVC_ERR(
@@ -799,7 +836,7 @@ namespace _internal {
             int sock = *((int*)CMSG_DATA(cmsgp));
             #pragma GCC diagnostic pop
             w->_revc_sock(
-                data.srv_id, data.iproto, data.addr, data.port, sock
+                data.srv_id, data.iproto, sock
             );
         }
     }
