@@ -45,6 +45,7 @@ namespace evmvc {
 class response
     : public std::enable_shared_from_this<response>
 {
+    friend class connection;
     // friend evmvc::sp_response _internal::create_http_response(
     //     sp_logger log,
     //     evhtp_request_t* ev_req,
@@ -139,7 +140,6 @@ public:
         }
         _resuming = true;
         this->log()->debug("Resuming connection");
-        //evhtp_request_resume(_ev_req);
     }
     
     bool started(){ return _started;};
@@ -148,10 +148,13 @@ public:
     {
         if(!_started)
             this->encoding("utf-8").type("txt")._reply_start();
-        
-        //evhtp_send_reply_end(_ev_req);
+        if(_ended){
+            _log->error(EVMVC_ERR(
+                "SHOULD NOT END, ended: true"
+            ));
+            return;
+        }
         this->_reply_end();
-        _ended = true;
     }
     
 
@@ -334,7 +337,23 @@ public:
     }
     
 private:
-
+    
+    void _resume(cb_error err)
+    {
+        if(!_paused || !_resuming){
+            _log->warn(EVMVC_ERR(
+                "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
+                _paused ? "true" : "false",
+                _resuming ? "true" : "false"
+            ));
+            return;
+        }
+        
+        _paused = _resuming = false;
+        if(_resume_cb)
+            _resume_cb(err);
+    }
+    
     void _prepare_headers();
     
     void _reply_start()
@@ -352,17 +371,17 @@ private:
     
     void _reply_end()
     {
-        
+        _ended = true;
     }
     
     void _reply_raw(const char* data, size_t len);
     
     uint64_t _id;
+    evmvc::sp_request _req;
     wp_connection _conn;
     evmvc::sp_logger _log;
     sp_route _rt;
     evmvc::sp_response_headers _headers;
-    evmvc::sp_request _req;
     sp_http_cookies _cookies;
     bool _started;
     bool _ended;

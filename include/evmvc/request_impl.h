@@ -23,7 +23,7 @@ SOFTWARE.
 */
 
 #include "app.h"
-#include "response.h"
+#include "request.h"
 
 namespace evmvc {
 
@@ -37,31 +37,70 @@ evmvc::sp_router request::get_router() const
     return this->get_route()->get_router();
 }
 
-// std::string request::protocol() const
-// {
-//     //TODO: add trust proxy options
-//     sp_header h = _headers->get("X-Forwarded-Proto");
-//     if(h)
-//         return h->value();
-//    
-//     return this->get_app()->options().enable_ssl ? "https" : "http";
-// }
+
+std::string request::connection_ip() const
+{
+    if(auto c = _conn.lock())
+        return c->remote_address();
+    return "";
+}
+
+uint16_t request::connection_port() const
+{
+    if(auto c = _conn.lock())
+        return c->remote_port();
+    return 0;
+}
+
+
+sp_connection request::connection() const { return _conn.lock();}
+bool request::secure() const { return _conn.lock()->secure();}
+
+evmvc::url_scheme request::protocol() const
+{
+    //TODO: add trust proxy options
+    sp_header h = _headers->get("X-Forwarded-Proto");
+    if(h){
+        if(!strcasecmp(h->value(), "https"))
+            return evmvc::url_scheme::https;
+        else if(!strcasecmp(h->value(), "http"))
+            return evmvc::url_scheme::http;
+        else
+            throw EVMVC_ERR(
+                "Invalid 'X-Forwarded-Proto': '{}'", h->value()
+            );
+    }
+    
+    return _conn.lock()->protocol();
+}
+std::string request::protocol_string() const
+{
+    //TODO: add trust proxy options
+    sp_header h = _headers->get("X-Forwarded-Proto");
+    if(h)
+        return boost::to_lower_copy(
+            std::string(h->value())
+        );
+    
+    return to_string(_conn.lock()->protocol()).to_string();
+}
+
 
 void request::_load_multipart_params(
-    std::shared_ptr<_internal::multipart_subcontent> ms)
+    std::shared_ptr<multip::multipart_subcontent> ms)
 {
     for(auto ct : ms->contents){
-        if(ct->type == _internal::multipart_content_type::subcontent){
+        if(ct->type == multip::multipart_content_type::subcontent){
             _load_multipart_params(
                 std::static_pointer_cast<
-                    _internal::multipart_subcontent
+                    multip::multipart_subcontent
                 >(ct)
             );
             
-        }else if(ct->type == _internal::multipart_content_type::file){
-            std::shared_ptr<_internal::multipart_content_file> mcf = 
+        }else if(ct->type == multip::multipart_content_type::file){
+            std::shared_ptr<multip::multipart_content_file> mcf = 
                 std::static_pointer_cast<
-                    _internal::multipart_content_file
+                    multip::multipart_content_file
                 >(ct);
             if(!_files)
                 _files = std::make_shared<http_files>();
@@ -72,10 +111,10 @@ void request::_load_multipart_params(
                     mcf->size
                 )
             );
-        }else if(ct->type == _internal::multipart_content_type::form){
-            std::shared_ptr<_internal::multipart_content_form> mcf = 
+        }else if(ct->type == multip::multipart_content_type::form){
+            std::shared_ptr<multip::multipart_content_form> mcf = 
                 std::static_pointer_cast<
-                    _internal::multipart_content_form
+                    multip::multipart_content_form
                 >(ct);
             _body_params->emplace_back(
                 std::make_shared<http_param>(

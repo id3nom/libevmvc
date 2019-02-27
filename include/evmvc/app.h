@@ -467,9 +467,12 @@ private:
 }// ns evmvc
 
 #include "worker_impl.h"
+#include "master_server_impl.h"
 #include "connection_impl.h"
+#include "parser_impl.h"
 #include "request_impl.h"
 #include "response_impl.h"
+#include "router_impl.h"
 #include "_internal_impl.h"
 
 #endif //_libevmvc_app_h

@@ -868,6 +868,7 @@ inline ssize_t find_eol(const char* data, size_t len, size_t start_pos)
 }
 
 
+
 } //ns evmvc
 
 namespace fmt {

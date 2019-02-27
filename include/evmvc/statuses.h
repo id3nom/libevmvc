@@ -27,6 +27,8 @@ SOFTWARE.
 
 #include "stable_headers.h"
 
+#define EVMVC_MAX_STATUS_TEXT_LEN 32
+
 namespace evmvc {
 
 enum class status
@@ -336,10 +338,158 @@ public:
     
 };
 
-std::string to_string(evmvc::status sc)
+const char* to_status_string(uint16_t sc)
 {
-    return evmvc::statuses::status((int16_t)sc);
+    switch(sc){
+        case 100: return "Continue";
+        case 101: return "Switching Protocols";
+        case 102: return "Processing";
+        case 103: return "Early Hints";
+        case 200: return "OK";
+        case 201: return "Created";
+        case 202: return "Accepted";
+        case 203: return "Non-Authoritative Information";
+        case 204: return "No Content";
+        case 205: return "Reset Content";
+        case 206: return "Partial Content";
+        case 207: return "Multi-Status";
+        case 208: return "Already Reported";
+        case 226: return "IM Used";
+        case 300: return "Multiple Choices";
+        case 301: return "Moved Permanently";
+        case 302: return "Found";
+        case 303: return "See Other";
+        case 304: return "Not Modified";
+        case 305: return "Use Proxy";
+        case 306: return "(Unused)";
+        case 307: return "Temporary Redirect";
+        case 308: return "Permanent Redirect";
+        case 400: return "Bad Request";
+        case 401: return "Unauthorized";
+        case 402: return "Payment Required";
+        case 403: return "Forbidden";
+        case 404: return "Not Found";
+        case 405: return "Method Not Allowed";
+        case 406: return "Not Acceptable";
+        case 407: return "Proxy Authentication Required";
+        case 408: return "Request Timeout";
+        case 409: return "Conflict";
+        case 410: return "Gone";
+        case 411: return "Length Required";
+        case 412: return "Precondition Failed";
+        case 413: return "Payload Too Large";
+        case 414: return "URI Too Long";
+        case 415: return "Unsupported Media Type";
+        case 416: return "Range Not Satisfiable";
+        case 417: return "Expectation Failed";
+        case 418: return "I'm a teapot";
+        case 421: return "Misdirected Request";
+        case 422: return "Unprocessable Entity";
+        case 423: return "Locked";
+        case 424: return "Failed Dependency";
+        case 425: return "Too Early";
+        case 426: return "Upgrade Required";
+        case 428: return "Precondition Required";
+        case 429: return "Too Many Requests";
+        case 431: return "Request Header Fields Too Large";
+        case 451: return "Unavailable For Legal Reasons";
+        case 500: return "Internal Server Error";
+        case 501: return "Not Implemented";
+        case 502: return "Bad Gateway";
+        case 503: return "Service Unavailable";
+        case 504: return "Gateway Timeout";
+        case 505: return "HTTP Version Not Supported";
+        case 506: return "Variant Also Negotiates";
+        case 507: return "Insufficient Storage";
+        case 508: return "Loop Detected";
+        case 509: return "Bandwidth Limit Exceeded";
+        case 510: return "Not Extended";
+        case 511: return "Network Authentication Required";
+        default: return "UNKNOWN";
+    }
 }
+const char* to_string(evmvc::status sc)
+{
+    return to_status_string((uint16_t)sc);
+}
+
+const char* to_status_text(uint16_t sc)
+{
+    switch(sc){
+        case 100: return "100";
+        case 101: return "101";
+        case 102: return "102";
+        case 103: return "103";
+        case 200: return "200";
+        case 201: return "201";
+        case 202: return "202";
+        case 203: return "203";
+        case 204: return "204";
+        case 205: return "205";
+        case 206: return "206";
+        case 207: return "207";
+        case 208: return "208";
+        case 226: return "226";
+        case 300: return "300";
+        case 301: return "301";
+        case 302: return "302";
+        case 303: return "303";
+        case 304: return "304";
+        case 305: return "305";
+        case 306: return "306";
+        case 307: return "307";
+        case 308: return "308";
+        case 400: return "400";
+        case 401: return "401";
+        case 402: return "402";
+        case 403: return "403";
+        case 404: return "404";
+        case 405: return "405";
+        case 406: return "406";
+        case 407: return "407";
+        case 408: return "408";
+        case 409: return "409";
+        case 410: return "410";
+        case 411: return "411";
+        case 412: return "412";
+        case 413: return "413";
+        case 414: return "414";
+        case 415: return "415";
+        case 416: return "416";
+        case 417: return "417";
+        case 418: return "418";
+        case 421: return "421";
+        case 422: return "422";
+        case 423: return "423";
+        case 424: return "424";
+        case 425: return "425";
+        case 426: return "426";
+        case 428: return "428";
+        case 429: return "429";
+        case 431: return "431";
+        case 451: return "451";
+        case 500: return "500";
+        case 501: return "501";
+        case 502: return "502";
+        case 503: return "503";
+        case 504: return "504";
+        case 505: return "505";
+        case 506: return "506";
+        case 507: return "507";
+        case 508: return "508";
+        case 509: return "509";
+        case 510: return "510";
+        case 511: return "511";
+        default: return "UNKNOWN";
+    }
+}
+const char* to_status_text(evmvc::status sc)
+{
+    return to_status_text((uint16_t)sc);
+}
+
+
+//TODO: set status msglen
 
 } //ns evmvc
 #endif //_libevmvc_statuses_h

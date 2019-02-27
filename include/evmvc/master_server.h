@@ -32,13 +32,6 @@ SOFTWARE.
 
 namespace evmvc {
 
-namespace _internal {
-    void _master_listen_cb(
-        struct evconnlistener* lev, int sock,
-        sockaddr* saddr, int socklen, void* args
-    );
-}//::_internal
-
 class listener;
 typedef std::unique_ptr<listener> up_listener;
 typedef std::weak_ptr<listener> wp_listener;
@@ -60,11 +53,6 @@ enum class address_type
 class listener
     : public std::enable_shared_from_this<listener>
 {
-    friend void _internal::_master_listen_cb(
-        struct evconnlistener*, int sock,
-        sockaddr* saddr, int socklen, void* args
-    );
-    
 public:
     listener(wp_master_server server,
         const listen_options& config,
@@ -144,7 +132,7 @@ public:
         
         _lev = evconnlistener_new(
             evmvc::global::ev_base(),
-            evmvc::_internal::_master_listen_cb,
+            listener::master_listen_cb,
             this,
             LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
             _config.backlog,
@@ -159,6 +147,11 @@ public:
     }
     
 private:
+    static void master_listen_cb(
+        struct evconnlistener*, int sock,
+        sockaddr* saddr, int socklen, void* args
+    );
+
     void _parse(bool& ipv6_only)
     {
         std::string tmp_addr = _config.address;

@@ -146,7 +146,7 @@ TEST_F(router_test, routes)
         });
         
         //_internal::app_request* ar = nullptr;
-        evhtp_request_t* ev_req = nullptr;
+        //evhtp_request_t* ev_req = nullptr;
         // evmvc::sp_http_cookies c =
         //     std::make_shared<evmvc::http_cookies>(
         //         nullptr, ev_req
@@ -160,12 +160,15 @@ TEST_F(router_test, routes)
             FAIL();
         
         auto res = _internal::create_http_response(
-            rr->log(), ev_req, rr->_route, rr->params
+            std::weak_ptr<connection>(),
+            http_version::http_11,
+            url("http://localhost:80/abc-c/123/asdflkj/asdf"),
+            nullptr,
+            rr
         );
         
         rr->execute(res,
-        [r, &rr, res, ev_req,/* &res,*/ &rt_val](auto error){
-            
+        [r, &rr, res,/* &res,*/ &rt_val](auto error){
             ASSERT_EQ(rt_val, "abc-c");
             
             rt_val.clear();

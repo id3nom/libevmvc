@@ -35,6 +35,7 @@ SOFTWARE.
 #include "request.h"
 #include "response.h"
 #include "jwt.h"
+#include "multipart_utils.h"
 
 namespace evmvc { namespace policies {
 
@@ -52,16 +53,16 @@ struct filter_rule_ctx_t
     filter_rule_ctx_t(
         sp_response res,
         sp_request req,
-        std::shared_ptr<evmvc::_internal::multipart_content_form> form,
-        std::shared_ptr<evmvc::_internal::multipart_content_file> file)
+        std::shared_ptr<multip::multipart_content_form> form,
+        std::shared_ptr<multip::multipart_content_file> file)
         : res(res), req(req), form(form), file(file)
     {
     }
 
     sp_response res;
     sp_request req;
-    std::shared_ptr<evmvc::_internal::multipart_content_form> form;
-    std::shared_ptr<evmvc::_internal::multipart_content_file> file;
+    std::shared_ptr<multip::multipart_content_form> form;
+    std::shared_ptr<multip::multipart_content_file> file;
 };
 typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
 
@@ -69,8 +70,8 @@ filter_rule_ctx new_context(sp_response res)
 {
     return std::make_shared<filter_rule_ctx_t>(
         res, res->req(),
-        std::shared_ptr<evmvc::_internal::multipart_content_form>(),
-        std::shared_ptr<evmvc::_internal::multipart_content_file>()
+        std::shared_ptr<multip::multipart_content_form>(),
+        std::shared_ptr<multip::multipart_content_file>()
     );
 }
 

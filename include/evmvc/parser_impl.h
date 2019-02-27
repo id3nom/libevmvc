@@ -27,13 +27,33 @@ SOFTWARE.
 
 namespace evmvc {
 
+struct bufferevent* http_parser::bev() const
+{
+    sp_connection c = get_connection();
+    return c->bev();
+}
+
+void http_parser::exec()
+{
+    try{
+        _rr->execute(_res, [res = _res](auto error){
+            if(error){
+                res->error(
+                    evmvc::status::internal_server_error, error
+                );
+                return;
+            }
+        });
+    }catch(const std::exception& err){
+        _res->error(
+            evmvc::status::internal_server_error,
+            EVMVC_ERR(err.what())
+        );
+    }
+}
+
+
 void http_parser::validate_headers()
-        // wp_connection conn,
-        // sp_logger log,
-        // url uri,
-        // http_version ver,
-        // sp_header_map hdrs,
-        // sp_app a)
 {
     sp_connection c = this->_conn.lock();
     if(!c){
@@ -53,30 +73,15 @@ void http_parser::validate_headers()
         "REQ received,"
         "host: '{}', method: '{}', uri: '{}'",
         "Not Found",
-        _method,
+        _method_string,
         _uri_string
     );
     
     sp_app a = this->_conn.lock()->get_worker()->get_app();
     
-    // search a valid route_result
-    // evmvc::method v = (evmvc::method)req->method;
-    // evmvc::string_view sv;
-    //
-    // if(v == evmvc::method::unknown)
-    //     throw EVMVC_ERR("Unknown method are not implemented!");
-    //     //sv = "";// req-> req.method_string();
-    // else
-    //     sv = evmvc::to_string(v);
-    
     auto rr = a->_router->resolve_url(_method_string, uri.path());
     if(!rr && _method == evmvc::method::head)
         rr = a->_router->resolve_url(evmvc::method::get, uri.path());
-    
-    // get client ip
-    // auto con_addr_in = (sockaddr_in*)req->conn->saddr;
-    // char addr[INET_ADDRSTRLEN];
-    // inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
     
     // stop request if no valid route found
     if(!rr){
@@ -100,7 +105,7 @@ void http_parser::validate_headers()
             evmvc::status::not_found,
             EVMVC_ERR(
                 "Unable to find ressource at '{}'",
-                req->uri->path->full
+                _uri.to_string()
             )
         );
         
@@ -119,16 +124,6 @@ void http_parser::validate_headers()
         _conn, _http_ver, uri, _hdrs, rr
     );
     
-    // evmvc::_internal::request_args* ra = 
-    //     new evmvc::_internal::request_args();
-    // ra->ready = false;
-    // ra->rr = rr;
-    // ra->res = res;
-    //
-    // // update request cb.
-    // req->cb = on_app_request;
-    // req->cbarg = ra;
-    
     // create validation context
     evmvc::policies::filter_rule_ctx ctx = 
         evmvc::policies::new_context(_res);
@@ -136,32 +131,19 @@ void http_parser::validate_headers()
     _res->pause();
     rr->validate_access(
         ctx,
-    [a, rr, _res](const evmvc::cb_error& err){
-        _res->resume([a, rr, _res, va_err = err](const evmvc::cb_error& err){
+    [a, rr, res = _res](const evmvc::cb_error& err){
+        res->resume([a, rr, res, va_err = err](const evmvc::cb_error& err){
             if(err)
-                return _res->error(
+                return res->error(
                     evmvc::status::unauthorized,
                     err
                 );
             
             if(va_err)
-                _res->error(
+                res->error(
                     evmvc::status::unauthorized,
                     va_err
                 );
-            
-            // if(evmvc::_internal::is_multipart_data(req, hdr)){
-            //     evmvc::_internal::parse_multipart_data(
-            //         a->log(),
-            //         req, hdr, ra,
-            //         a->options().temp_dir
-            //     );
-            // } else {
-            //     if(ra->ready)
-            //         _internal::on_app_request(req, ra);
-            //     else
-            //         ra->ready = true;
-            // }
         });
     });
 }
@@ -173,7 +155,7 @@ void http_parser::init_multip()
     
     _mp_buf = evbuffer_new();
     
-    std::string boundary = _internal::_mp_get_boundary(_log, _hdrs);
+    std::string boundary = multip::get_boundary(_log, _hdrs);
     if(boundary.size() == 0){
         _log->error(EVMVC_ERR(
             "Invalid multipart/form-data boundary"
@@ -182,9 +164,9 @@ void http_parser::init_multip()
         return;
     }
     
-    auto cc = std::make_shared<_internal::multipart_subcontent>();
-    cc->sub_type = _internal::multipart_subcontent_type::root;
-    cc->parent = std::static_pointer_cast<_internal::multipart_subcontent>(
+    auto cc = std::make_shared<multip::multipart_subcontent>();
+    cc->sub_type = multip::multipart_subcontent_type::root;
+    cc->parent = std::static_pointer_cast<multip::multipart_subcontent>(
         cc->shared_from_this()
     );
     cc->set_boundary(boundary);

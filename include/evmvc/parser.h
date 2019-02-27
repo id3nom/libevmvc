@@ -40,28 +40,8 @@ SOFTWARE.
 #define EVVMC_ENCTYPE_FRM_MULTIP "multipart/form-data"
 #define EVVMC_ENCTYPE_FRM_TXTPLN "text/plain"
 
+
 namespace evmvc {
-
-
-class parser
-{
-public:
-    parser(wp_connection conn, const sp_logger& log)
-        : _conn(conn), _log(log)
-    {
-    }
-    
-    sp_connection get_connection() const { return _conn.lock();}
-    sp_logger log() const { return _log;}
-    
-    virtual void reset() = 0;
-    virtual size_t parse(const char* buf, size_t len, cb_error& ec) = 0;
-    
-protected:
-    wp_connection _conn;
-    sp_logger _log;
-};
-
 
 enum class parser_state
 {
@@ -102,202 +82,31 @@ enum class parser_flag
     trailing                = (1 << 3),
 };
 
-
-// max content buffer size of 10KiB
-#define EVMVC_MAX_CONTENT_BUF_LEN 10240
-#define EVMVC_DEFAULT_MIME_TYPE "text/plain"
-namespace _internal {
-    
-enum class multipart_parser_state
-{
-    init,
-    headers,
-    content,
-    failed,
-};
-
-enum class multipart_content_type
-{
-    unknown,
-    unset,
-    form,
-    file,
-    subcontent,
-};
-
-enum class multipart_subcontent_type
-{
-    unknown,
-    root,
-    mixed,
-    alternative,
-    digest
-};
-
-struct multipart_content_t
-    : public std::enable_shared_from_this<multipart_content_t>
-{
-    multipart_content_t()
-        :
-        parent(), type(multipart_content_type::unknown),
-        headers(std::make_shared<header_map>()),
-        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
-    {
-    }
-
-    multipart_content_t(multipart_content_type ct)
-        : parent(), type(ct),
-        headers(std::make_shared<header_map>()),
-        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
-    {
-    }
-    
-    multipart_content_t(
-        const std::weak_ptr<multipart_subcontent>& p,
-        multipart_content_type ct)
-        : parent(p), type(ct),
-        //headers(std::make_unique<http_params_t>()),
-        headers(std::make_shared<header_map>()),
-        name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
-    {
-    }
-    
-    std::string get(evmvc::string_view pname)
-    {
-        auto it = headers->find(pname.data());
-        if(it == headers->end())
-            return "";
-        return it->second.front();
-    }
-    
-    std::shared_ptr<multipart_subcontent> get_parent(){
-        return parent.lock();
-    }
-    
-    std::weak_ptr<multipart_subcontent> parent;
-    
-    multipart_content_type type;
-    //std::vector<sp_http_param> headers;
-    std::shared_ptr<header_map> headers;
-    std::string name;
-    std::string mime_type;
-};
-
-struct multipart_content_form_t
-    : public multipart_content
-{
-    multipart_content_form_t(const std::weak_ptr<multipart_subcontent>& p)
-        : multipart_content(p, multipart_content_type::form),
-        value("")
-    {
-    }
-    
-    multipart_content_form_t(const std::shared_ptr<multipart_content>& copy)
-        : multipart_content(copy->parent, multipart_content_type::form),
-        value("")
-    {
-        this->headers = copy->headers;
-        this->name = copy->name;
-        this->mime_type = copy->mime_type;
-    }
-    
-    std::string value;
-    
-};
-
-struct multipart_content_file_t
-    : public multipart_content
-{
-    multipart_content_file_t(const std::weak_ptr<multipart_subcontent>& p)
-        : multipart_content(p, multipart_content_type::file),
-        filename(""), temp_path(), size(0), fd(-1), append_crlf(false)
-    {
-    }
-
-    multipart_content_file_t(const std::shared_ptr<multipart_content>& copy)
-        : multipart_content(copy->parent, multipart_content_type::file),
-        filename(""), temp_path(), size(0), fd(-1), append_crlf(false)
-    {
-        this->headers = copy->headers;
-        this->name = copy->name;
-        this->mime_type = copy->mime_type;
-    }
-    
-    ~multipart_content_file_t()
-    {
-        //boost::system::error_code ec;
-        if(!temp_path.empty() && bfs::exists(temp_path))
-            bfs::remove(temp_path);
-    }
-    
-    std::string filename;
-    bfs::path temp_path;
-    
-    size_t size;
-    int fd;
-    bool append_crlf;
-    
-};
-
-struct multipart_subcontent_t
-    : public multipart_content
-{
-    multipart_subcontent_t()
-        : multipart_content(multipart_content_type::subcontent),
-        start_boundary(""), end_boundary("")//, contents()
-    {
-    }
-    
-    multipart_subcontent_t(const std::weak_ptr<multipart_subcontent>& p)
-        : multipart_content(p, multipart_content_type::subcontent),
-        start_boundary(""), end_boundary("")//, contents()
-    {
-    }
-    
-    multipart_subcontent_t(const std::shared_ptr<multipart_content>& copy)
-        : multipart_content(copy->parent, multipart_content_type::subcontent),
-        start_boundary(""), end_boundary("")//, contents()
-    {
-        this->headers = copy->headers;
-        this->name = copy->name;
-        this->mime_type = copy->mime_type;
-    }
-    
-    void set_boundary(const std::string& b)
-    {
-        start_boundary = "--" + b;
-        end_boundary = "--" + b + "--";
-    }
-    
-    void set_boundary(const std::shared_ptr<struct multipart_subcontent_t>& p)
-    {
-        start_boundary = p->start_boundary;
-        end_boundary = p->end_boundary;
-    }
-    
-    multipart_subcontent_type sub_type;
-    
-    std::string start_boundary;
-    std::string end_boundary;
-    
-    std::vector<std::shared_ptr<multipart_content>> contents;
-};
-    
-    
-}//::_internal
-
-
-
 class http_parser
-    : public parser
 {
+    friend class connection;
 public:
     http_parser(wp_connection conn, const sp_logger& log)
-        : parser(conn, log->add_child("parser"))
+        : _conn(conn), _log(log->add_child("parser"))
     {
     }
     
+    sp_connection get_connection() const { return _conn.lock();}
+    sp_logger log() const { return _log;}
+    
     struct bufferevent* bev() const;
+    
+    const std::string& http_ver_string() const
+    {
+        return _http_ver_string;
+    }
+    http_version http_ver() const
+    {
+        return _http_ver;
+    }
+    
+    evmvc::method method() const { return _method;}
+    std::string method_string() const { return _method_string;}
     
     inline bool ok() const { return _status != parser_state::error;}
     inline bool parsing_head() const
@@ -380,6 +189,9 @@ public:
                             break;
                     }
                     
+                    if(_res->paused())
+                        break;
+                    
                     if(parsing_payload()){
                         _bytes_read += parse(
                             in_data + sol_idx,
@@ -419,6 +231,8 @@ public:
         
         return _bytes_read;
     }
+    
+    void exec();
     
 private:
     size_t parse_req_line(const char* line, size_t line_len, cb_error& ec)
@@ -492,14 +306,12 @@ private:
         if(it != _hdrs->end())
             it->second.emplace_back(
                 data_substring(line, sep+1, line_len)
-                //std::string(line + sep +1, line_len - sep)
             );
         else
             _hdrs->emplace(std::make_pair(
                 std::move(hn),
                 std::vector<std::string>{
                     data_substring(line, sep+1, line_len)
-                    //std::string(line + sep +1, line_len - sep)
                 }
             ));
         
@@ -544,11 +356,12 @@ private:
     
     size_t parse_body(const char* in_data, size_t in_len, cb_error& ec)
     {
+        return 0;
     }
     
     void reset_multip()
     {
-        _mp_state = _internal::multipart_parser_state::init;
+        _mp_state = multip::multipart_parser_state::init;
         _mp_total_size = 0;
         _mp_uploaded_size = 0;
         if(_mp_buf)
@@ -564,10 +377,12 @@ private:
     
     size_t parse_form_urlenc(const char* in_data, size_t in_len, cb_error& ec)
     {
+        return 0;
     }
     
     size_t parse_form_txtpln(const char* in_data, size_t in_len, cb_error& ec)
     {
+        return 0;
     }
     
     
@@ -610,18 +425,18 @@ private:
         );
         
         if(!ct.empty()){
-            _internal::multipart_subcontent_type sub_type =
-                _internal::multipart_subcontent_type::unknown;
+            multip::multipart_subcontent_type sub_type =
+                multip::multipart_subcontent_type::unknown;
             
             if(ct.find("multipart/mixed") != std::string::npos)
-                sub_type = _internal::multipart_subcontent_type::mixed;
+                sub_type = multip::multipart_subcontent_type::mixed;
             else if(ct.find("multipart/alternative") != std::string::npos)
-                sub_type = _internal::multipart_subcontent_type::alternative;
+                sub_type = multip::multipart_subcontent_type::alternative;
             else if(ct.find("multipart/digest") != std::string::npos)
-                sub_type = _internal::multipart_subcontent_type::digest;
+                sub_type = multip::multipart_subcontent_type::digest;
             
-            if(sub_type != _internal::multipart_subcontent_type::unknown){
-                auto cc = std::make_shared<_internal::multipart_subcontent>(
+            if(sub_type != multip::multipart_subcontent_type::unknown){
+                auto cc = std::make_shared<multip::multipart_subcontent>(
                     _mp_current
                 );
                 cc->sub_type = sub_type;
@@ -652,13 +467,13 @@ private:
             );
             
             if(filename.empty()){
-                auto cc = std::make_shared<_internal::multipart_content_form>(
+                auto cc = std::make_shared<multip::multipart_content_form>(
                     _mp_current
                 );
                 _mp_current = cc;
                 ct.clear();
             }else{
-                auto cc = std::make_shared<_internal::multipart_content_file>(
+                auto cc = std::make_shared<multip::multipart_content_file>(
                     _mp_current
                 );
                 
@@ -679,9 +494,9 @@ private:
             return false;
         
         _mp_state =
-            _mp_current->type == _internal::multipart_content_type::subcontent ?
-                _internal::multipart_parser_state::headers :
-                _internal::multipart_parser_state::content;
+            _mp_current->type == multip::multipart_content_type::subcontent ?
+                multip::multipart_parser_state::headers :
+                multip::multipart_parser_state::content;
         
         return true;
     }
@@ -694,11 +509,11 @@ private:
             ended = true;
             EVMVC_TRACE(_log, "start boundary detected");
             
-            _mp_state = evmvc::_internal::multipart_parser_state::headers;
+            _mp_state = evmvc::multip::multipart_parser_state::headers;
             if(auto sp = _mp_current->parent.lock()){
-                auto nc = std::make_shared<_internal::multipart_content>(
+                auto nc = std::make_shared<multip::multipart_content>(
                     sp,
-                    _internal::multipart_content_type::unset
+                    multip::multipart_content_type::unset
                 );
                 _mp_current = nc;
                 
@@ -713,18 +528,18 @@ private:
             ended = true;
             EVMVC_TRACE(_log, "end boundary detected");
             
-            _mp_state = evmvc::_internal::multipart_parser_state::headers;
-            if(std::shared_ptr<_internal::multipart_subcontent> spa = 
+            _mp_state = evmvc::multip::multipart_parser_state::headers;
+            if(std::shared_ptr<multip::multipart_subcontent> spa = 
                 _mp_current->parent.lock()
             ){
                 if(spa == _mp_root)
                     _mp_current = _mp_root;
-                else if(std::shared_ptr<_internal::multipart_subcontent> spb =
+                else if(std::shared_ptr<multip::multipart_subcontent> spb =
                     spa->parent.lock()
                 ){
-                    auto nc = std::make_shared<_internal::multipart_content>(
+                    auto nc = std::make_shared<multip::multipart_content>(
                         spb,
-                        _internal::multipart_content_type::unset
+                        multip::multipart_content_type::unset
                     );
                     _mp_current = nc;
                 }else
@@ -765,7 +580,7 @@ private:
             return cberr;
         }
         
-        auto mf = std::static_pointer_cast<_internal::multipart_content_form>(
+        auto mf = std::static_pointer_cast<multip::multipart_content_form>(
             _mp_current
         );
         
@@ -781,7 +596,7 @@ private:
         size_t len;
         char* line = evbuffer_readln(_mp_buf, &len, EVBUFFER_EOL_CRLF_STRICT);
         
-        auto mf = std::static_pointer_cast<_internal::multipart_content_file>(
+        auto mf = std::static_pointer_cast<multip::multipart_content_file>(
             _mp_current
         );
         
@@ -864,8 +679,8 @@ private:
     //void _mp_on_read_multipart_data(evbuffer* buf, void *arg)
     size_t parse_form_multip(const char* in_data, size_t in_len, cb_error& ec)
     {
-        //auto mp = (evmvc::_internal::multipart_parser*)arg;
-        if(_mp_state == _internal::multipart_parser_state::failed)
+        //auto mp = (evmvc::multip::multipart_parser*)arg;
+        if(_mp_state == multip::multipart_parser_state::failed)
             return 0;
         
         //size_t blen = evbuffer_get_length(buf);
@@ -883,7 +698,7 @@ private:
         bool has_works = true;
         while(has_works && !_mp_completed){
             switch(_mp_state){
-                case _internal::multipart_parser_state::init:{
+                case multip::multipart_parser_state::init:{
                     size_t len;
                     char* line = evbuffer_readln(
                         _mp_buf, &len, EVBUFFER_EOL_CRLF_STRICT
@@ -907,12 +722,12 @@ private:
                     }
                     
                     // header boundary found
-                    _mp_state = _internal::multipart_parser_state::headers;
+                    _mp_state = multip::multipart_parser_state::headers;
                     if(auto sp = _mp_current->parent.lock()){
                         auto nc =
-                            std::make_shared<_internal::multipart_content>(
+                            std::make_shared<multip::multipart_content>(
                                 sp,
-                                _internal::multipart_content_type::unset
+                                multip::multipart_content_type::unset
                             );
                         _mp_current = nc;
                         free(line);
@@ -928,7 +743,7 @@ private:
                     }
                 }
                 
-                case _internal::multipart_parser_state::headers:{
+                case multip::multipart_parser_state::headers:{
                     size_t len;
                     char* line = evbuffer_readln(
                         _mp_buf, &len, EVBUFFER_EOL_CRLF_STRICT
@@ -966,12 +781,12 @@ private:
                     break;
                 }
                 
-                case _internal::multipart_parser_state::content:{
+                case multip::multipart_parser_state::content:{
                     switch(_mp_current->type){
-                        case _internal::multipart_content_type::form:
+                        case multip::multipart_content_type::form:
                             cberr = _mp_on_read_form_data(has_works);
                             break;
-                        case _internal::multipart_content_type::file:
+                        case multip::multipart_content_type::file:
                             cberr = _mp_on_read_file_data(has_works);
                             break;
                             
@@ -991,7 +806,7 @@ private:
                     break;
                 }
                 
-                case _internal::multipart_parser_state::failed:{
+                case multip::multipart_parser_state::failed:{
                     if(res == evmvc::status::ok){
                         cberr = EVMVC_ERR(
                             "Multipart parser has failed!"
@@ -1016,7 +831,7 @@ private:
 
         if(res != evmvc::status::ok){
             //evhtp_request_set_keepalive(req, 0);
-            _mp_state = _internal::multipart_parser_state::failed;
+            _mp_state = multip::multipart_parser_state::failed;
             _res->error(res, cberr);
             return in_len;
         }
@@ -1029,16 +844,11 @@ private:
         
         return in_len;
     }
-
-
-
-
-
-
-
-
+    
     
     /// private vars
+    wp_connection _conn;
+    sp_logger _log;
     
     parser_state _status = parser_state::parse_req_line;
     
@@ -1056,15 +866,16 @@ private:
     
     std::shared_ptr<header_map> _hdrs;
     sp_response _res;
+    sp_route_result _rr;
     
     // multipart data
-    _internal::multipart_parser_state _mp_state =
-        _internal::multipart_parser_state::init;
+    multip::multipart_parser_state _mp_state =
+        multip::multipart_parser_state::init;
     uint64_t _mp_total_size = 0;
     uint64_t _mp_uploaded_size = 0;
     evbuffer* _mp_buf = nullptr;
-    std::shared_ptr<_internal::multipart_subcontent> _mp_root;
-    std::shared_ptr<_internal::multipart_content> _mp_current;
+    std::shared_ptr<multip::multipart_subcontent> _mp_root;
+    std::shared_ptr<multip::multipart_content> _mp_current;
     bfs::path _mp_temp_dir = "";
     bool _mp_completed = false;
 };

@@ -111,9 +111,9 @@ inline evmvc::string_view evmvc::http_param::get<evmvc::string_view, -1>() const
 
 class http_params_t
 {
-    friend class _internal::multipart_content_form_t;
-    friend class _internal::multipart_content_file_t;
-    friend class _internal::multipart_subcontent_t;
+    friend class multip::multipart_content_form_t;
+    friend class multip::multipart_content_file_t;
+    friend class multip::multipart_subcontent_t;
     
 public:
     http_params_t()

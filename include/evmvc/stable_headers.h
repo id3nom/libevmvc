@@ -54,6 +54,13 @@
 #include "fmt/format.h"
 //#include <spdlog/spdlog.h>
 
+
+#include <openssl/opensslconf.h>
+#include <openssl/dh.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+#include <openssl/rand.h>
+
 #include <event2/event.h>
 #include <event2/util.h>
 #include <event2/http.h>
@@ -62,15 +69,6 @@
 #include <event2/bufferevent_ssl.h>
 #include <event2/listener.h>
 #include <pcre.h>
-// extern "C" {
-// // #ifndef EVHTP_DISABLE_REGEX
-// //     #define EVHTP_DISABLE_REGEX
-// // #endif
-// // #include <evhtp/evhtp.h>
-//
-// #include <pcre.h>
-//
-// }
 #include <zlib.h>
 
 #include <boost/logic/tribool.hpp>
@@ -90,6 +88,22 @@
 #pragma GCC diagnostic ignored "-Wunused-variable"
     #include "nlohmann/json.hpp"
 #pragma GCC diagnostic pop
+
+
+#if LIBEVENT_VERSION_NUMBER < 0x02010000
+inline size_t evbuffer_add_iovec(
+    struct evbuffer* buf, struct evbuffer_iovec* v, size_t nv)
+{
+    size_t l = 0;
+    for(size_t i = 0; i < nv; ++i)
+        l += v[i].iov_len;
+    evbuffer_expand(buf, l);
+    for(size_t i = 0; i < nv; ++i)
+        evbuffer_add(buf, v[i].iov_base, v[i].iov_len);
+    return l;
+}
+#endif
+
 
 // EVMVC namespace start
 namespace evmvc {
@@ -242,8 +256,7 @@ evmvc::string_view to_string(http_version v)
 }
 
 
-// evmvc::_internal namespace
-namespace _internal{
+namespace multip{
     struct multipart_content_t;
     typedef struct multipart_content_t multipart_content;
     struct multipart_content_form_t;
@@ -254,6 +267,9 @@ namespace _internal{
     typedef struct multipart_subcontent_t multipart_subcontent;
     struct multipart_parser_t;
     typedef struct multipart_parser_t multipart_parser;
+}
+// evmvc::_internal namespace
+namespace _internal{
     
     // typedef struct request_args_t
     // {
@@ -264,46 +280,6 @@ namespace _internal{
     
     evmvc::sp_logger& default_logger();
     
-    class file_reply {
-    public:
-        file_reply(
-            sp_response _res,
-            wp_connection _conn,
-            FILE* _file_desc,
-            async_cb _cb,
-            sp_logger _log)
-            :
-            res(_res),
-            conn(_conn),
-            file_desc(_file_desc),
-            buffer(evbuffer_new()),
-            zs(nullptr),
-            zs_size(0),
-            cb(_cb),
-            log(_log)
-        {
-        }
-        ~file_reply()
-        {
-            if(this->zs){
-                deflateEnd(this->zs);
-                free(this->zs);
-                this->zs = nullptr;
-            }
-            
-            fclose(this->file_desc);
-            evbuffer_free(this->buffer);
-        }
-        sp_response res;
-        wp_connection conn;
-        FILE* file_desc;
-        struct evbuffer* buffer;
-        z_stream* zs;
-        uLong zs_size;
-        evmvc::async_cb cb;
-        evmvc::sp_logger log;
-    };
-    typedef std::shared_ptr<file_reply> sp_file_reply;
     
     // evmvc::sp_response create_http_response(
     //     wp_app a,
@@ -454,8 +430,8 @@ inline std::string version()
             "    zlib v{}\n"
             "    libpcre v{}.{} {}\n"
             "    libicu v{}\n"
-            "    libevent v{}\n"
-            "    libevhtp v{}\n",
+            "    libevent v{}\n",
+            //"    libevhtp v{}\n",
             EVMVC_VERSION_NAME,
             __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
             uts.sysname, uts.release, uts.version, uts.machine,
@@ -465,8 +441,8 @@ inline std::string version()
             ZLIB_VERSION,
             PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
             EVMVC_ICU_VERSION,
-            _EVENT_VERSION,
-            EVHTP_VERSION
+            _EVENT_VERSION
+            //EVHTP_VERSION
         );
     }
     

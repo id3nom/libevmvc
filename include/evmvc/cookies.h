@@ -27,6 +27,7 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "logging.h"
+#include "url.h"
 #include "utils.h"
 #include "fields.h"
 
@@ -424,9 +425,14 @@ private:
                 opts.site == same_site::strict ? "Strict" : "Lax"
             );
         
-        evhtp_kv_t* header =
-            evhtp_header_new("Set-Cookie", cv.c_str(), 1, 1);
-        evhtp_headers_add_header(_ev_req->headers_out, header);
+        auto it = _out_hdrs->find("Set-Cookie");
+        if(it != _out_hdrs->end())
+            it->second.emplace_back(cv);
+        else
+            _out_hdrs->emplace(std::make_pair(
+                "Set-Cookie",
+                std::vector<std::string>{cv}
+            ));
     }
     
     inline void _init_get() const
@@ -442,45 +448,45 @@ private:
             return;
         _init = true;
         
-        // fetch cookie header
-        evhtp_kv_t* header = evhtp_headers_find_header(
-            _ev_req->headers_in, to_string(evmvc::field::cookie).data()
-        );
-        if(header == nullptr)
+        auto header = _in_hdrs->find(to_string(evmvc::field::cookie).data());
+        if(header == _in_hdrs->end())
             return;
+        
+        std::string hv = header->second.front();
+        size_t hvl = hv.size();
         
         evmvc::string_view svk;
         evmvc::string_view svv;
         
         ssize_t ks = 0;
         ssize_t vs = 0;
-        for(size_t i = 0; i < header->vlen; ++i)
-            if(header->val[i] == '='){
+        for(size_t i = 0; i < hvl; ++i)
+            if(hv[i] == '='){
                 if(svk.size() > 0)
                     _cookies.emplace(svk, svv);
                 
                 // trim key start space
-                while((size_t)ks <= i && header->val[ks] == ' ')
+                while((size_t)ks <= i && hv[ks] == ' ')
                     ++ks;
                 if((size_t)ks == i){
                     _log->warn(
-                        "Invalid cookie value: '{0}'", header->val
+                        "Invalid cookie value: '{0}'", hv
                     );
                     return;
                 }
                 
-                svk = evmvc::string_view(header->val + ks, i - ks);
-                if(i == header->vlen -1){
+                svk = evmvc::string_view(hv.c_str() + ks, i - ks);
+                if(i == hvl -1){
                     _log->warn(
-                        "Invalid cookie value: '{0}'", header->val
+                        "Invalid cookie value: '{0}'", hv
                     );
                     return;
                 }
                 
                 vs = i + 1;
-            }else if(header->val[i] == ';'){
-                svv = evmvc::string_view(header->val + vs, i - vs);
-                if(i == header->vlen -1){
+            }else if(hv[i] == ';'){
+                svv = evmvc::string_view(hv.c_str() + vs, i - vs);
+                if(i == hvl -1){
                     ks = -1;
                     break;
                 }
@@ -488,7 +494,7 @@ private:
             }
         
         if(ks > -1 && svk.size() > 0){
-            svv = evmvc::string_view(header->val + vs, header->vlen - vs);
+            svv = evmvc::string_view(hv.c_str() + vs, hvl - vs);
             _cookies.emplace(svk, svv);
         }
     }

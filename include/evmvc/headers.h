@@ -249,6 +249,8 @@ private:
 template<bool READ_ONLY>
 class http_headers
 {
+    friend class response;
+    
 public:
     http_headers()
         : _hdrs(std::make_shared<header_map>())

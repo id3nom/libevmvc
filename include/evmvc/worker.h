@@ -34,6 +34,7 @@ SOFTWARE.
 
 #include <sys/prctl.h>
 
+
 #define EVMVC_PIPE_WRITE_FD 1
 #define EVMVC_PIPE_READ_FD 0
 
@@ -730,88 +731,6 @@ public:
 private:
 };
 
-
-
-// connection
-
-sp_http_worker connection::get_worker() const
-{
-    return _worker.lock();
-}
-
-void connection::close()
-{
-    if(_closed)
-        return;
-    _closed = true;
-    EVMVC_TRACE(this->_log, "closing\n{}", this->debug_string());
-    
-    _req.reset();
-    _res.reset();
-    _parser.reset();
-    if(_scratch_buf){
-        evbuffer_free(_scratch_buf);
-        _scratch_buf = nullptr;
-    }
-    if(_resume_ev){
-        event_free(_resume_ev);
-        _resume_ev = nullptr;
-    }
-    if(_bev){
-        if(_ssl){
-            SSL_set_shutdown(_ssl, SSL_RECEIVED_SHUTDOWN);
-            SSL_shutdown(_ssl);
-            _ssl = nullptr;
-        }
-        bufferevent_free(_bev);
-        _bev = nullptr;
-    }
-    
-    if(auto w = _worker.lock())
-        w->remove_connection(this->_id);
-}
-
-// parser
-struct bufferevent* http_parser::bev() const
-{
-    sp_connection c = get_connection();
-    return c->bev();
-}
-
-
-// request
-
-sp_connection request::connection() const { return _conn.lock();}
-bool request::secure() const { return _conn.lock()->secure();}
-
-evmvc::url_scheme request::protocol() const
-{
-    //TODO: add trust proxy options
-    sp_header h = _headers->get("X-Forwarded-Proto");
-    if(h){
-        if(!strcasecmp(h->value(), "https"))
-            return evmvc::url_scheme::https;
-        else if(!strcasecmp(h->value(), "http"))
-            return evmvc::url_scheme::http;
-        else
-            throw EVMVC_ERR(
-                "Invalid 'X-Forwarded-Proto': '{}'", h->value()
-            );
-    }
-    
-    return _conn.lock()->protocol();
-}
-std::string request::protocol_string() const
-{
-    //TODO: add trust proxy options
-    sp_header h = _headers->get("X-Forwarded-Proto");
-    if(h)
-        return boost::to_lower_copy(
-            std::string(h->value())
-        );
-    
-    return to_string(_conn.lock()->protocol()).to_string();
-}
 
 
 

@@ -47,12 +47,13 @@ class jwt_filter_rule_t;
 class request
     : public std::enable_shared_from_this<request>
 {
+    friend class http_parser;
     friend class policies::jwt_filter_rule_t;
-    friend void _internal::on_multipart_request_completed(
-        sp_request req,
-        sp_response res,
-        sp_app a
-    );
+    // friend void _internal::on_multipart_request_completed(
+    //     sp_request req,
+    //     sp_response res,
+    //     sp_app a
+    // );
     
 public:
     request(
@@ -62,11 +63,11 @@ public:
         evmvc::sp_logger log,
         const evmvc::sp_route& rt,
         url uri,
-        //evhtp_request_t* ev_req,
+        evmvc::method met,
+        evmvc::string_view smet,
         sp_header_map hdrs,
         const sp_http_cookies& http_cookies,
-        const std::vector<std::shared_ptr<evmvc::http_param>>& p/*,
-        _internal::multipart_parser* mp*/
+        const std::vector<std::shared_ptr<evmvc::http_param>>& p
         )
         : _id(id),
         _version(ver),
@@ -77,7 +78,8 @@ public:
         )),
         _rt(rt),
         _uri(std::move(uri)),
-        //_ev_req(ev_req),
+        _met(met),
+        _smet(smet.to_string()),
         _headers(std::make_shared<evmvc::request_headers>(hdrs)),
         _cookies(http_cookies),
         _rt_params(std::make_unique<http_params_t>(p)),
@@ -105,16 +107,16 @@ public:
         if(qry.empty())
             return;
         
-        size_t it_idx = 0;
+        ssize_t it_idx = 0;
         do{
-            size_t nit_idx = evmvc::find_ch(
+            ssize_t nit_idx = evmvc::find_ch(
                 qry.c_str(), qry.size(), '&', it_idx
             );
             
             if(nit_idx == -1)
                 nit_idx = qry.size();
             
-            size_t sep_idx = evmvc::find_ch(
+            ssize_t sep_idx = evmvc::find_ch(
                 qry.c_str(), qry.size(), '=', it_idx
             );
             
@@ -132,7 +134,7 @@ public:
             }
             
             it_idx = nit_idx +1;
-        }while(it_idx > -1 && it_idx < qry.size());
+        }while(it_idx > -1 && it_idx < (ssize_t)qry.size());
     }
     
     ~request()
@@ -147,20 +149,10 @@ public:
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
+    const url& uri() const { return _uri;}
     
-    std::string connection_ip() const
-    {
-        auto con_addr_in = (sockaddr_in*)_ev_req->conn->saddr;
-        char addr[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &con_addr_in->sin_addr, addr, INET_ADDRSTRLEN);
-        return std::string(addr);
-    }
-    
-    uint16_t connection_port() const
-    {
-        auto con_addr_in = (sockaddr_in*)_ev_req->conn->saddr;
-        return ntohs(con_addr_in->sin_port);
-    }
+    std::string connection_ip() const;
+    uint16_t connection_port() const;
     
     sp_connection connection() const;
     bool secure() const;
@@ -216,7 +208,6 @@ public:
     evmvc::url_scheme protocol() const;
     std::string protocol_string() const;
     
-    evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::request_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
     http_files& files() const { return *(_files.get());}
@@ -265,7 +256,11 @@ public:
     
     evmvc::method method()
     {
-        return (evmvc::method)_ev_req->method;
+        return _met;
+    }
+    std::string method_string()
+    {
+        return _smet;
     }
     
     bool xhr()
@@ -284,7 +279,7 @@ public:
 protected:
 
     void _load_multipart_params(
-        std::shared_ptr<_internal::multipart_subcontent> ms);
+        std::shared_ptr<multip::multipart_subcontent> ms);
     
     uint64_t _id;
     http_version _version;
@@ -292,10 +287,12 @@ protected:
     evmvc::sp_logger _log;
     evmvc::sp_route _rt;
     evmvc::url _uri;
-    //evhtp_request_t* _ev_req;
+    evmvc::method _met;
+    std::string _smet;
+    
     evmvc::sp_request_headers _headers;
     sp_http_cookies _cookies;
-    //param_map _rt_params;
+    
     evmvc::http_params _rt_params;
     evmvc::http_params _qry_params;
     evmvc::http_params _body_params;

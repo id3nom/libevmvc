@@ -23,10 +23,12 @@ SOFTWARE.
 */
 
 #include "app.h"
+#include "file_reply.h"
 #include "connection.h"
 #include "response.h"
 
 namespace evmvc {
+
 
 sp_connection response::connection() const { return _conn.lock();}
 bool response::secure() const { return _conn.lock()->secure();}
@@ -47,12 +49,13 @@ void response::error(evmvc::status err_status, const cb_error& err)
     //auto con_addr_in = (sockaddr_in*)this->_ev_req->conn->saddr;
     std::string log_val = fmt::format(
         "[{}{}] [{}] [{}] [Status {} {}, {}]\n{}",
-        c->address(),
-        c->address().find("unix:") == 0 ? "" : ":" + std::to_string(c->port()),
+        c->remote_address(),
+        c->remote_address().find("unix:") == 0 ? 
+            "" : ":" + std::to_string(c->remote_port()),
 
         to_string(_req->method()).data(),
 
-        _req->uri()->to_string(),
+        _req->uri().to_string(),
         
         (int16_t)err_status,
         evmvc::statuses::category(err_status).data(),
@@ -128,6 +131,21 @@ void response::error(evmvc::status err_status, const cb_error& err)
     this->status(err_status).html(err_msg);
 }
 
+#define EVMVC_MAX_RES_STATUS_LINE_LEN 47
+// max header field size is 8KiB
+#define EVMVC_MAX_RES_HEADER_LINE_LEN 8192
+static char* status_line_buf()
+{
+    static char sl[EVMVC_MAX_RES_STATUS_LINE_LEN]{
+        "HTTP/v.v sss 0123456789012345678901234567890"
+    };
+    return sl;
+}
+static char* header_line_buf()
+{
+   static char hl[EVMVC_MAX_RES_HEADER_LINE_LEN]{0};
+   return hl;
+}
 
 void response::_prepare_headers()
 {
@@ -135,36 +153,95 @@ void response::_prepare_headers()
         throw std::runtime_error(
             "unable to prepare headers after response is started!"
         );
-    // prepare response line
-    throw EVMVC_ERR("TODO: _prepare_headers ...");
+        
+    auto c = _conn.lock();
+    if(!c){
+        _log->warn("Unable to lock the connection");
+        return;
+    }
+    
+    char* sl = status_line_buf();
+    switch(c->parser()->http_ver()){
+        case http_version::http_10:
+            sl[5] = '1';
+            sl[7] = '0';
+            break;
+        case http_version::http_11:
+        case http_version::http_2:
+            sl[5] = '1';
+            sl[7] = '1';
+            break;
+        default:
+            break;
+    }
+    
+    const char* stxt = to_status_text(this->_status);
+    sl[9] = stxt[0];
+    sl[10] = stxt[1];
+    sl[11] = stxt[2];
+    
+    const char* smsg = to_status_string(this->_status);
+    size_t smsgl = strlen(smsg);
+    for(size_t i = 0; i < smsgl; ++i)
+        sl[i + 13] = smsg[i];
+    sl[smsgl + 13] = '\r';
+    sl[smsgl + 14] = '\n';
+    
+    bufferevent_write(c->bev(), sl, smsgl+14);
     
     // lookfor keepalive header
-    auto conh = _req->headers().get("Connection");
-    if(conh && !strcasecmp(conh->value(), ""))
-        _conn->lock()->keep_alive(true);
+    if(c->parser()->http_ver() == http_version::http_10){
+        if(_req->headers().compare_value("connection", "keep-alive")){
+            _headers->set(field::connection, "keep-alive");
+            c->keep_alive(true);
+        }else{
+            c->keep_alive(false);
+        }
+        
+    }else{
+        if(_req->headers().compare_value("connection", "close")){
+            _headers->set(field::connection, "close");
+            c->keep_alive(false);
+        }else{
+            c->keep_alive(true);
+        }
+    }
     
+    // write headers
+    char* hl = header_line_buf();
     
+    for(auto& it : *_headers->_hdrs.get()){
+        for(auto& itv : it.second){
+            memcpy(hl, it.first.c_str(), it.first.size());
+            hl[it.first.size()] = ':';
+            hl[it.first.size()+1] = ' ';
+            memcpy(hl+ it.first.size()+2, itv.c_str(), itv.size());
+            hl[it.first.size()+2+itv.size()+1] = '\r';
+            hl[it.first.size()+2+itv.size()+2] = '\n';
+            bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
+        }
+    }
     
-    // // look for keepalive
-    // evhtp_kv_t* header = nullptr;
-    // if((header = evhtp_headers_find_header(
-    //     _ev_req->headers_in, "Connection"
-    // )) != nullptr){
-    //     std::string con_val(header->val);
-    //     evmvc::trim(con_val);
-    //     evmvc::lower_case(con_val);
-    //     if(con_val == "keep-alive"){
-    //         this->headers().set(evmvc::field::connection, "keep-alive");
-    //         evhtp_request_set_keepalive(_ev_req, 1);
-    //     } else
-    //         evhtp_request_set_keepalive(_ev_req, 0);
-    // } else if(evhtp_request_get_proto(_ev_req) == EVHTP_PROTO_10)
-    //     evhtp_request_set_keepalive(_ev_req, 0);
+    // write cookies headers
+    for(auto& it : *_cookies->_out_hdrs.get()){
+        for(auto& itv : it.second){
+            memcpy(hl, it.first.c_str(), it.first.size());
+            hl[it.first.size()] = ':';
+            hl[it.first.size()+1] = ' ';
+            memcpy(hl+ it.first.size()+2, itv.c_str(), itv.size());
+            hl[it.first.size()+2+itv.size()+1] = '\r';
+            hl[it.first.size()+2+itv.size()+2] = '\n';
+            bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
+        }
+    }
+    
+    bufferevent_write(c->bev(), "\r\n", 2);
+    bufferevent_flush(c->bev(), EV_WRITE, BEV_FLUSH);
 }
 
 void response::_reply_raw(const char* data, size_t len)
 {
-    if(auto c = this->_conn->lock())
+    if(auto c = this->_conn.lock())
         bufferevent_write(c->bev(), data, len);
 }
 
@@ -173,6 +250,13 @@ void response::send_file(
     const evmvc::string_view& enc, 
     async_cb cb)
 {
+    auto c = this->_conn.lock();
+    if(!c){
+        if(cb)
+            cb(EVMVC_ERR("Connection must be closed!"));
+        return;
+    }
+    
     FILE* file_desc = nullptr;
     //struct evmvc::_internal::file_reply* reply = nullptr;
     
@@ -181,7 +265,7 @@ void response::send_file(
     BOOST_ASSERT(file_desc != nullptr);
     
     // create internal file_reply struct
-    auto reply = std::make_shared<_internal::file_reply>(
+    auto reply = std::make_shared<file_reply>(
         this->shared_from_this(),
         this->_conn,
         file_desc,
@@ -247,14 +331,7 @@ void response::send_file(
     this->encoding(enc == "" ? "utf-8" : enc).type(
         filepath.extension().c_str()
     );
-    this->_prepare_headers();
-    _started = true;
-    
-    /* we do not have to start sending data from the file from here -
-    * this function will write data to the client, thus when finished,
-    * will call our `http__send_chunk_` callback.
-    */
-    evhtp_send_reply_chunk_start(_ev_req, EVHTP_RES_OK);
+    c->send_file(reply);
 }
 
 

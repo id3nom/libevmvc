@@ -32,16 +32,17 @@ SOFTWARE.
 #include "parser.h"
 #include "request.h"
 #include "response.h"
+#include "file_reply.h"
 
 namespace evmvc {
-namespace _internal {
+// namespace _internal {
 
-    void on_connection_resume(int fd, short events, void* arg);
-    void on_connection_read(struct bufferevent* bev, void* arg);
-    void on_connection_write(struct bufferevent* bev, void* arg);
-    void on_connection_event(struct bufferevent* bev, short events, void* arg);
+//     void on_connection_resume(int fd, short events, void* arg);
+//     void on_connection_read(struct bufferevent* bev, void* arg);
+//     void on_connection_write(struct bufferevent* bev, void* arg);
+//     void on_connection_event(struct bufferevent* bev, short events, void* arg);
 
-}//::_internal
+// }//::_internal
 
 enum class conn_flags
 {
@@ -67,14 +68,14 @@ class connection
     : public std::enable_shared_from_this<connection>
 {
     friend int _internal::_ssl_sni_servername(SSL* s, int *al, void *arg);
-    friend void _internal::on_connection_resume(
-        int fd, short events, void* arg);
-    friend void _internal::on_connection_read(
-        struct bufferevent* bev, void* arg);
-    friend void _internal::on_connection_write(
-        struct bufferevent* bev, void* arg);
-    friend void _internal::on_connection_event(
-        struct bufferevent* bev, short events, void* arg);
+    // friend void _internal::on_connection_resume(
+    //     int fd, short events, void* arg);
+    // friend void _internal::on_connection_read(
+    //     struct bufferevent* bev, void* arg);
+    // friend void _internal::on_connection_write(
+    //     struct bufferevent* bev, void* arg);
+    // friend void _internal::on_connection_event(
+    //     struct bufferevent* bev, short events, void* arg);
     
     static int nxt_id()
     {
@@ -167,15 +168,15 @@ public:
         
         _resume_ev = event_new(
             global::ev_base(), -1, EV_READ | EV_PERSIST,
-            _internal::on_connection_resume,
+            connection::on_connection_resume,
             this
         );
         event_add(_resume_ev, nullptr);
         
         bufferevent_setcb(_bev,
-            _internal::on_connection_read,
-            _internal::on_connection_write,
-            _internal::on_connection_event,
+            connection::on_connection_read,
+            connection::on_connection_write,
+            connection::on_connection_event,
             this
         );
         bufferevent_enable(_bev, EV_READ);
@@ -262,6 +263,12 @@ public:
             _wtimeo = *wto;
     }
     
+    const std::shared_ptr<http_parser>& parser() const
+    {
+        return _parser;
+    }
+    
+    
     void resume()
     {
         if(!flag_is(conn_flags::paused)){
@@ -271,19 +278,39 @@ public:
         }
         
         unset_conn_flag(conn_flags::paused);
+        _parser->_res->_resume(nullptr);
         event_active(_resume_ev, EV_WRITE, 1);
+    }
+    
+    void keep_alive(bool en)
+    {
+        if(en && flag_is(conn_flags::keepalive))
+            return;
+        
+        int v = en ? 1 : 0;
+        if(setsockopt(_sock_fd, SOL_SOCKET, SO_KEEPALIVE,
+            (void*)&v, sizeof(v)) == -1
+        )
+            _log->fatal("SOL_SOCKET, SO_KEEPALIVE, err: {}", errno);
+        
+        if(en)
+            set_conn_flag(conn_flags::keepalive);
+        else
+            unset_conn_flag(conn_flags::keepalive);
     }
     
     void close();
     
-    void send_file(_internal::sp_file_reply file)
+    void send_file(sp_file_reply file)
     {
         if(this->flag_is(conn_flags::sending_file))
             throw EVMVC_ERR("Already sending a file");
         
         set_conn_flag(conn_flags::sending_file);
         _file = file;
+        _send_file_chunk_start();
     }
+
     
     #if EVMVC_BUILD_DEBUG
         std::string debug_string() const
@@ -328,6 +355,7 @@ private:
             (void*)&on, sizeof(on)) == -1
         )
             return _log->fatal("SOL_SOCKET, SO_KEEPALIVE");
+        set_conn_flag(conn_flags::keepalive);
         if(setsockopt(_sock_fd, SOL_SOCKET, SO_REUSEADDR,
             (void*)&on, sizeof(on)) == -1
         )
@@ -355,10 +383,18 @@ private:
         }
     }
     
+    static void on_connection_resume(int fd, short events, void* arg);
+    static void on_connection_read(struct bufferevent* bev, void* arg);
+    static void on_connection_write(struct bufferevent* bev, void* arg);
+    static void on_connection_event(
+        struct bufferevent* bev, short events, void* arg
+    );
+    
+    
     void _send_file_chunk_start();
     evmvc::status _send_file_chunk();
     void _send_file_chunk_end();
-    void _send_chunk(evbuffer* chunk);
+    void _send_chunk(struct evbuffer* chunk);
     
     int _closed;
     int _id;
@@ -376,20 +412,13 @@ private:
     
     struct event* _resume_ev = nullptr;
     struct bufferevent* _bev = nullptr;
-    struct evbuffer* _scratch_buf = nullptr;
     
     struct timeval _atimeo = {0,0};
     struct timeval _rtimeo = {0,0};
     struct timeval _wtimeo = {0,0};
     
-    sp_parser _parser = nullptr;
-    
-    sp_request _req = nullptr;
-    sp_response _res = nullptr;
-    
-    size_t _body_nread = 0;
-    
-    _internal::sp_file_reply _file;
+    std::shared_ptr<http_parser> _parser = nullptr;
+    sp_file_reply _file = nullptr;
 };
 
 
