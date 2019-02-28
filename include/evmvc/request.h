@@ -74,7 +74,7 @@ public:
         _conn(conn),
         _log(log->add_child(
             "req-" + evmvc::num_to_str(id, false) +
-            uri.to_string()
+            "/" + uri.to_string()
         )),
         _rt(rt),
         _uri(std::move(uri)),

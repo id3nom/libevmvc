@@ -180,9 +180,10 @@ void response::error(evmvc::status err_status, const cb_error& err)
     this->status(err_status).html(err_msg);
 }
 
-
 void response::_prepare_headers()
 {
+    EVMVC_TRACE(_log, "_prepare_headers");
+    
     if(_started)
         throw std::runtime_error(
             "unable to prepare headers after response is started!"
@@ -193,6 +194,10 @@ void response::_prepare_headers()
         _log->warn("Unable to lock the connection");
         return;
     }
+    
+    #if EVMVC_BUILD_DEBUG
+    std::string dbg_hdrs;
+    #endif //EVMVC_BUILD_DEBUG
     
     char* sl = status_line_buf();
     switch(c->parser()->http_ver()){
@@ -253,11 +258,10 @@ void response::_prepare_headers()
             hl[it.first.size()+2+itv.size()] = '\r';
             hl[it.first.size()+2+itv.size()+1] = '\n';
             
-            EVMVC_TRACE(
-                _log,
-                "Header line: {}",
-                std::string(hl, it.first.size()+2+itv.size()+2)
-            );
+            #if EVMVC_BUILD_DEBUG
+            dbg_hdrs += 
+                std::string(hl, it.first.size()+2+itv.size()+2);
+            #endif //EVMVC_BUILD_DEBUG
             
             bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
         }
@@ -273,15 +277,18 @@ void response::_prepare_headers()
             hl[it.first.size()+2+itv.size()] = '\r';
             hl[it.first.size()+2+itv.size()+1] = '\n';
             
-            EVMVC_TRACE(
-                _log,
-                "Header line: {}",
-                std::string(hl, it.first.size()+2+itv.size()+2)
-            );
+            #if EVMVC_BUILD_DEBUG
+            dbg_hdrs += 
+                std::string(hl, it.first.size()+2+itv.size()+2);
+            #endif //EVMVC_BUILD_DEBUG
             
             bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
         }
     }
+    
+    #if EVMVC_BUILD_DEBUG
+        _log->trace("Headers sent:\n{}", dbg_hdrs);
+    #endif //EVMVC_BUILD_DEBUG
     
     bufferevent_write(c->bev(), "\r\n", 2);
     bufferevent_flush(c->bev(), EV_WRITE, BEV_FLUSH);
@@ -289,9 +296,23 @@ void response::_prepare_headers()
 
 void response::_reply_raw(const char* data, size_t len)
 {
+    EVMVC_TRACE(_log, "_reply_raw");
     if(auto c = this->_conn.lock())
         bufferevent_write(c->bev(), data, len);
 }
+
+void response::_reply_end()
+{
+    EVMVC_TRACE(_log, "_reply_end");
+
+    _ended = true;
+    auto c = this->_conn.lock();
+    if(!c)
+        return _log->error(EVMVC_ERR("Connection must be closed!"));
+        
+    c->complete_response();
+}
+
 
 void response::send_file(
     const bfs::path& filepath,

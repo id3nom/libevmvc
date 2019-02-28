@@ -37,7 +37,7 @@ void http_parser::exec()
 {
     if(_status != parser_state::ready_to_exec)
         throw EVMVC_ERR("Invalid state: {}", to_string(_status));
-    _status = parser_state::completed;
+    _status = parser_state::responding;
     
     try{
         _rr->execute(_res, [res = _res](auto error){
@@ -74,21 +74,21 @@ void http_parser::validate_headers()
     url uri(base_url, _uri_string);
     
     _log->success(
-        "REQ received,"
+        "REQ received, "
         "host: '{}', method: '{}', uri: '{}'",
-        "Not Found",
+        uri.hostname(),
         _method_string,
         _uri_string
     );
     
     sp_app a = this->_conn.lock()->get_worker()->get_app();
     
-    auto rr = a->_router->resolve_url(_method_string, uri.path());
-    if(!rr && _method == evmvc::method::head)
-        rr = a->_router->resolve_url(evmvc::method::get, uri.path());
+    _rr = a->_router->resolve_url(_method_string, uri.path());
+    if(!_rr && _method == evmvc::method::head)
+        _rr = a->_router->resolve_url(evmvc::method::get, uri.path());
     
     // stop request if no valid route found
-    if(!rr){
+    if(!_rr){
         c->log()->fail(
             "recv: [{}] [] from: [{}:{}], err: 404",
             _method_string,
@@ -124,7 +124,7 @@ void http_parser::validate_headers()
     
     // create the response
     _res = _internal::create_http_response(
-        _conn, _http_ver, uri, _hdrs, rr
+        _conn, _http_ver, uri, _hdrs, _rr
     );
     
     // create validation context
@@ -132,20 +132,20 @@ void http_parser::validate_headers()
         evmvc::policies::new_context(_res);
     
     _res->pause();
-    rr->validate_access(
+    _rr->validate_access(
         ctx,
-    [a, rr, res = _res](const evmvc::cb_error& err){
-        res->resume([a, rr, res, va_err = err](const evmvc::cb_error& err){
+    [a, rr = _rr, res = _res](const evmvc::cb_error& err){
+        res->resume([a, _rr = rr, res, v_err = err](const evmvc::cb_error& err){
             if(err)
                 return res->error(
                     evmvc::status::unauthorized,
                     err
                 );
             
-            if(va_err)
+            if(v_err)
                 res->error(
                     evmvc::status::unauthorized,
-                    va_err
+                    v_err
                 );
         });
     });

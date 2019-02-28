@@ -53,7 +53,7 @@ enum class parser_state
     parse_form_urlencoded   ,
     parse_form_text         ,
     ready_to_exec           ,
-    executed                ,
+    responding              ,
     completed               ,
     error                   
 };
@@ -74,10 +74,14 @@ evmvc::string_view to_string(parser_state s)
             return "parse_form_text";
         case parser_state::ready_to_exec:
             return "ready_to_exec";
+        case parser_state::responding:
+            return "responding";
         case parser_state::completed:
             return "completed";
         case parser_state::error:
             return "error";
+        default:
+            return "UNKNOWN";
     }
 }
 
@@ -134,13 +138,9 @@ public:
     evmvc::method method() const { return _method;}
     std::string method_string() const { return _method_string;}
     
-    inline bool completed() const { return _status == parser_state::completed;}
-    inline bool ended() const
-    {
-        return !ok() || (completed() && _res && _res->ended());
-    }
-    
     inline bool ok() const { return _status != parser_state::error;}
+    inline bool completed() const { return _status == parser_state::completed;}
+    
     inline bool parsing_head() const
     {
         return ok() && (
@@ -149,7 +149,7 @@ public:
         );
     }
     
-    inline bool parsing_payload() const
+    inline bool parsing_body() const
     {
         return ok() && (
             parsing_form() ||
@@ -166,6 +166,21 @@ public:
         );
     }
     
+    inline bool ready_to_exec() const
+    {
+        return _status == parser_state::ready_to_exec;
+    }
+    
+    inline bool responding() const
+    {
+        return _status == parser_state::responding;
+    }
+    
+    inline bool ended() const
+    {
+        return completed() || !ok();
+    }
+    
     void reset()
     {
         EVMVC_DBG(_log, "parser reset");
@@ -177,21 +192,21 @@ public:
         
         _hdrs.reset();
         _res.reset();
+        _rr.reset();
         
         reset_multip();
     }
     
     size_t parse(const char* in_data, size_t in_len, cb_error& ec)
     {
-        EVMVC_DBG(_log,
+        EVMVC_TRACE(_log,
             "parsing, len: {}\n{}", in_len, std::string(in_data, in_len)
         );
         
         if(in_len == 0)
             return 0;
         
-        if(_status == parser_state::completed ||
-            _status == parser_state::error)
+        if(!ok())
             reset();
         
         size_t _bytes_read = 0;
@@ -224,7 +239,8 @@ public:
                     if(_res && _res->paused())
                         break;
                     
-                    if(parsing_payload()){
+                    if(parsing_body()){
+                        sol_idx = eol_idx + EVMVC_EOL_SIZE;
                         _bytes_read += parse(
                             in_data + sol_idx,
                             in_len - sol_idx,
@@ -319,7 +335,7 @@ private:
         if(line_len == 0){
             validate_headers();
             post_headers_validation();
-            return EVMVC_EOL_SIZE;
+            return EVMVC_EOH_SIZE;
         }
         
         ssize_t sep = find_ch(line, line_len, ':', 0);
@@ -330,10 +346,10 @@ private:
         }
         
         std::string hn(line, sep);
-        EVMVC_TRACE(_log,
-            "Inserting header, name: '{}', value: '{}'",
-            hn, data_substring(line, sep+1, line_len)
-        );
+        // EVMVC_TRACE(_log,
+        //     "Inserting header, name: '{}', value: '{}'",
+        //     hn, data_substring(line, sep+1, line_len)
+        // );
         auto it = _hdrs->find(hn);
         if(it != _hdrs->end())
             it->second.emplace_back(

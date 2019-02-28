@@ -492,7 +492,7 @@ protected:
                 break;
             }
             case EVMVC_CMD_LOG:{
-                EVMVC_DBG(_log, "CMD LOG recv");
+                //EVMVC_DBG(_log, "CMD LOG recv");
                 log_level lvl = (log_level)(*(int*)p);
                 p += sizeof(int);
                 

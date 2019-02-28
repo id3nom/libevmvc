@@ -132,7 +132,7 @@ public:
             this->encoding("utf-8").type("txt")._reply_start();
         if(_ended){
             _log->error(EVMVC_ERR(
-                "SHOULD NOT END, ended: true"
+                "MUST NOT END, ended: true"
             ));
             return;
         }
@@ -348,15 +348,14 @@ private:
             ));
             return;
         }
+        EVMVC_TRACE(_log, "_reply_start");
+        
         _prepare_headers();
         _started = true;
         //evhtp_send_reply_start(_ev_req, _status);
     }
     
-    void _reply_end()
-    {
-        _ended = true;
-    }
+    void _reply_end();
     
     void _reply_raw(const char* data, size_t len);
     

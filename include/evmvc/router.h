@@ -398,17 +398,6 @@ protected:
 };
 
 
-evmvc::sp_logger route_result::log()
-{
-    if(_route)
-        return _route->log();
-    return evmvc::_internal::default_logger();
-}
-
-void route_result::execute(evmvc::sp_response res, async_cb cb)
-{
-    _route->_exec(res->req(), res, 0, cb);
-}
 
 class router
     : public std::enable_shared_from_this<router>

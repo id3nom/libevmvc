@@ -133,6 +133,7 @@ void listener::master_listen_cb(
         ));
     
     int res = pw->channel().sendmsg(&msgh, 0);
+    close(sock);
     if(res == -1)
         return a->log()->fatal(EVMVC_ERR(
             "sendmsg to http_worker failed: {}", errno

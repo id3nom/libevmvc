@@ -282,6 +282,15 @@ public:
         event_active(_resume_ev, EV_WRITE, 1);
     }
     
+    void complete_response()
+    {
+        _parser->_status = parser_state::completed;
+        if(flag_is(conn_flags::paused))
+            resume();
+        else
+            event_active(_resume_ev, EV_WRITE, 1);
+    }
+    
     void keep_alive(bool en)
     {
         if(en && flag_is(conn_flags::keepalive))
@@ -315,7 +324,7 @@ public:
     #if EVMVC_BUILD_DEBUG
         std::string debug_string() const
         {
-            /*
+            /* flags:
                 none            = 0,
                 error           = (1 << 1),
                 paused          = (1 << 2),
