@@ -87,6 +87,7 @@ void connection::_send_file_chunk_end()
 {
     evbuffer_add(bev_out(), "0\r\n\r\n", 5);
     bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);
+    unset_conn_flag(conn_flags::sending_file);
 }
 
 
@@ -187,6 +188,7 @@ void connection::on_connection_resume(int /*fd*/, short /*events*/, void* arg)
             bufferevent_enable(c->_bev, EV_WRITE);
         }
         
+        return;
     }else{
         EVMVC_DBG(c->_log, "SET READING");
         if(!(bufferevent_get_enabled(c->_bev) & EV_READ)){
@@ -198,7 +200,12 @@ void connection::on_connection_resume(int /*fd*/, short /*events*/, void* arg)
             EVMVC_DBG(c->_log, "data available calling on_connection_read");
             on_connection_read(c->_bev, arg);
         }
+        
+        return;
     }
+    
+    if(c->_parser->completed())
+        c->_parser->exec();
 }
 
 void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
@@ -207,11 +214,15 @@ void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
     EVMVC_TRACE(c->_log, "on_connection_read\n{}", c->debug_string());
     
     size_t ilen = evbuffer_get_length(c->bev_in());
-    if(ilen == 0)
+    if(ilen == 0){
         return;
+    }
     
     if(c->flag_is(conn_flags::paused))
         return EVMVC_DBG(c->log(), "Connection is paused, do nothing!");
+    
+    if(c->_parser->completed() && c->_parser->_res && c->_parser->_res->ended())
+        c->_parser->reset();
     
     void* buf = evbuffer_pullup(c->bev_in(), ilen);
     
@@ -230,12 +241,12 @@ void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
     if(c->_parser->_res && c->_parser->_res->paused())
         return;
     
-    if(c->_parser->_status == parser_state::end)
+    if(c->_parser->completed())
         c->_parser->exec();
     
     if(nread < ilen){
-        //c->set_conn_flag(conn_flags::waiting);
-        //c->resume();
+        c->set_conn_flag(conn_flags::waiting);
+        c->resume();
     }
 }
 
@@ -247,8 +258,8 @@ void connection::on_connection_write(struct bufferevent* /*bev*/, void* arg)
     if(c->flag_is(conn_flags::paused))
         return;
     
-    //if(c->flag_is(conn_flags::waiting)){
-    //    c->unset_conn_flag(conn_flags::waiting);
+    if(c->flag_is(conn_flags::waiting)){
+        c->unset_conn_flag(conn_flags::waiting);
         if(!(bufferevent_get_enabled(c->_bev) & EV_READ))
             bufferevent_enable(c->_bev, EV_READ);
         
@@ -256,13 +267,19 @@ void connection::on_connection_write(struct bufferevent* /*bev*/, void* arg)
             on_connection_read(c->_bev, arg);
             return;
         }
-    //}
+    }
     
-    if((c->_parser->_res &&
-        !c->_parser->_res->ended()) || evbuffer_get_length(c->bev_out())
-        )
+    if(c->flag_is(conn_flags::sending_file))
+        c->_send_file_chunk();
+    
+    if(c->_parser->_res && !c->_parser->_res->ended())
         return;
     
+    // still have data to send
+    if(evbuffer_get_length(c->bev_out()))
+        return;
+    
+    // request completed
     if(c->flag_is(conn_flags::keepalive)){
         c->_parser->reset();
     }else{

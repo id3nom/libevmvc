@@ -27,7 +27,24 @@ SOFTWARE.
 #include "connection.h"
 #include "response.h"
 
+#define EVMVC_MAX_RES_STATUS_LINE_LEN 47
+// max header field size is 8KiB
+#define EVMVC_MAX_RES_HEADER_LINE_LEN 8192
+
 namespace evmvc {
+
+static char* status_line_buf()
+{
+    static char sl[EVMVC_MAX_RES_STATUS_LINE_LEN]{
+        "HTTP/v.v sss 0123456789012345678901234567890"
+    };
+    return sl;
+}
+static char* header_line_buf()
+{
+   static char hl[EVMVC_MAX_RES_HEADER_LINE_LEN]{0};
+   return hl;
+}
 
 
 sp_connection response::connection() const { return _conn.lock();}
@@ -41,6 +58,38 @@ evmvc::sp_router response::get_router() const
 {
     return this->get_route()->get_router();
 }
+
+
+void response::pause()
+{
+    if(_paused)
+        return;
+    _paused = true;
+    this->log()->debug("Connection paused");
+    //evhtp_request_pause(_ev_req);
+    if(auto c = _conn.lock()){
+        c->set_conn_flag(conn_flags::paused);
+    }
+}
+
+void response::resume()
+{
+    if(!_paused || _resuming){
+        _log->warn(EVMVC_ERR(
+            "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
+            _paused ? "true" : "false",
+            _resuming ? "true" : "false"
+        ));
+        return;
+    }
+    _resuming = true;
+    this->log()->debug("Resuming connection");
+    if(auto c = _conn.lock())
+        c->resume();
+}
+
+
+
 
 void response::error(evmvc::status err_status, const cb_error& err)
 {
@@ -131,21 +180,6 @@ void response::error(evmvc::status err_status, const cb_error& err)
     this->status(err_status).html(err_msg);
 }
 
-#define EVMVC_MAX_RES_STATUS_LINE_LEN 47
-// max header field size is 8KiB
-#define EVMVC_MAX_RES_HEADER_LINE_LEN 8192
-static char* status_line_buf()
-{
-    static char sl[EVMVC_MAX_RES_STATUS_LINE_LEN]{
-        "HTTP/v.v sss 0123456789012345678901234567890"
-    };
-    return sl;
-}
-static char* header_line_buf()
-{
-   static char hl[EVMVC_MAX_RES_HEADER_LINE_LEN]{0};
-   return hl;
-}
 
 void response::_prepare_headers()
 {
@@ -187,7 +221,7 @@ void response::_prepare_headers()
     sl[smsgl + 13] = '\r';
     sl[smsgl + 14] = '\n';
     
-    bufferevent_write(c->bev(), sl, smsgl+14);
+    bufferevent_write(c->bev(), sl, smsgl+15);
     
     // lookfor keepalive header
     if(c->parser()->http_ver() == http_version::http_10){
@@ -216,8 +250,15 @@ void response::_prepare_headers()
             hl[it.first.size()] = ':';
             hl[it.first.size()+1] = ' ';
             memcpy(hl+ it.first.size()+2, itv.c_str(), itv.size());
-            hl[it.first.size()+2+itv.size()+1] = '\r';
-            hl[it.first.size()+2+itv.size()+2] = '\n';
+            hl[it.first.size()+2+itv.size()] = '\r';
+            hl[it.first.size()+2+itv.size()+1] = '\n';
+            
+            EVMVC_TRACE(
+                _log,
+                "Header line: {}",
+                std::string(hl, it.first.size()+2+itv.size()+2)
+            );
+            
             bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
         }
     }
@@ -229,8 +270,15 @@ void response::_prepare_headers()
             hl[it.first.size()] = ':';
             hl[it.first.size()+1] = ' ';
             memcpy(hl+ it.first.size()+2, itv.c_str(), itv.size());
-            hl[it.first.size()+2+itv.size()+1] = '\r';
-            hl[it.first.size()+2+itv.size()+2] = '\n';
+            hl[it.first.size()+2+itv.size()] = '\r';
+            hl[it.first.size()+2+itv.size()+1] = '\n';
+            
+            EVMVC_TRACE(
+                _log,
+                "Header line: {}",
+                std::string(hl, it.first.size()+2+itv.size()+2)
+            );
+            
             bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
         }
     }

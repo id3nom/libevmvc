@@ -137,8 +137,11 @@ public:
     }
     
     bool empty() const { return _empty;}
-    bool is_absolute() const { return _hostname.size() > 0;}
-    bool is_relative() const { return _hostname.size() == 0;}
+    bool is_absolute() const
+    {
+        return _path.size() > 0 && _path[0] == '/';
+    }
+    bool is_relative() const { return !is_absolute();}
     
     url_scheme scheme() const
     {
@@ -221,7 +224,7 @@ public:
     uint16_t port() const { return _port;}
     std::string port_string() const { return _port_string;}
     
-    std::string path() const { return is_absolute() ? "/" + _path : _path;}
+    std::string path() const { return _path;}
     std::string query() const { return _query;}
     std::string fragment() const { return _fragment;}
     
@@ -250,7 +253,7 @@ public:
             if(_port_string.size() > 0)
                 surl += _port_string;
             
-            if(_path.size() > 0)
+            if(_path.size() > 0 && is_relative())
                 surl += "/";
         }
         
@@ -292,10 +295,6 @@ private:
             switch(section){
                 case EVMVC_URL_PARSE_SCHEME:{
                     ssize_t idx1 = evmvc::find_ch(data, len, ':', spos);
-                    // ssize_t idx2 = evmvc::find_ch(data, len, '/', idx1+1);
-                    // ssize_t idx3 = evmvc::find_ch(data, len, '/', idx2+2);
-                    
-                    // if(idx1 > -1 && idx1 != idx2-1 && idx2 != idx3-1)
                     if(idx1 == -1)
                         throw EVMVC_ERR("Invalid uri: '{}'", u);
                     
@@ -312,9 +311,11 @@ private:
                     ssize_t idx2 = evmvc::find_ch(data, len, '/', idx1+1);
                     if(idx2 == idx1 +1){
                         ssize_t idx3 = evmvc::find_ch(data, len, '/', idx2+1);
-                        if(idx3 == idx2 +1)
+                        if(idx3 == idx2 +1){
                             section = EVMVC_URL_PARSE_AUTH;
-                        else
+                            spos += idx1 +3;
+                            break;
+                        }else
                             section = EVMVC_URL_PARSE_PATH;
                     }else if(len > idx1 +1){
                         if(data[idx1 +1] == '?')
@@ -325,7 +326,6 @@ private:
                             section = EVMVC_URL_PARSE_PATH;
                     }
                     
-                    //spos += idx3 +1;
                     spos += idx1 +1;
                     break;
                 }

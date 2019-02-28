@@ -35,6 +35,10 @@ struct bufferevent* http_parser::bev() const
 
 void http_parser::exec()
 {
+    if(_status != parser_state::ready_to_exec)
+        throw EVMVC_ERR("Invalid state: {}", to_string(_status));
+    _status = parser_state::completed;
+    
     try{
         _rr->execute(_res, [res = _res](auto error){
             if(error){
@@ -111,7 +115,7 @@ void http_parser::validate_headers()
     }
     
     c->log()->success(
-        "recv: [{}] [] from: [{}:{}]",
+        "recv: [{}] [{}] from: [{}:{}]",
         _method_string,
         uri.to_string(),
         c->remote_address(),

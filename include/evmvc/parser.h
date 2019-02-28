@@ -36,6 +36,7 @@ SOFTWARE.
 #include "multipart_utils.h"
 
 #define EVMVC_EOL_SIZE 2
+#define EVMVC_EOH_SIZE 4
 #define EVVMC_ENCTYPE_FRM_URLENC "application/x-www-form-urlencoded"
 #define EVVMC_ENCTYPE_FRM_MULTIP "multipart/form-data"
 #define EVVMC_ENCTYPE_FRM_TXTPLN "text/plain"
@@ -46,14 +47,39 @@ namespace evmvc {
 enum class parser_state
 {
     parse_req_line          = 0,
-    parse_header            = 1,
-    parse_body              = 2,
-    parse_form_multipart    = 3,
-    parse_form_urlencoded   = 4,
-    parse_form_text         = 5,
-    end                     = 6,
-    error                   = 7,
+    parse_header            ,
+    parse_body              ,
+    parse_form_multipart    ,
+    parse_form_urlencoded   ,
+    parse_form_text         ,
+    ready_to_exec           ,
+    executed                ,
+    completed               ,
+    error                   
 };
+evmvc::string_view to_string(parser_state s)
+{
+    switch(s){
+        case parser_state::parse_req_line:
+            return "parse_req_line";
+        case parser_state::parse_header:
+            return "parse_header";
+        case parser_state::parse_body:
+            return "parse_body";
+        case parser_state::parse_form_multipart:
+            return "parse_form_multipart";
+        case parser_state::parse_form_urlencoded:
+            return "parse_form_urlencoded";
+        case parser_state::parse_form_text:
+            return "parse_form_text";
+        case parser_state::ready_to_exec:
+            return "ready_to_exec";
+        case parser_state::completed:
+            return "completed";
+        case parser_state::error:
+            return "error";
+    }
+}
 
 enum class parser_error
 {
@@ -108,6 +134,12 @@ public:
     evmvc::method method() const { return _method;}
     std::string method_string() const { return _method_string;}
     
+    inline bool completed() const { return _status == parser_state::completed;}
+    inline bool ended() const
+    {
+        return !ok() || (completed() && _res && _res->ended());
+    }
+    
     inline bool ok() const { return _status != parser_state::error;}
     inline bool parsing_head() const
     {
@@ -158,7 +190,7 @@ public:
         if(in_len == 0)
             return 0;
         
-        if(_status == parser_state::end ||
+        if(_status == parser_state::completed ||
             _status == parser_state::error)
             reset();
         
@@ -351,7 +383,7 @@ private:
             return;
         }
         
-        _status = parser_state::end;
+        _status = parser_state::ready_to_exec;
     }
     
     size_t parse_body(const char* in_data, size_t in_len, cb_error& ec)
@@ -673,7 +705,7 @@ private:
     {
         EVMVC_TRACE(_log, "on multipart request end");
         reset_multip();
-        _status = parser_state::end;
+        _status = parser_state::ready_to_exec;
     }
     
     //void _mp_on_read_multipart_data(evbuffer* buf, void *arg)

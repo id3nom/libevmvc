@@ -73,7 +73,9 @@ public:
         _headers(std::make_shared<response_headers>()),
         _cookies(http_cookies),
         _started(false), _ended(false),
-        _status(-1), _type(""), _enc(""), _paused(false)
+        _status(-1), _type(""), _enc(""),
+        _paused(false),
+        _resuming(false)
     {
         EVMVC_DEF_TRACE(
             "response '{}' created", this->id()
@@ -106,15 +108,7 @@ public:
     evmvc::sp_request req() const { return _req;}
     
     bool paused() const { return _paused;}
-    void pause()
-    {
-        if(_paused)
-            return;
-        _paused = true;
-        this->log()->debug("Connection paused");
-        //evhtp_request_pause(_ev_req);
-    }
-    
+    void pause();
     void resume(async_cb cb)
     {
         if(!_paused || _resuming){
@@ -128,19 +122,7 @@ public:
         _resume_cb = cb;
         resume();
     }
-    void resume()
-    {
-        if(!_paused || _resuming){
-            _log->warn(EVMVC_ERR(
-                "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
-                _paused ? "true" : "false",
-                _resuming ? "true" : "false"
-            ));
-            return;
-        }
-        _resuming = true;
-        this->log()->debug("Resuming connection");
-    }
+    void resume();
     
     bool started(){ return _started;};
     bool ended(){ return _ended;}
@@ -220,7 +202,9 @@ public:
     
     void send(evmvc::string_view body)
     {
-        this->resume();
+        if(this->_paused)
+            this->resume();
+        
         if(_type.empty())
             this->type("txt", "utf-8");
         
