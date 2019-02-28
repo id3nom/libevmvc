@@ -878,7 +878,6 @@ private:
         }
 
         if(res != evmvc::status::ok){
-            //evhtp_request_set_keepalive(req, 0);
             _mp_state = multip::multipart_parser_state::failed;
             _res->error(res, cberr);
             return in_len;

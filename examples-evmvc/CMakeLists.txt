@@ -25,13 +25,11 @@ set (EVMVC_EXAMPLES_LIBRARIES
     fmt
     pcre
     #${LIBEVENT_LIBRARIES}
-    #${LIBEVHTP_LIBRARIES}
     event
     event_core
     event_extra
     event_pthreads
     event_openssl
-    evhtp
 )
 
 add_executable(evmvc_web_server web-server.cpp)

@@ -10,15 +10,6 @@
 #include <openssl/err.h>
 #include <openssl/rand.h>
 
-/*
-typedef SSL_SESSION             evhtp_ssl_sess_t;
-typedef SSL                     evhtp_ssl_t;
-typedef SSL_CTX                 evhtp_ssl_ctx_t;
-typedef X509                    evhtp_x509_t;
-typedef X509_STORE_CTX          evhtp_x509_store_ctx_t;
-typedef const unsigned char     evhtp_ssl_data_t;
-*/
-
 #define PIPE_WRITE_FD 1
 #define PIPE_READ_FD 0
 
@@ -84,48 +75,8 @@ public:
 
 int ssl_servername(SSL* ssl, int* unused, void* arg)
 {
-    // const char         * sname;
-    // evhtp_connection_t * connection;
-    // evhtp_t            * evhtp;
-    // evhtp_t            * evhtp_vhost;
-
-    // if (evhtp_unlikely(ssl == NULL)) {
-    //     return SSL_TLSEXT_ERR_NOACK;
-    // }
-
-    // if (!(sname = SSL_get_servername(ssl, TLSEXT_NAMETYPE_host_name))) {
-    //     return SSL_TLSEXT_ERR_NOACK;
-    // }
-
-    // if (!(connection = SSL_get_app_data(ssl))) {
-    //     return SSL_TLSEXT_ERR_NOACK;
-    // }
-
-    // if (!(evhtp = connection->htp)) {
-    //     return SSL_TLSEXT_ERR_NOACK;
-    // }
-
-    // if ((evhtp_vhost = htp__request_find_vhost_(evhtp, sname))) {
-    //     SSL_CTX * ctx = SSL_get_SSL_CTX(ssl);
-
-    //     connection->htp = evhtp_vhost;
-
-    //     HTP_FLAG_ON(connection, EVHTP_CONN_FLAG_VHOST_VIA_SNI);
-
-    //     SSL_set_SSL_CTX(ssl, evhtp_vhost->ssl_ctx);
-    //     SSL_set_options(ssl, SSL_CTX_get_options(ctx));
-
-    //     if ((SSL_get_verify_mode(ssl) == SSL_VERIFY_NONE) ||
-    //         (SSL_num_renegotiations(ssl) == 0)) {
-    //         SSL_set_verify(ssl, SSL_CTX_get_verify_mode(ctx),
-    //             SSL_CTX_get_verify_callback(ctx));
-    //     }
-
-    //     return SSL_TLSEXT_ERR_OK;
-    // }
-
     return SSL_TLSEXT_ERR_NOACK;
-}     /* htp__ssl_servername_ */
+}
 
 int ssl_new_scache_ent(SSL* ssl, SSL_SESSION* sess);
 SSL_SESSION* ssl_get_scache_ent(
@@ -479,67 +430,18 @@ std::vector<worker>& workers()
 
 int ssl_new_scache_ent(SSL* ssl, SSL_SESSION* sess)
 {
-    // evhtp_connection_t * connection;
-    // evhtp_ssl_cfg_t    * cfg;
-    // evhtp_ssl_data_t   * sid;
-    // unsigned int         slen;
-
-    // connection = (evhtp_connection_t *)SSL_get_app_data(ssl);
-    // if (connection->htp == NULL) {
-    //     return 0;     /* We cannot get the ssl_cfg */
-    // }
-
-    // cfg = connection->htp->ssl_cfg;
-    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
-
-    // SSL_set_timeout(sess, cfg->scache_timeout);
-
-    // if (cfg->scache_add) {
-    //     return (cfg->scache_add)(connection, sid, slen, sess);
-    // }
-
     return 0;
 }
 
 SSL_SESSION* ssl_get_scache_ent(
     SSL* ssl, const unsigned char* sid, int sid_len, int* copy)
 {
-    // evhtp_connection_t * connection;
-    // evhtp_ssl_cfg_t    * cfg;
     SSL_SESSION* sess;
-
-    // connection = (evhtp_connection_t * )SSL_get_app_data(ssl);
-
-    // if (connection->htp == NULL) {
-    //     return NULL;     /* We have no way of getting ssl_cfg */
-    // }
-
-    // cfg  = connection->htp->ssl_cfg;
-    // sess = NULL;
-
-    // if (cfg->scache_get) {
-    //     sess = (cfg->scache_get)(connection, sid, sid_len);
-    // }
-
-    // *copy = 0;
-
     return sess;
 }
 
 void ssl_remove_scache_ent(SSL_CTX* ctx, SSL_SESSION* sess)
 {
-    // evhtp_t          * htp;
-    // evhtp_ssl_cfg_t  * cfg;
-    // evhtp_ssl_data_t * sid;
-    // unsigned int       slen;
-
-    // htp = (evhtp_t *)SSL_CTX_get_app_data(ctx);
-    // cfg = htp->ssl_cfg;
-    // sid = (evhtp_ssl_data_t *)SSL_SESSION_get_id(sess, &slen);
-
-    // if (cfg->scache_del) {
-    //     (cfg->scache_del)(htp, sid, slen);
-    // }
 }
 
 
@@ -584,248 +486,10 @@ void connection_readcb(struct bufferevent* bev, void* arg)
     
     bufferevent_write(bev, hdr.c_str(), hdr.size());
     
-    /*
-    size_t avail = evbuffer_get_length(
-        bufferevent_get_input(bev)
-    );
-    if(avail == 0)
-        return;
-    if(c->flags & (uint16_t)connection_flags::paused)
-        return;
-    void* buf = evbuffer_pullup(bufferevent_get_input(bev), avail);
-    */
-    
-    // evhtp_connection_t * c = arg;
-    // void               * buf;
-    // size_t               nread;
-    // size_t               avail;
-
-    // if (evhtp_unlikely(bev == NULL)) {
-    //     return;
-    // }
-    
-    // avail = HTP_LEN_INPUT(bev);
-    
-    // if (evhtp_unlikely(avail == 0)) {
-    //     return;
-    // }
-    
-    // if (c->flags & EVHTP_CONN_FLAG_PAUSED) {
-    //     log_debug("connection is paused, returning");
-    //     return;
-    // }
-    
-    // if (c->request) {
-    //     c->cr_status = EVHTP_RES_OK;
-    // }
-    
-    // buf = evbuffer_pullup(bufferevent_get_input(bev), avail);
-    
-    // evhtp_assert(buf != NULL);
-    // evhtp_assert(c->parser != NULL);
-
-    // nread = htparser_run(c->parser, &request_psets, (const char *)buf, avail);
-
-    // log_debug("nread = %zu", nread);
-
-    // if (!(c->flags & EVHTP_CONN_FLAG_OWNER)) {
-    //     /*
-    //      * someone has taken the ownership of this connection, we still need to
-    //      * drain the input buffer that had been read up to this point.
-    //      */
-
-    //     log_debug("EVHTP_CONN_FLAG_OWNER set, removing contexts");
-
-    //     evbuffer_drain(bufferevent_get_input(bev), nread);
-    //     evhtp_safe_free(c, evhtp_connection_free);
-
-    //     return;
-    // }
-
-    // if (c->request) {
-    //     switch (c->cr_status) {
-    //         case EVHTP_RES_DATA_TOO_LONG:
-    //             htp__hook_connection_error_(c, -1);
-
-    //             evhtp_safe_free(c, evhtp_connection_free);
-    //             return;
-    //         default:
-    //             break;
-    //     }
-    // }
-
-    // evbuffer_drain(bufferevent_get_input(bev), nread);
-
-    // if (c->request && c->cr_status == EVHTP_RES_PAUSE) {
-    //     log_debug("Pausing connection");
-
-    //     evhtp_request_pause(c->request);
-    // } else if (htparser_get_error(c->parser) != htparse_error_none) {
-    //     log_debug("error %d, freeing connection",
-    //         htparser_get_error(c->parser));
-
-    //     evhtp_safe_free(c, evhtp_connection_free);
-    // } else if (nread < avail) {
-    //     /* we still have more data to read (piped request probably) */
-    //     log_debug("Reading more data via resumption");
-
-    //     evhtp_connection_resume(c);
-    // }
 }
 
 void connection_writecb(struct bufferevent* bev, void* arg)
 {
-    // evhtp_connection_t * conn;
-    // uint64_t             keepalive_max;
-    // const char         * errstr;
-
-    // evhtp_assert(bev != NULL);
-
-    // log_debug("writecb");
-
-    // if (evhtp_unlikely(arg == NULL)) {
-    //     log_error("No data associated with the bufferevent %p", bev);
-
-    //     evhtp_safe_free(bev, bufferevent_free);
-    //     return;
-    // }
-
-    // errstr = NULL;
-    // conn   = (evhtp_connection_t *)arg;
-
-    // do {
-    //     if (evhtp_unlikely(conn->request == NULL)) {
-    //         errstr = "no request associated with connection";
-    //         break;
-    //     }
-
-    //     if (evhtp_unlikely(conn->parser == NULL)) {
-    //         errstr = "no parser registered with connection";
-    //         break;
-    //     }
-
-    //     if (evhtp_likely(conn->type == evhtp_type_server)) {
-    //         if (evhtp_unlikely(conn->htp == NULL)) {
-    //             errstr = "no context associated with the server-connection";
-    //             break;
-    //         }
-
-    //         keepalive_max = conn->htp->max_keepalive_requests;
-    //     } else {
-    //         keepalive_max = 0;
-    //     }
-    // } while (0);
-
-    // if (evhtp_unlikely(errstr != NULL)) {
-    //     log_error("shutting down connection: %s", errstr);
-
-    //     evhtp_safe_free(conn, evhtp_connection_free);
-    //     return;
-    // }
-
-    // /* connection is in a paused state, no further processing yet */
-    // if (conn->flags & EVHTP_CONN_FLAG_PAUSED) {
-    //     log_debug("is paused");
-    //     return;
-    // }
-
-    // /* run user-hook for on_write callback before further analysis */
-    // htp__hook_connection_write_(conn);
-
-    // if (conn->flags & EVHTP_CONN_FLAG_WAITING) {
-    //     log_debug("Disabling WAIT flag");
-
-    //     HTP_FLAG_OFF(conn, EVHTP_CONN_FLAG_WAITING);
-
-    //     if (HTP_IS_READING(bev) == false) {
-    //         log_debug("enabling EV_READ");
-
-    //         bufferevent_enable(bev, EV_READ);
-    //     }
-
-    //     if (HTP_LEN_INPUT(bev)) {
-    //         log_debug("have input data, will travel");
-
-    //         htp__connection_readcb_(bev, arg);
-    //         return;
-    //     }
-    // }
-
-    // /* if the connection is not finished, OR there is data ready to output
-    //  * (can only happen if a user-defined connection_write hook added data
-    //  * manually, since this is called only when all data has been flushed)
-    //  * just return and wait.
-    //  */
-    // if (!(conn->cr_flags & EVHTP_REQ_FLAG_FINISHED) || HTP_LEN_OUTPUT(bev)) {
-    //     log_debug("not finished");
-    //     return;
-    // }
-
-    // /*
-    //  * if there is a set maximum number of keepalive requests configured, check
-    //  * to make sure we are not over it. If we have gone over the max we set the
-    //  * keepalive bit to 0, thus closing the connection.
-    //  */
-    // if (keepalive_max > 0) {
-    //     if (++conn->num_requests >= keepalive_max) {
-    //         HTP_FLAG_OFF(conn->request, EVHTP_REQ_FLAG_KEEPALIVE);
-    //     }
-    // }
-
-    // if (conn->cr_flags & EVHTP_REQ_FLAG_KEEPALIVE) {
-    //     htp_type type;
-
-    //     log_debug("keep-alive on");
-    //     /* free up the current request, set it to NULL, making
-    //      * way for the next request.
-    //      */
-    //     evhtp_safe_free(conn->request, htp__request_free_);
-
-    //     /* since the request is keep-alive, assure that the connection
-    //      * is aware of the same.
-    //      */
-    //     HTP_FLAG_ON(conn, EVHTP_CONN_FLAG_KEEPALIVE);
-
-    //     conn->body_bytes_read = 0;
-
-    //     if (conn->type == evhtp_type_server) {
-    //         if (conn->htp->parent != NULL
-    //             && !(conn->flags & EVHTP_CONN_FLAG_VHOST_VIA_SNI)) {
-    //             /* this request was served by a virtual host evhtp_t structure
-    //              * which was *NOT* found via SSL SNI lookup. In this case we want to
-    //              * reset our connections evhtp_t structure back to the original so
-    //              * that subsequent requests can have a different 'Host' header.
-    //              */
-    //             conn->htp = conn->htp->parent;
-    //         }
-    //     }
-
-    //     switch (conn->type) {
-    //         case evhtp_type_client:
-    //             type = htp_type_response;
-    //             break;
-    //         case evhtp_type_server:
-    //             type = htp_type_request;
-    //             break;
-    //         default:
-    //             log_error("Unknown connection type");
-
-    //             evhtp_safe_free(conn, evhtp_connection_free);
-    //             return;
-    //     }
-
-    //     htparser_init(conn->parser, type);
-    //     htparser_set_userdata(conn->parser, conn);
-
-    //     return;
-    // } else {
-    //     log_debug("goodbye connection");
-    //     evhtp_safe_free(conn, evhtp_connection_free);
-
-    //     return;
-    // }
-
-    // return;
 }
 
 void connection_eventcb(struct bufferevent* bev, short events, void* arg)
@@ -842,156 +506,12 @@ void connection_eventcb(struct bufferevent* bev, short events, void* arg)
         delete c;
     }
     
-    // evhtp_connection_t * c = arg;
-
-    // log_debug("%p %p eventcb %s%s%s%s", arg, (void *)bev,
-    //     events & BEV_EVENT_CONNECTED ? "connected" : "",
-    //     events & BEV_EVENT_ERROR     ? "error"     : "",
-    //     events & BEV_EVENT_TIMEOUT   ? "timeout"   : "",
-    //     events & BEV_EVENT_EOF       ? "eof"       : "");
-
-    // if (c->hooks && c->hooks->on_event) {
-    //     (c->hooks->on_event)(c, events, c->hooks->on_event_arg);
-    // }
-
-    // if ((events & BEV_EVENT_CONNECTED)) {
-    //     log_debug("CONNECTED");
-
-    //     if (evhtp_likely(c->type == evhtp_type_client)) {
-    //         HTP_FLAG_ON(c, EVHTP_CONN_FLAG_CONNECTED);
-
-    //         bufferevent_setcb(bev,
-    //             htp__connection_readcb_,
-    //             htp__connection_writecb_,
-    //             htp__connection_eventcb_, c);
-    //     }
-
-    //     return;
-    // }
-
-    // #ifndef EVHTP_DISABLE_SSL
-    // if (c->ssl && !(events & BEV_EVENT_EOF)) {
-    //     #ifdef EVHTP_DEBUG
-    //     unsigned long sslerr;
-
-    //     while ((sslerr = bufferevent_get_openssl_error(bev))) {
-    //         log_error("SSL ERROR %lu:%i:%s:%i:%s:%i:%s",
-    //             sslerr,
-    //             ERR_GET_REASON(sslerr),
-    //             ERR_reason_error_string(sslerr),
-    //             ERR_GET_LIB(sslerr),
-    //             ERR_lib_error_string(sslerr),
-    //             ERR_GET_FUNC(sslerr),
-    //             ERR_func_error_string(sslerr));
-    //     }
-    //     #endif
-
-    //     /* XXX need to do better error handling for SSL specific errors */
-    //     HTP_FLAG_ON(c, EVHTP_CONN_FLAG_ERROR);
-
-    //     if (c->request) {
-    //         HTP_FLAG_ON(c->request, EVHTP_REQ_FLAG_ERROR);
-    //     }
-    // }
-
-    // #endif
-
-    // if (events == (BEV_EVENT_EOF | BEV_EVENT_READING)) {
-    //     log_debug("EOF | READING");
-
-    //     if (errno == EAGAIN) {
-    //         /* libevent will sometimes recv again when it's not actually ready,
-    //          * this results in a 0 return value, and errno will be set to EAGAIN
-    //          * (try again). This does not mean there is a hard socket error, but
-    //          * simply needs to be read again.
-    //          *
-    //          * but libevent will disable the read side of the bufferevent
-    //          * anyway, so we must re-enable it.
-    //          */
-    //         log_debug("errno EAGAIN");
-
-    //         if (HTP_IS_READING(bev) == false) {
-    //             bufferevent_enable(bev, EV_READ);
-    //         }
-
-    //         errno = 0;
-
-    //         return;
-    //     }
-    // }
-
-    // /* set the error mask */
-    // HTP_FLAG_ON(c, EVHTP_CONN_FLAG_ERROR);
-
-    // /* unset connected flag */
-    // HTP_FLAG_OFF(c, EVHTP_CONN_FLAG_CONNECTED);
-
-    // htp__hook_connection_error_(c, events);
-
-    // if (c->flags & EVHTP_CONN_FLAG_PAUSED) {
-    //     /* we are currently paused, so we don't want to free just yet, let's
-    //      * wait till the next loop.
-    //      */
-    //     HTP_FLAG_ON(c, EVHTP_CONN_FLAG_FREE_CONN);
-    // } else {
-    //     evhtp_safe_free(c, evhtp_connection_free);
-    // }
 }
 
 void connection_resume_cb(int fd, short events, void* args)
 {
     connection_t* c = (connection_t*)args;
     
-    // evhtp_connection_t * c = arg;
-
-    // log_debug("resumecb");
-
-    // /* unset the pause flag */
-    // HTP_FLAG_OFF(c, EVHTP_CONN_FLAG_PAUSED);
-
-    // if (c->request) {
-    //     log_debug("cr status = OK %d", c->cr_status);
-    //     c->cr_status = EVHTP_RES_OK;
-    // }
-
-    // if (c->flags & EVHTP_CONN_FLAG_FREE_CONN) {
-    //     log_debug("flags == FREE_CONN");
-    //     evhtp_safe_free(c, evhtp_connection_free);
-
-    //     return;
-    // }
-
-    // /* XXX this is a hack to show a potential fix for issues/86, the main indea
-    //  * is that you call resume AFTER you have sent the reply (not BEFORE).
-    //  *
-    //  * When it has been decided this is a proper fix, the pause bit should be
-    //  * changed to a state-type flag.
-    //  */
-
-    // if (HTP_LEN_OUTPUT(c->bev)) {
-    //     log_debug("SET WAITING");
-
-    //     HTP_FLAG_ON(c, EVHTP_CONN_FLAG_WAITING);
-
-    //     if (HTP_IS_WRITING(c->bev) == false) {
-    //         log_debug("ENABLING EV_WRITE");
-
-    //         bufferevent_enable(c->bev, EV_WRITE);
-    //     }
-    // } else {
-    //     log_debug("SET READING");
-
-    //     if (HTP_IS_READING(c->bev) == false) {
-    //         log_debug("ENABLING EV_READ");
-
-    //         bufferevent_enable(c->bev, EV_READ | EV_WRITE);
-    //     }
-
-    //     if (HTP_LEN_INPUT(c->bev)) {
-    //         log_debug("calling readcb directly");
-    //         htp__connection_readcb_(c->bev, c);
-    //     }
-    // }
     
 }
 

@@ -66,7 +66,6 @@ void response::pause()
         return;
     _paused = true;
     this->log()->debug("Connection paused");
-    //evhtp_request_pause(_ev_req);
     if(auto c = _conn.lock()){
         c->set_conn_flag(conn_flags::paused);
     }

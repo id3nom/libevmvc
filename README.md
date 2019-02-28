@@ -7,8 +7,7 @@ c++ Model View Controller library for libevent
 
 
 libevent
-https://github.com/criticalstack/libevhtp
 
 ### install dependencies
 
-sudo apt-get install libevent-dev libevhtp-dev
+sudo apt-get install libevent-dev

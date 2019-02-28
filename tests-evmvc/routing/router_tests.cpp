@@ -145,16 +145,6 @@ TEST_F(router_test, routes)
             next(nullptr);
         });
         
-        //_internal::app_request* ar = nullptr;
-        //evhtp_request_t* ev_req = nullptr;
-        // evmvc::sp_http_cookies c =
-        //     std::make_shared<evmvc::http_cookies>(
-        //         nullptr, ev_req
-        //     );
-        // evmvc::sp_response res = std::make_shared<evmvc::response>(
-        //     srv, srv->log(), ev_req, c
-        // );
-        
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)
             FAIL();

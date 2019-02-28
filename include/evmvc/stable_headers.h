@@ -268,37 +268,8 @@ namespace multip{
     struct multipart_parser_t;
     typedef struct multipart_parser_t multipart_parser;
 }
-// evmvc::_internal namespace
 namespace _internal{
-    
-    // typedef struct request_args_t
-    // {
-    //     bool ready;
-    //     evmvc::sp_route_result rr;
-    //     evmvc::sp_response res;
-    // } request_args;
-    
     evmvc::sp_logger& default_logger();
-    
-    
-    // evmvc::sp_response create_http_response(
-    //     wp_app a,
-    //     evhtp_request_t* ev_req,
-    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
-    // );
-    //
-    // evmvc::sp_response create_http_response(
-    //     sp_logger log,
-    //     evhtp_request_t* ev_req, sp_route rt,
-    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
-    // );
-    //
-    
-    // evhtp_res on_headers(
-    //     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
-    // void on_multipart_request(evhtp_request_t* req, void* arg);
-    // void on_app_noop_request(evhtp_request_t* /*req*/, void* /*arg*/);
-    // void on_app_request(evhtp_request_t* req, void* arg);
     
     evmvc::sp_response create_http_response(
         wp_connection conn,
@@ -431,7 +402,6 @@ inline std::string version()
             "    libpcre v{}.{} {}\n"
             "    libicu v{}\n"
             "    libevent v{}\n",
-            //"    libevhtp v{}\n",
             EVMVC_VERSION_NAME,
             __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__,
             uts.sysname, uts.release, uts.version, uts.machine,
@@ -442,7 +412,6 @@ inline std::string version()
             PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
             EVMVC_ICU_VERSION,
             _EVENT_VERSION
-            //EVHTP_VERSION
         );
     }
     

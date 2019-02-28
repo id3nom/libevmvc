@@ -46,12 +46,6 @@ class response
     : public std::enable_shared_from_this<response>
 {
     friend class connection;
-    // friend evmvc::sp_response _internal::create_http_response(
-    //     sp_logger log,
-    //     evhtp_request_t* ev_req,
-    //     sp_route rt,
-    //     const std::vector<std::shared_ptr<evmvc::http_param>>& params
-    //     );
     
 public:
     
@@ -89,10 +83,7 @@ public:
         );
     }
     
-    //static sp_response null(wp_app a, evhtp_request_t* ev_req);
-    
     uint64_t id() const { return _id;}
-    
     
     sp_connection connection() const;
     bool secure() const;
@@ -102,7 +93,6 @@ public:
     evmvc::sp_route get_route()const { return _rt;}
     evmvc::sp_logger log() const { return _log;}
     
-    //evhtp_request_t* evhtp_request(){ return _ev_req;}
     evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
     evmvc::sp_request req() const { return _req;}
@@ -352,7 +342,6 @@ private:
         
         _prepare_headers();
         _started = true;
-        //evhtp_send_reply_start(_ev_req, _status);
     }
     
     void _reply_end();

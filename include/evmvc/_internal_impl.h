@@ -43,44 +43,6 @@ void send_error(
     res->error((evmvc::status)status_code, err);
 }
 
-/*
-void on_app_request(evhtp_request_t* req, void* arg)
-{
-    evmvc::request_args* ra = (evmvc::request_args*)arg;
-    
-    if(!ra->ready){
-        ra->res->pause();
-        ra->ready = true;
-        return;
-    }
-    
-    sp_app a = ra->res->get_app();
-    sp_route_result rr = ra->rr;
-    sp_response res = ra->res;
-    delete ra;
-    
-    try{
-        rr->execute(res, [res](auto error
-        ){
-            if(error){
-                res->error(
-                    evmvc::status::internal_server_error, error
-                );
-                return;
-            }
-        });
-    }catch(const std::exception& err){
-        res->error(
-            evmvc::status::internal_server_error,
-            EVMVC_ERR(err.what())
-        );
-    }
-}
-*/
-
-
-
-
 
 evmvc::sp_response create_http_response(
     wp_connection conn,

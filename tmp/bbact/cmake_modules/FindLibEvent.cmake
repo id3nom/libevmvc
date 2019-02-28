@@ -15,14 +15,8 @@ find_path     (LIBEVENT_INCLUDE_DIR NAMES event.h)
 find_library  (LIBEVENT_LIBRARY     NAMES event)
 find_library  (LIBEVENT_CORE        NAMES event_core)
 find_library  (LIBEVENT_EXTRA       NAMES event_extra)
-
-if (NOT EVHTP_DISABLE_EVTHR)
-    find_library (LIBEVENT_THREAD   NAMES event_pthreads)
-endif()
-
-if (NOT EVHTP_DISABLE_SSL)
-    find_library (LIBEVENT_SSL      NAMES event_openssl)
-endif()
+find_library (LIBEVENT_THREAD   NAMES event_pthreads)
+find_library (LIBEVENT_SSL      NAMES event_openssl)
 
 include(FindPackageHandleStandardArgs)
 

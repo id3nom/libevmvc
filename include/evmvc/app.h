@@ -31,21 +31,15 @@ SOFTWARE.
 #include "events.h"
 #include "router.h"
 #include "stack_debug.h"
-//#include "multipart_parser.h"
 
 #include "worker.h"
 #include "master_server.h"
 
 namespace evmvc {
 
-//https://chromium.googlesource.com/external/github.com/ellzey/libevhtp/+/libevhtp2/src/evhtp2/ws/
-
 class app
     : public std::enable_shared_from_this<app>
 {
-    // friend evhtp_res _internal::on_headers(
-    //     evhtp_request_t* req, evhtp_headers_t* hdr, void* arg);
-    // friend void _internal::on_app_request(evhtp_request_t* req, void* arg);
     friend class http_parser;
     
 public:
@@ -54,8 +48,7 @@ public:
         evmvc::app_options&& opts)
         : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
-        _router()//,
-        //_evhtp(nullptr)//, _ar(nullptr)
+        _router()
     {
         // force get_field_table initialization
         evmvc::detail::get_field_table();
@@ -217,7 +210,7 @@ public:
         return 0;
     }
     
-    void stop(bool free_ev_base = false)
+    void stop(async_cb cb = nullptr, bool free_ev_base = false)
     {
         if(stopped() || stopping())
             throw EVMVC_ERR(
@@ -235,35 +228,39 @@ public:
         struct timeval tvn;
         gettimeofday(&tvn, nullptr);
         auto to = ms_to_timeval(3000 + timeval_to_ms(tvn));
-        
-        while(true){
-            event_base_loop(global::ev_base(), EVLOOP_ONCE);
+        set_interval(
+        [self = this->shared_from_this(), cb, free_ev_base, to]
+        (auto ev){
             bool stopped = true;
-            for(auto w : _workers)
+            for(auto w : self->_workers)
                 if(!w->stopped())
                     stopped = false;
-            if(stopped)
-                break;
             
+            struct timeval tvn;
             gettimeofday(&tvn, nullptr);
-            if(timercmp(&tvn, &to, >))
-                break;
-        }
-        
-        for(auto w : _workers)
-            if(!w->stopped())
-                kill(w->pid(), SIGKILL);
-        
-        _workers.clear();
-        _servers.clear();
-        
-        if(free_ev_base)
-            event_base_free(global::ev_base());
-        
-        std::clog << "Service stopped" << std::endl;
-        _log->info("Service stopped");
-        
-        this->_status = running_state::stopped;
+            if(!stopped && timercmp(&tvn, &to, <))
+                return;
+            
+            clear_timeout(ev);
+            
+            for(auto w : self->_workers)
+                if(!w->stopped())
+                    kill(w->pid(), SIGKILL);
+            
+            self->_workers.clear();
+            self->_servers.clear();
+            
+            if(free_ev_base)
+                event_base_free(global::ev_base());
+            
+            std::clog << "Service stopped" << std::endl;
+            self->_log->info("Service stopped");
+            
+            self->_status = running_state::stopped;
+            
+            if(cb)
+                cb(nullptr);
+        }, 50);
     }
     
     sp_router all(
@@ -431,7 +428,6 @@ private:
     running_state _status;
     app_options _options;
     sp_router _router;
-    //struct evhtp* _evhtp;
     evmvc::sp_logger _log;
     
     std::vector<evmvc::sp_worker> _workers;

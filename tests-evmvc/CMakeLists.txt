@@ -31,13 +31,11 @@ target_link_libraries(libevmvc_tests
     fmt
     pcre
     #${LIBEVENT_LIBRARIES}
-    #${LIBEVHTP_LIBRARIES}
     event
     event_core
     event_extra
     event_pthreads
     event_openssl
-    evhtp
     gmock
 #    gtest
 )

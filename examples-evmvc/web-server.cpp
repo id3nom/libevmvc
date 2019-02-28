@@ -87,18 +87,13 @@ evmvc::sp_app srv(evmvc::sp_app a = nullptr)
 
 void _sig_received(int sig)
 {
-    event_base_loopbreak(evmvc::global::ev_base());
-    // auto srv = ::srv();
-    // if(srv){
-    //     srv->stop();
-    //     evmvc::set_timeout([](auto ew){
-    //         auto tv = evmvc::ms_to_timeval(200);
-    //         event_base_loopexit(evmvc::global::ev_base(), &tv);
-    //     }, 200);
-    // }else{
-    //     auto tv = evmvc::ms_to_timeval(200);
-    //     event_base_loopexit(evmvc::global::ev_base(), &tv);
-    // }
+    auto srv = ::srv();
+    if(srv)
+        srv->stop([](evmvc::cb_error err){
+            event_base_loopbreak(evmvc::global::ev_base());
+        });
+    else
+        event_base_loopbreak(evmvc::global::ev_base());
 }
 
 void register_app_cbs();
@@ -316,12 +311,13 @@ void register_app_cbs()
         
         evmvc::set_timeout(
             [](auto ev){
-                raise(SIGINT);
+                ::srv()->stop([](evmvc::cb_error err){
+                    event_base_loopbreak(evmvc::global::ev_base());
+                });
             },
             1000
         );
     });
-    
     
     auto frtr = std::make_shared<evmvc::file_router>(
         srv,
@@ -335,12 +331,15 @@ void register_app_cbs()
         [](evmvc::policies::filter_rule_ctx ctx,
             evmvc::policies::validation_cb cb)
         {
-            int to = rand()%(25-5 + 1) + 5;
-            ctx->req->log()->info("waiting {}ms...", to);
-            
+            // int to = rand()%(25-5 + 1) + 5;
+            // ctx->req->log()->info("waiting {}ms...", to);
+            //
+            // evmvc::set_timeout([ctx, cb](auto ew){
+            //     cb(nullptr);
+            // }, to);
             evmvc::set_timeout([ctx, cb](auto ew){
                 cb(nullptr);
-            }, to);
+            }, 0);
         })
     );
     frtr->register_policy(pol);

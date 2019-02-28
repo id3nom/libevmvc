@@ -403,15 +403,6 @@ public:
             );
         else
             it->second.emplace_back(header_val.to_string());
-        // evhtp_kv_t* header = nullptr;
-        // if(clear_existing)
-        //     while((header = evhtp_headers_find_header(
-        //         _hdrs, header_name.data()
-        //     )) != nullptr)
-        //         evhtp_header_rm_and_free(_hdrs, header);
-        
-        // header = evhtp_header_new(header_name.data(), header_val.data(), 1, 1);
-        // evhtp_headers_add_header(_hdrs, header);
         
         return *this;
     }
@@ -429,17 +420,10 @@ public:
         evmvc::string_view header_name)
     {
         _hdrs->erase(header_name.to_string());
-        // evhtp_kv_t* header = nullptr;
-        // while((header = evhtp_headers_find_header(
-        //     _hdrs, header_name.data()
-        // )) != nullptr)
-        //     evhtp_header_rm_and_free(_hdrs, header);
-        
         return *this;
     }
     
 private:
-    //evhtp_headers_t* _hdrs;
     sp_header_map _hdrs;
 };
 

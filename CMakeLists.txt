@@ -92,13 +92,6 @@ endif()
 # find_package(LibEvent REQUIRED)
 # include_directories (${LIBEVENT_INCLUDE_DIR})
 
-# # libevhtp
-# if(NOT LIBEVHTP_CMake_INCLUDED)
-#     include(FindLibEvhtp)
-# endif()
-# find_package(libevhtp REQUIRED)
-# include_directories (${LIBEVHTP_INCLUDE_DIR})
-
 # static or shared build configuration
 option(BUILD_SHARED_LIBS "Build shared libraries (DLLs)." OFF)
 if(${BUILD_SHARED_LIBS})
@@ -194,7 +187,6 @@ include_directories("${PROJECT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/date/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/fmt/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/json/include"
-    #"${CMAKE_CURRENT_SOURCE_DIR}/deps/libevhtp/include"
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)
@@ -269,13 +261,11 @@ target_link_libraries(evmvc
     fmt
     pcre
     #${LIBEVENT_LIBRARIES}
-    #${LIBEVHTP_LIBRARIES}
     event
     event_core
     event_extra
     event_pthreads
     event_openssl
-    evhtp
 )
 
 # install
