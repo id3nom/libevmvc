@@ -37,29 +37,29 @@ extern "C" {
 #include <unistd.h>
 
 
-void _on_terminate()
-{
-    try {
-        auto unknown = std::current_exception();
-        if(unknown){
-            std::rethrow_exception(unknown);
-        }else{
-            std::_Exit(EXIT_SUCCESS);
-        }
-    }catch(const evmvc::stacked_error& e){
-        evmvc::_internal::default_logger()->fatal(
-            e
-        );
-    }catch(const std::exception& e){
-        evmvc::_internal::default_logger()->fatal(
-            "Uncaught exception:\n{}", e.what()
-        );
-    } catch (...){
-        evmvc::_internal::default_logger()->fatal(
-            "Uncaught unknown exception"
-        );
-    }
-}
+// void _on_terminate()
+// {
+//     try {
+//         auto unknown = std::current_exception();
+//         if(unknown){
+//             std::rethrow_exception(unknown);
+//         }else{
+//             std::_Exit(EXIT_SUCCESS);
+//         }
+//     }catch(const evmvc::stacked_error& e){
+//         evmvc::_internal::default_logger()->fatal(
+//             e
+//         );
+//     }catch(const std::exception& e){
+//         evmvc::_internal::default_logger()->fatal(
+//             "Uncaught exception:\n{}", e.what()
+//         );
+//     } catch (...){
+//         evmvc::_internal::default_logger()->fatal(
+//             "Uncaught unknown exception"
+//         );
+//     }
+// }
 
 void _on_event_log(int severity, const char *msg)
 {
@@ -77,8 +77,39 @@ void _on_event_fatal_error(int err)
     );
 }
 
+evmvc::sp_app srv(evmvc::sp_app a = nullptr)
+{
+    static evmvc::wp_app _a;
+    if(a)
+        _a = a;
+    return _a.lock();
+}
+
+void _sig_received(int sig)
+{
+    event_base_loopbreak(evmvc::global::ev_base());
+    // auto srv = ::srv();
+    // if(srv){
+    //     srv->stop();
+    //     evmvc::set_timeout([](auto ew){
+    //         auto tv = evmvc::ms_to_timeval(200);
+    //         event_base_loopexit(evmvc::global::ev_base(), &tv);
+    //     }, 200);
+    // }else{
+    //     auto tv = evmvc::ms_to_timeval(200);
+    //     event_base_loopexit(evmvc::global::ev_base(), &tv);
+    // }
+}
+
+void register_app_cbs();
+
 int main(int argc, char** argv)
 {
+    //signal(SIGINT, _sig_received);
+    struct sigaction sa;
+    sa.sa_handler = _sig_received;
+    sigaction(SIGINT, &sa, nullptr);
+    
     //std::set_terminate(_on_terminate);
     
     event_set_log_callback(_on_event_log);
@@ -124,6 +155,7 @@ int main(int argc, char** argv)
         _ev_base,
         std::move(opts)
     );
+    ::srv(srv);
     
     // show app pid
     pid_t pid = getpid();
@@ -133,6 +165,30 @@ int main(int argc, char** argv)
     );
     srv->log()->info(evmvc::version());
     
+    register_app_cbs();
+    
+    // will block for child process
+    if(srv->start(argc, argv))
+        return 0;
+    
+    // //signal(SIGINT, _sig_received);
+    // struct sigaction sa;
+    // sa.sa_handler = _sig_received;
+    // sigaction(SIGINT, &sa, nullptr);
+    
+    event_base_loop(_ev_base, 0);
+    
+    srv->stop();
+    
+    event_base_free(_ev_base);
+    
+    return 0;
+}
+
+
+void register_app_cbs()
+{
+    auto srv = ::srv();
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
@@ -255,19 +311,15 @@ int main(int argc, char** argv)
     });
     
     srv->get("/exit",
-    [&_ev_base, &srv](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->send_status(evmvc::status::ok);
         
         evmvc::set_timeout(
-            [&_ev_base](auto ev){
-                struct timeval tv = {1,0};
-                event_base_loopexit(_ev_base, &tv);
+            [](auto ev){
+                raise(SIGINT);
             },
             1000
         );
-        
-        srv.reset();
     });
     
     
@@ -299,8 +351,7 @@ int main(int argc, char** argv)
     
     
     srv->post("/forms/login",
-    [&_ev_base, &srv](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         
         res->redirect("/html/login-results.html");
     });
@@ -350,17 +401,5 @@ int main(int argc, char** argv)
             "route: /clear_interval/:[name]"
         );
     });
-    
-    
-    
-    //srv->listen();
-    if(srv->start(argc, argv))
-        return 0;
-    
-    event_base_loop(_ev_base, 0);
-    
-    srv.reset();
-    event_base_free(_ev_base);
-    
-    return 0;
+
 }

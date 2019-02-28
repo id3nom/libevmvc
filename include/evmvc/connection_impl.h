@@ -75,13 +75,16 @@ void connection::_send_file_chunk_start()
 
 void connection::_send_chunk(struct evbuffer* chunk)
 {
-    EVMVC_TRACE(_log, "_send_chunk");
-    
-    if(evbuffer_get_length(chunk) == 0)
+    size_t cs = evbuffer_get_length(chunk);
+    if(cs == 0){
+        EVMVC_TRACE(_log, "_send_chunk, size: 0");
         return;
+    }
+    
+    EVMVC_TRACE(_log, "_send_chunk, size: {}", cs);
     
     struct evbuffer* out = bev_out();
-    evbuffer_add_printf(out, "%x\r\n", (unsigned)evbuffer_get_length(out));
+    evbuffer_add_printf(out, "%x\r\n", (unsigned)cs);
     bufferevent_write_buffer(_bev, chunk);
     evbuffer_add(out, "\r\n", 2);
     bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);

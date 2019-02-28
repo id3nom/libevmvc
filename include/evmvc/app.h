@@ -104,6 +104,9 @@ public:
         
         if(this->running())
             this->stop();
+        
+        // force console buffer flush
+        std::cout << std::endl;
     }
     
     app_options& options(){ return _options;}
@@ -207,68 +210,12 @@ public:
         
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
-            stop();
+            if(running())
+                stop();
         }
         
         return 0;
     }
-    
-    // void listen(
-    //     uint16_t port = 8080,
-    //     const evmvc::string_view& address = "0.0.0.0",
-    //     int backlog = -1)
-    // {
-    //     if(!stopped())
-    //         throw std::runtime_error(
-    //             "app must be in stopped state to start listening again"
-    //         );
-    //     _status = running_state::starting;
-        
-    //     this->_init_directories();
-        
-    //     _evhtp = evhtp_new(_ev_base, NULL);
-        
-    //     evhtp_callback_t* cb = evhtp_set_glob_cb(
-    //         _evhtp, "*", _internal::on_app_noop_request, nullptr
-    //     );
-    //     evhtp_callback_set_hook(
-    //         cb, evhtp_hook_on_headers, (evhtp_hook)_internal::on_headers, this
-    //     );
-        
-    //     evhtp_enable_flag(_evhtp, EVHTP_FLAG_ENABLE_ALL);
-        
-    //     if(_options.worker_count > 1){
-    //         this->_log->info(
-    //             "Creating 1 listener, and {} acceptors",
-    //             _options.worker_count
-    //         );
-    //         evhtp_use_threads_wexit(_evhtp,
-    //             // called on init
-    //             [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
-    //                 evmvc::warn("Loading thread '{}'", ::pthread_self());
-    //                 *evmvc::thread_ev_base() = evthr_get_base(thread);
-    //             },
-                
-    //             // called on exit
-    //             [](evhtp_t* htp, evthr_t* thread, void* arg)->void{
-    //                 *evmvc::thread_ev_base() = nullptr;
-    //                 evmvc::warn("Exiting thread '{}'", ::pthread_self());
-    //             },
-                
-    //             _options.worker_count, NULL
-    //         );
-    //     }
-        
-    //     evhtp_bind_socket(_evhtp, address.data(), port, backlog);
-        
-    //     this->_log->info(
-    //         "EVMVC is listening at '{}://{}:{}'\n",
-    //         _options.enable_ssl ? "https" : "http",
-    //         address.data(), port
-    //     );
-        
-    //     _status = running_state::running;
-    // }
     
     void stop(bool free_ev_base = false)
     {
@@ -277,16 +224,44 @@ public:
                 "app must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
-        //evhtp_unbind_socket(_evhtp);
-        //evhtp_free(_evhtp);
+        
+        std::clog << "Stopping service" << std::endl;
+        _log->info("Stopping service");
         
         for(auto w : _workers)
-            kill(w->pid(), SIGINT);
+            if(w->running())
+                w->stop();
+        
+        struct timeval tvn;
+        gettimeofday(&tvn, nullptr);
+        auto to = ms_to_timeval(3000 + timeval_to_ms(tvn));
+        
+        while(true){
+            event_base_loop(global::ev_base(), EVLOOP_ONCE);
+            bool stopped = true;
+            for(auto w : _workers)
+                if(!w->stopped())
+                    stopped = false;
+            if(stopped)
+                break;
+            
+            gettimeofday(&tvn, nullptr);
+            if(timercmp(&tvn, &to, >))
+                break;
+        }
+        
+        for(auto w : _workers)
+            if(!w->stopped())
+                kill(w->pid(), SIGKILL);
+        
         _workers.clear();
         _servers.clear();
         
         if(free_ev_base)
             event_base_free(global::ev_base());
+        
+        std::clog << "Service stopped" << std::endl;
+        _log->info("Service stopped");
         
         this->_status = running_state::stopped;
     }

@@ -195,6 +195,11 @@ void response::_prepare_headers()
         return;
     }
     
+    if(this->_status == -1){
+        EVMVC_DBG(_log, "Status not set, setting status to 200 OK");
+        this->_status = 200;
+    }
+    
     #if EVMVC_BUILD_DEBUG
     std::string dbg_hdrs;
     #endif //EVMVC_BUILD_DEBUG
@@ -397,7 +402,7 @@ void response::send_file(
     }
     
     //TODO: get file encoding
-    this->encoding(enc == "" ? "utf-8" : enc).type(
+    this->status(200).encoding(enc == "" ? "utf-8" : enc).type(
         filepath.extension().c_str()
     );
     c->send_file(reply);

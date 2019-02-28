@@ -41,38 +41,9 @@ SOFTWARE.
 #define EVMVC_CMD_PING 0
 #define EVMVC_CMD_PONG 1
 #define EVMVC_CMD_LOG 2
-
+#define EVMVC_CMD_CLOSE 3
 
 namespace evmvc {
-namespace _internal {
-    void sig_received(int sig)
-    {
-        if(sig == SIGINT){
-            //_run = false;
-            event_base_loopbreak(global::ev_base());
-        }
-    }
-    
-    void _on_event_log(int severity, const char *msg)
-    {
-        if(severity == _EVENT_LOG_DEBUG)
-            evmvc::_internal::default_logger()->debug(msg);
-        else
-            evmvc::_internal::default_logger()->error(msg);
-    }
-    
-    void _on_event_fatal_error(int err)
-    {
-        evmvc::_internal::default_logger()->fatal(
-            "Exiting because libevent send a fatal error: '{}'",
-            err
-        );
-    }
-    
-    
-    void on_http_worker_accept(int fd, short events, void* arg);
-    
-}//::_internal
 
 enum class channel_type
 {
@@ -329,8 +300,35 @@ class worker
         static int _id = -1;
         return ++_id;
     }
-    
+
 protected:
+    
+    static sp_worker active_worker(sp_worker w = nullptr)
+    {
+        static wp_worker _w;
+        if(w)
+            _w = w;
+        return _w.lock();
+    }
+    
+    static void sig_received(int sig);
+    
+    static void _on_event_log(int severity, const char *msg)
+    {
+        if(severity == _EVENT_LOG_DEBUG)
+            evmvc::_internal::default_logger()->debug(msg);
+        else
+            evmvc::_internal::default_logger()->error(msg);
+    }
+    
+    static void _on_event_fatal_error(int err)
+    {
+        evmvc::_internal::default_logger()->fatal(
+            "Exiting because libevent send a fatal error: '{}'",
+            err
+        );
+    }
+    
     worker(const wp_app& app, const app_options& config,
         worker_type wtype, const sp_logger& log)
         : _app(app),
@@ -347,13 +345,15 @@ protected:
         _channel(std::make_unique<evmvc::channel>(this))
     {
     }
+    
 
 public:
     
     ~worker()
     {
         if(running())
-            stop();
+            this->stop();
+        _channel.release();
     }
     
     worker_type work_type() const { return _wtype;}
@@ -377,6 +377,8 @@ public:
     sp_app get_app() const { return _app.lock();}
     evmvc::channel& channel() const { return *(_channel.get());}
     
+    bool is_child() const { return _ptype == process_type::child;}
+    
     virtual void start(int argc, char** argv, int pid)
     {
         if(!stopped())
@@ -390,10 +392,15 @@ public:
             _pid = pid;
             
         }else if(pid == 0){
-            signal(SIGINT, _internal::sig_received);
-
+            struct sigaction sa;
+            sa.sa_handler = worker::sig_received;
+            //sa.sa_handler = SIG_IGN;
+            sigaction(SIGINT, &sa, nullptr);
+            
             _ptype = process_type::child;
             _pid = getpid();
+            
+            worker::active_worker(this->shared_from_this());
             
             // change proctitle
             char ppname[17]{0};
@@ -416,26 +423,54 @@ public:
             );
             c_sink->set_level(_log->level());
             _log->replace_sink(c_sink);
-            //_log->info("Sink level set to '{}'", to_string(_log->level()));
-            std::clog << fmt::format(
-                "Sink level set to '{}'", to_string(_log->level())
-            ) << std::endl;
+            // std::clog << fmt::format(
+            //     "Sink level set to '{}'", to_string(_log->level())
+            // ) << std::endl;
         }
         
         _channel->_init();
         _status = running_state::running;
     }
     
-    void stop()
+    void stop(bool force = false)
     {
         if(stopped() || stopping())
             throw EVMVC_ERR(
-                "Server must be in running state to be able to stop it."
+                "Worker must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
         
-        _channel.release();
+        if(this->is_child()){
+            _log->info(
+                "Closing worker: {}, force: {}",
+                _id, force ? "true" : "false"
+            );
+            // closing worker on the master process
+            _channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+            if(force)
+                event_base_loopbreak(global::ev_base());
+            else
+                event_base_loopexit(global::ev_base(), nullptr);
+            
+            _channel.release();
+            return;
+        }
         
+        if(!force){
+            try{
+                _log->info("Sending close message to worker: {}", _id);
+                _channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+                return;
+            }catch(const std::exception& err){
+                _log->warn(err);
+            }
+        }
+        if(!force)
+            _log->warn(
+                "Sending close message faied! closing channels"
+            );
+        
+        _channel.release();
         this->_status = running_state::stopped;
     }
     
@@ -476,6 +511,7 @@ public:
         
         return _channel->sendcmd(EVMVC_CMD_LOG, p, pl);
     }
+    
 
 protected:
     virtual void parse_cmd(int cmd_id, const char* p, size_t plen)
@@ -489,6 +525,17 @@ protected:
             case EVMVC_CMD_PONG:{
                 EVMVC_DBG(_log, "CMD PONG recv");
                 
+                break;
+            }
+            case EVMVC_CMD_CLOSE:{
+                if(this->is_child()){
+                    if(this->running())
+                        this->stop();
+                    //raise(SIGINT);
+                }else{
+                    event_active(_channel->rcmd_ev, EV_READ, 1);
+                    this->_status = running_state::stopped;
+                }
                 break;
             }
             case EVMVC_CMD_LOG:{
@@ -554,8 +601,8 @@ void sinks::child_sink::log(
     else
         std::cerr << fmt::format(
             "\nWorker weak pointer is null, unable to send log:\n"
-            "level: {}, path:{}\nmsg:{}\n",
-            (int)lvl, log_path, msg
+            "level: {}, path:{}\n{}\n",
+            to_string(lvl), log_path, msg
         ) << std::endl;
     #endif
 }
@@ -590,9 +637,7 @@ void channel::_init()
 class http_worker
     : public worker
 {
-    friend void _internal::on_http_worker_accept(
-        int fd, short events, void* arg
-    );
+    static void on_http_worker_accept(int fd, short events, void* arg);
     
 public:
     http_worker(const wp_app& app, const app_options& config,
@@ -618,13 +663,13 @@ public:
         // will send a SIGINT when the parent dies
         prctl(PR_SET_PDEATHSIG, SIGINT);
         
-        event_set_log_callback(_internal::_on_event_log);
-        event_set_fatal_callback(_internal::_on_event_fatal_error);
+        event_set_log_callback(worker::_on_event_log);
+        event_set_fatal_callback(worker::_on_event_fatal_error);
         global::ev_base(event_base_new(), false, true);
         
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
-            _internal::on_http_worker_accept,
+            http_worker::on_http_worker_accept,
             this
         );
         event_add(_channel->rcmsg_ev, nullptr);
@@ -679,7 +724,7 @@ public:
             this->shared_from_this()
         );
     }
-
+    
     std::shared_ptr<const http_worker> shared_from_self() const
     {
         return std::static_pointer_cast<const http_worker>(
@@ -748,6 +793,7 @@ private:
         _conns.emplace(c->id(), c);
     }
     
+private:
     std::unordered_map<int, sp_connection> _conns;
     std::unordered_map<size_t, sp_child_server> _servers;
 };
@@ -774,72 +820,6 @@ private:
 
 
 namespace _internal {
-    void on_http_worker_accept(int fd, short events, void* arg)
-    {
-        http_worker* w = (http_worker*)arg;
-        
-        while(true){
-            //int data;
-            ctrl_msg_data data;
-            struct msghdr msgh;
-            struct iovec iov;
-            
-            union
-            {
-                char buf[CMSG_SPACE(sizeof(ctrl_msg_data))];
-                struct cmsghdr align;
-            } ctrl_msg;
-            struct cmsghdr* cmsgp;
-            
-            msgh.msg_name = NULL;
-            msgh.msg_namelen = 0;
-            
-            msgh.msg_iov = &iov;
-            msgh.msg_iovlen = 1;
-            iov.iov_base = &data;
-            iov.iov_len = sizeof(ctrl_msg_data);
-            
-            msgh.msg_control = ctrl_msg.buf;
-            msgh.msg_controllen = sizeof(ctrl_msg.buf);
-            
-            int nr = recvmsg(fd, &msgh, 0);
-            if(nr == 0)
-                return;
-            if(nr == -1){
-                int terrno = errno;
-                if(terrno == EAGAIN || terrno == EWOULDBLOCK)
-                    return;
-                
-                w->_log->fatal(EVMVC_ERR(
-                    "recvmsg: " + std::to_string(terrno)
-                ));
-            }
-            
-            if(nr > 0)
-                w->_log->debug(
-                    "received data, srv_id: {}, iproto: {}",
-                    data.srv_id, data.iproto
-                );
-                //fprintf(stderr, "Received data = %d\n", data);
-            
-            cmsgp = CMSG_FIRSTHDR(&msgh);
-            /* Check the validity of the 'cmsghdr' */
-            if (cmsgp == NULL || cmsgp->cmsg_len != CMSG_LEN(sizeof(int)))
-                w->_log->fatal(EVMVC_ERR("bad cmsg header / message length"));
-            if (cmsgp->cmsg_level != SOL_SOCKET)
-                w->_log->fatal(EVMVC_ERR("cmsg_level != SOL_SOCKET"));
-            if (cmsgp->cmsg_type != SCM_RIGHTS)
-                w->_log->fatal(EVMVC_ERR("cmsg_type != SCM_RIGHTS"));
-            
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wstrict-aliasing"
-            int sock = *((int*)CMSG_DATA(cmsgp));
-            #pragma GCC diagnostic pop
-            w->_revc_sock(
-                data.srv_id, data.iproto, sock
-            );
-        }
-    }
     
     int _ssl_sni_servername(SSL* s, int *al, void *arg)
     {

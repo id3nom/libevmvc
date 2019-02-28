@@ -94,6 +94,16 @@ namespace _internal {
    
 }//ns evmvc::_internal
 
+inline struct timeval ms_to_timeval(int ms){
+    if(ms == 0)
+        return {0, 0};
+    long s = std::floor(ms / 1000);
+    long us = (ms - (s * 1000)) * 1000;
+    return {s, us};
+}
+inline int timeval_to_ms(const struct timeval& tv){
+    return std::floor(tv.tv_usec / 1000) + (tv.tv_sec * 1000);
+}
 
 class cb_error
 {

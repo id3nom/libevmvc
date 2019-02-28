@@ -107,7 +107,7 @@ public:
     {
         if(stopped() || stopping())
             throw EVMVC_ERR(
-                "Server must be in running state to be able to stop it."
+                "Child server must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
         

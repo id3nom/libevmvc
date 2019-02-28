@@ -23,6 +23,7 @@ SOFTWARE.
 */
 
 #include "app.h"
+#include "stable_headers.h"
 
 namespace evmvc {
 
@@ -164,6 +165,85 @@ void channel::_init_child_channels()
     event_add(this->rcmd_ev, nullptr);
 }
 
+void worker::sig_received(int sig)
+{
+    if(sig == SIGINT){
+        auto w = active_worker();
+        if(w){
+            if(w->is_child()){
+                if(w->running())
+                    w->stop();
+            }
+        }
+    }
+}
+
+void http_worker::on_http_worker_accept(int fd, short events, void* arg)
+{
+    http_worker* w = (http_worker*)arg;
+    
+    while(true){
+        //int data;
+        _internal::ctrl_msg_data data;
+        struct msghdr msgh;
+        struct iovec iov;
+        
+        union
+        {
+            char buf[CMSG_SPACE(sizeof(_internal::ctrl_msg_data))];
+            struct cmsghdr align;
+        } ctrl_msg;
+        struct cmsghdr* cmsgp;
+        
+        msgh.msg_name = NULL;
+        msgh.msg_namelen = 0;
+        
+        msgh.msg_iov = &iov;
+        msgh.msg_iovlen = 1;
+        iov.iov_base = &data;
+        iov.iov_len = sizeof(_internal::ctrl_msg_data);
+        
+        msgh.msg_control = ctrl_msg.buf;
+        msgh.msg_controllen = sizeof(ctrl_msg.buf);
+        
+        int nr = recvmsg(fd, &msgh, 0);
+        if(nr == 0)
+            return;
+        if(nr == -1){
+            int terrno = errno;
+            if(terrno == EAGAIN || terrno == EWOULDBLOCK)
+                return;
+            
+            w->_log->fatal(EVMVC_ERR(
+                "recvmsg: " + std::to_string(terrno)
+            ));
+        }
+        
+        if(nr > 0)
+            w->_log->debug(
+                "received data, srv_id: {}, iproto: {}",
+                data.srv_id, data.iproto
+            );
+            //fprintf(stderr, "Received data = %d\n", data);
+        
+        cmsgp = CMSG_FIRSTHDR(&msgh);
+        /* Check the validity of the 'cmsghdr' */
+        if (cmsgp == NULL || cmsgp->cmsg_len != CMSG_LEN(sizeof(int)))
+            w->_log->fatal(EVMVC_ERR("bad cmsg header / message length"));
+        if (cmsgp->cmsg_level != SOL_SOCKET)
+            w->_log->fatal(EVMVC_ERR("cmsg_level != SOL_SOCKET"));
+        if (cmsgp->cmsg_type != SCM_RIGHTS)
+            w->_log->fatal(EVMVC_ERR("cmsg_type != SCM_RIGHTS"));
+        
+        #pragma GCC diagnostic push
+        #pragma GCC diagnostic ignored "-Wstrict-aliasing"
+        int sock = *((int*)CMSG_DATA(cmsgp));
+        #pragma GCC diagnostic pop
+        w->_revc_sock(
+            data.srv_id, data.iproto, sock
+        );
+    }
+}
 
 
 }//::evmvc

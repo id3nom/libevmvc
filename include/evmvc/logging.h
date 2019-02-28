@@ -289,8 +289,7 @@ public:
         if(should_log(log_level::fatal))
             log(_path, log_level::fatal, fmt::format(f.data(), args...));
         
-        // exit app on fatal call.
-        exit(-1);
+        std::exit(-1);
     }
     void fatal(evmvc::cb_error err)
     {
@@ -746,8 +745,7 @@ void fatal(evmvc::string_view f, const Args&... args)
             "/", log_level::fatal, fmt::format(f.data(), args...)
         );
     
-    // exit app on fatal call.
-    exit(-1);
+    std::exit(-1);
 }
 
 template <typename... Args>
