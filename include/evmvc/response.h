@@ -286,12 +286,12 @@ public:
             // Permanent redirections
             case evmvc::status::moved_permanently:
             case evmvc::status::permanent_redirect:
-
+            
             // Temporary redirections
             case evmvc::status::found:
             case evmvc::status::see_other:
             case evmvc::status::temporary_redirect:
-
+            
             // Special redirections
             case evmvc::status::multiple_choices:
             case evmvc::status::not_modified:

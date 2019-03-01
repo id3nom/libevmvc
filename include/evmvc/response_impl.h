@@ -334,12 +334,39 @@ void response::send_file(
         return;
     }
     
-    FILE* file_desc = nullptr;
-    //struct evmvc::_internal::file_reply* reply = nullptr;
+    if(filepath.empty()){
+        _log->error(EVMVC_ERR(
+            "Filepath is empty!"
+        ));
+        
+        this->send_status(evmvc::status::bad_request);
+        return;
+    }
     
-    // open up the file
-    file_desc = fopen(filepath.c_str(), "r");
-    BOOST_ASSERT(file_desc != nullptr);
+    boost::system::error_code ec;
+    if(!bfs::exists(filepath, ec)){
+        if(ec){
+            _log->error(EVMVC_ERR(
+                "Unable to verify file '{}' existence!\n{}",
+                filepath.string(), ec.message()
+            ));
+            
+            this->send_status(evmvc::status::bad_request);
+            return;
+        }
+        this->send_status(evmvc::status::bad_request);
+        return;
+    }
+    
+    FILE* file_desc = fopen(filepath.c_str(), "r");
+    if(!file_desc){
+        _log->error(EVMVC_ERR(
+            "fopen failed, errno: {}", errno
+        ));
+        
+        this->send_status(evmvc::status::bad_request);
+        return;
+    }
     
     // create internal file_reply struct
     auto reply = std::make_shared<file_reply>(
@@ -405,7 +432,9 @@ void response::send_file(
     }
     
     //TODO: get file encoding
-    this->status(200).encoding(enc == "" ? "utf-8" : enc).type(
+    if(this->_status == -1)
+        this->status(200);
+    this->encoding(enc == "" ? "utf-8" : enc).type(
         filepath.extension().c_str()
     );
     c->send_file(reply);

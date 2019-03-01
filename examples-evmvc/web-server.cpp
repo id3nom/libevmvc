@@ -206,11 +206,10 @@ void register_app_cbs()
     
     srv->get("/download-file/:[filename]",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        res->status(evmvc::status::ok)
-            .download(
-                "the file path",
-                req->params().get<std::string>("filename", "test.txt")
-            );
+        res->download(
+            "cert.pem",
+            req->params().get<std::string>("filename", "test.txt")
+        );
         nxt(nullptr);
     });
     
@@ -348,7 +347,6 @@ void register_app_cbs()
     
     srv->post("/forms/login",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        
         res->redirect("/html/login-results.html");
     });
     
