@@ -37,30 +37,6 @@ extern "C" {
 #include <unistd.h>
 
 
-// void _on_terminate()
-// {
-//     try {
-//         auto unknown = std::current_exception();
-//         if(unknown){
-//             std::rethrow_exception(unknown);
-//         }else{
-//             std::_Exit(EXIT_SUCCESS);
-//         }
-//     }catch(const evmvc::stacked_error& e){
-//         evmvc::_internal::default_logger()->fatal(
-//             e
-//         );
-//     }catch(const std::exception& e){
-//         evmvc::_internal::default_logger()->fatal(
-//             "Uncaught exception:\n{}", e.what()
-//         );
-//     } catch (...){
-//         evmvc::_internal::default_logger()->fatal(
-//             "Uncaught unknown exception"
-//         );
-//     }
-// }
-
 void _on_event_log(int severity, const char *msg)
 {
     if(severity == _EVENT_LOG_DEBUG)
@@ -100,19 +76,16 @@ void register_app_cbs();
 
 int main(int argc, char** argv)
 {
-    //std::set_terminate(_on_terminate);
-    
+    event_enable_debug_mode();
     event_set_log_callback(_on_event_log);
     event_set_fatal_callback(_on_event_fatal_error);
     
-    event_enable_debug_mode();
     struct event_base* _ev_base = event_base_new();
     
     evmvc::app_options opts;
     opts.stack_trace_enabled = true;
     opts.log_console_level = evmvc::log_level::trace;
     opts.log_file_level = evmvc::log_level::off;
-    //opts.log_file_max_size = 10000;
     if(argc > 1)
         opts.worker_count = evmvc::str_to_num<int>(argv[1]);
     if(argc > 2)
@@ -160,8 +133,12 @@ int main(int argc, char** argv)
     // will return 1 for child process.
     // will return -1 on error.
     // will return 0 for main process.
-    if(srv->start(argc, argv))
-        return 0;
+    if(auto res = srv->start(argc, argv)){
+        if(res == 1)
+            return 0;
+        else
+            return -1;
+    }
     
     //signal(SIGINT, _sig_received);
     struct sigaction sa;
