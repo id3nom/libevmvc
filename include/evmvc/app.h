@@ -135,7 +135,7 @@ public:
             return _options.base_dir / rp;
     }
     
-    int start(int argc, char** argv, bool start_event_loop = true)
+    int start(int argc, char** argv, bool start_event_loop = false)
     {
         if(!stopped())
             throw EVMVC_ERR(
@@ -201,6 +201,8 @@ public:
             _servers.emplace_back(s);
         }
         
+        _status = running_state::running;
+        
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
             if(running())
@@ -212,6 +214,15 @@ public:
     
     void stop(async_cb cb = nullptr, bool free_ev_base = false)
     {
+        if(auto w = worker::active_worker()){
+            if(w->is_child()){
+                w->close_service();
+                if(cb)
+                    cb(nullptr);
+                return;
+            }
+        }
+        
         if(stopped() || stopping())
             throw EVMVC_ERR(
                 "app must be in running state to be able to stop it."

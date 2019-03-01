@@ -42,6 +42,7 @@ SOFTWARE.
 #define EVMVC_CMD_PONG 1
 #define EVMVC_CMD_LOG 2
 #define EVMVC_CMD_CLOSE 3
+#define EVMVC_CMD_CLOSE_APP 4
 
 namespace evmvc {
 
@@ -95,15 +96,8 @@ public:
         throw EVMVC_ERR("sendmsg can only be called in master process!");
     }
     
-    
     ssize_t sendcmd(int cmd_id, const char* payload, size_t payload_len)
     {
-        // #if EVMVC_BUILD_DEBUG
-        // std::clog << fmt::format(
-        //     "Sending command, cmd_id: {}, size: {}\n", cmd_id, payload_len
-        // ) << std::endl;
-        // #endif
-        
         int fd = _type == channel_type::child ?
             ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
         
@@ -302,15 +296,6 @@ class worker
     }
 
 protected:
-    
-    static sp_worker active_worker(sp_worker w = nullptr)
-    {
-        static wp_worker _w;
-        if(w)
-            _w = w;
-        return _w.lock();
-    }
-    
     static void sig_received(int sig);
     
     static void _on_event_log(int severity, const char *msg)
@@ -348,7 +333,14 @@ protected:
     
 
 public:
-    
+    static sp_worker active_worker(sp_worker w = nullptr)
+    {
+        static wp_worker _w;
+        if(w)
+            _w = w;
+        return _w.lock();
+    }
+
     ~worker()
     {
         if(running())
@@ -474,6 +466,7 @@ public:
         this->_status = running_state::stopped;
     }
     
+    void close_service();
     
     bool ping()
     {
@@ -514,69 +507,7 @@ public:
     
 
 protected:
-    virtual void parse_cmd(int cmd_id, const char* p, size_t plen)
-    {
-        switch(cmd_id){
-            case EVMVC_CMD_PING:{
-                EVMVC_DBG(_log, "CMD PING recv");
-                _channel->sendcmd(EVMVC_CMD_PONG, nullptr, 0);
-                break;
-            }
-            case EVMVC_CMD_PONG:{
-                EVMVC_DBG(_log, "CMD PONG recv");
-                
-                break;
-            }
-            case EVMVC_CMD_CLOSE:{
-                if(this->is_child()){
-                    if(this->running())
-                        this->stop();
-                    //raise(SIGINT);
-                }else{
-                    event_active(_channel->rcmd_ev, EV_READ, 1);
-                    this->_status = running_state::stopped;
-                }
-                break;
-            }
-            case EVMVC_CMD_LOG:{
-                //EVMVC_DBG(_log, "CMD LOG recv");
-                log_level lvl = (log_level)(*(int*)p);
-                p += sizeof(int);
-                
-                size_t log_path_size = *(size_t*)p;
-                p += sizeof(size_t);
-                const char* log_path = p;
-                p += log_path_size;
-                
-                size_t log_msg_size = *(size_t*)p;
-                p += sizeof(size_t);
-                const char* log_msg = p;
-                p += log_msg_size;
-                
-                _log->log(
-                    evmvc::string_view(log_path, log_path_size),
-                    lvl,
-                    evmvc::string_view(log_msg, log_msg_size)
-                );
-                
-                break;
-            }
-            default:
-                if(plen)
-                    _log->warn(
-                        "unknown cmd_id: '{}', payload len: '{}'\n"
-                        "payload: '{}'",
-                        cmd_id, plen,
-                        evmvc::base64_encode(evmvc::string_view(p, plen))
-                    );
-                else
-                    _log->warn(
-                        "unknown cmd_id: '{}', payload len: '{}'",
-                        cmd_id, plen
-                    );
-                break;
-        }
-    }
+    virtual void parse_cmd(int cmd_id, const char* p, size_t plen);
     
     running_state _status = running_state::stopped;
     

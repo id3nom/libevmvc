@@ -100,11 +100,6 @@ void register_app_cbs();
 
 int main(int argc, char** argv)
 {
-    //signal(SIGINT, _sig_received);
-    struct sigaction sa;
-    sa.sa_handler = _sig_received;
-    sigaction(SIGINT, &sa, nullptr);
-    
     //std::set_terminate(_on_terminate);
     
     event_set_log_callback(_on_event_log);
@@ -162,19 +157,20 @@ int main(int argc, char** argv)
     
     register_app_cbs();
     
-    // will block for child process
+    // will return 1 for child process.
+    // will return -1 on error.
+    // will return 0 for main process.
     if(srv->start(argc, argv))
         return 0;
     
-    // //signal(SIGINT, _sig_received);
-    // struct sigaction sa;
-    // sa.sa_handler = _sig_received;
-    // sigaction(SIGINT, &sa, nullptr);
+    //signal(SIGINT, _sig_received);
+    struct sigaction sa;
+    sa.sa_handler = _sig_received;
+    sigaction(SIGINT, &sa, nullptr);
     
     event_base_loop(_ev_base, 0);
     
-    srv->stop();
-    
+    srv.reset();
     event_base_free(_ev_base);
     
     return 0;
@@ -184,6 +180,22 @@ int main(int argc, char** argv)
 void register_app_cbs()
 {
     auto srv = ::srv();
+    
+    srv->get("/exit",
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->send_status(evmvc::status::ok);
+        
+        evmvc::set_timeout(
+            [](auto ev){
+                ::srv()->stop([](evmvc::cb_error /*err*/){
+                    //event_base_loopbreak(evmvc::global::ev_base());
+                });
+            },
+            1000
+        );
+    });
+    
+    
     srv->get("/test",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
@@ -305,26 +317,11 @@ void register_app_cbs()
         );
     });
     
-    srv->get("/exit",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        res->send_status(evmvc::status::ok);
-        
-        evmvc::set_timeout(
-            [](auto ev){
-                ::srv()->stop([](evmvc::cb_error err){
-                    event_base_loopbreak(evmvc::global::ev_base());
-                });
-            },
-            1000
-        );
-    });
-    
     auto frtr = std::make_shared<evmvc::file_router>(
         srv,
         EVMVC_PROJECT_SOURCE_DIR "/examples-evmvc/html/",
         "/html"
     );
-    
     auto pol = evmvc::policies::new_filter_policy();
     pol->add_rule(evmvc::policies::new_user_filter(
         evmvc::policies::filter_type::access,
