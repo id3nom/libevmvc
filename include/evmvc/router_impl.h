@@ -59,6 +59,7 @@ router::router(evmvc::wp_app app)
     _match_case(boost::indeterminate)
     */
 {
+    EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
 router::router(evmvc::wp_app app, const evmvc::string_view& path)
@@ -72,6 +73,7 @@ router::router(evmvc::wp_app app, const evmvc::string_view& path)
     _match_case(boost::indeterminate)
     */
 {
+    EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
 sp_route& route::null(wp_app a)

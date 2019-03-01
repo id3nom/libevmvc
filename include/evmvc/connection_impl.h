@@ -97,9 +97,9 @@ void connection::_send_file_chunk_end()
     evbuffer_add(bev_out(), "0\r\n\r\n", 5);
     bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);
     unset_conn_flag(conn_flags::sending_file);
+    _file.reset();
     complete_response();
 }
-
 
 evmvc::status connection::_send_file_chunk()
 {
@@ -393,6 +393,8 @@ void connection::on_connection_event(
             errno = 0;
             return;
         }
+        
+        c->close();
     }
     
     // c->set_conn_flag(conn_flags::error);

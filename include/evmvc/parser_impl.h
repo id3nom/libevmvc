@@ -48,6 +48,7 @@ void http_parser::exec()
                 return;
             }
         });
+        _rr.reset();
     }catch(const std::exception& err){
         _res->error(
             evmvc::status::internal_server_error,
@@ -134,8 +135,13 @@ void http_parser::validate_headers()
     _res->pause();
     _rr->validate_access(
         ctx,
-    [a, rr = _rr, res = _res](const evmvc::cb_error& err){
-        res->resume([a, _rr = rr, res, v_err = err](const evmvc::cb_error& err){
+    [self = this->shared_from_this(), a, rr = _rr, res = _res]
+    (const evmvc::cb_error& err){
+        if(err)
+            self->_log->fail("Access Denied!\n{}", err.c_str());
+        
+        res->resume([a, /*_rr = rr, */res, v_err = err]
+        (const evmvc::cb_error& err){
             if(err)
                 return res->error(
                     evmvc::status::unauthorized,
@@ -147,6 +153,8 @@ void http_parser::validate_headers()
                     evmvc::status::unauthorized,
                     v_err
                 );
+                
+            
         });
     });
 }

@@ -236,42 +236,57 @@ public:
             if(w->running())
                 w->stop();
         
-        struct timeval tvn;
-        gettimeofday(&tvn, nullptr);
-        auto to = ms_to_timeval(3000 + timeval_to_ms(tvn));
-        set_interval(
-        [self = this->shared_from_this(), cb, free_ev_base, to]
-        (auto ev){
-            bool stopped = true;
-            for(auto w : self->_workers)
-                if(!w->stopped())
-                    stopped = false;
-            
-            struct timeval tvn;
-            gettimeofday(&tvn, nullptr);
-            if(!stopped && timercmp(&tvn, &to, <))
-                return;
-            
-            clear_timeout(ev);
-            
-            for(auto w : self->_workers)
-                if(!w->stopped())
-                    kill(w->pid(), SIGKILL);
-            
-            self->_workers.clear();
-            self->_servers.clear();
-            
-            if(free_ev_base)
-                event_base_free(global::ev_base());
-            
-            std::clog << "Service stopped" << std::endl;
-            self->_log->info("Service stopped");
-            
-            self->_status = running_state::stopped;
-            
-            if(cb)
-                cb(nullptr);
-        }, 50);
+        this->_workers.clear();
+        this->_servers.clear();
+        this->_router.reset();
+        
+        if(free_ev_base)
+            event_base_free(global::ev_base());
+        
+        std::clog << "Service stopped" << std::endl;
+        this->_log->info("Service stopped");
+        
+        this->_status = running_state::stopped;
+        
+        if(cb)
+            cb(nullptr);
+        
+        // struct timeval tvn;
+        // gettimeofday(&tvn, nullptr);
+        // auto to = ms_to_timeval(3000 + timeval_to_ms(tvn));
+        // set_interval(
+        // [self = this->shared_from_this(), cb, free_ev_base, to]
+        // (auto ev){
+        //     bool stopped = true;
+        //     for(auto w : self->_workers)
+        //         if(!w->stopped())
+        //             stopped = false;
+        //    
+        //     struct timeval tvn;
+        //     gettimeofday(&tvn, nullptr);
+        //     if(!stopped && timercmp(&tvn, &to, <))
+        //         return;
+        //    
+        //     clear_timeout(ev);
+        //    
+        //     for(auto w : self->_workers)
+        //         if(!w->stopped())
+        //             kill(w->pid(), SIGKILL);
+        //    
+        //     self->_workers.clear();
+        //     self->_servers.clear();
+        //    
+        //     if(free_ev_base)
+        //         event_base_free(global::ev_base());
+        //    
+        //     std::clog << "Service stopped" << std::endl;
+        //     self->_log->info("Service stopped");
+        //    
+        //     self->_status = running_state::stopped;
+        //    
+        //     if(cb)
+        //         cb(nullptr);
+        // }, 50);
     }
     
     sp_router all(

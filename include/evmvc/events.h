@@ -116,6 +116,7 @@ public:
     ~event_wrapper()
     {
         this->stop();
+        EVMVC_DEF_TRACE("event_wrapper {} released", _name);
     }
     
     void wait()
@@ -150,6 +151,7 @@ public:
         auto self = it->second;
         named_events().erase(it);
         lock.unlock();
+        res.reset();
         self.reset();
     }
     
@@ -214,6 +216,7 @@ public:
     ~event_wrapper()
     {
         this->stop();
+        EVMVC_DEF_TRACE("event_wrapper {} released", _name);
     }
     
     void wait()

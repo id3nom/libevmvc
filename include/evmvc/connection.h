@@ -107,11 +107,13 @@ public:
         _remote_addr(remote_addr),
         _remote_port(remote_port)
     {
+        EVMVC_DEF_TRACE("connection {:p} created", (void*)this);
     }
     
     ~connection()
     {
         close();
+        EVMVC_DEF_TRACE("connection {:p} released", (void*)this);
     }
     
     void initialize()
@@ -152,15 +154,15 @@ public:
         
         struct timeval rto =
             #if EVMVC_BUILD_DEBUG
-                // set to 5 minutes in debug build
-                {300,0};
+                // set to 30 seconds in debug build
+                {30,0};
             #else
                 rtimeo();
             #endif
         struct timeval wto =
             #if EVMVC_BUILD_DEBUG
-                // set to 5 minutes in debug build
-                {300,0};
+                // set to 30 seconds in debug build
+                {30,0};
             #else 
                 wtimeo();
             #endif
@@ -271,6 +273,7 @@ public:
     
     void resume()
     {
+        EVMVC_TRACE(_log, "Resuming connection!");
         if(!flag_is(conn_flags::paused)){
             _log->error("Resuming unpaused connection!");
             set_conn_flag(conn_flags::error);

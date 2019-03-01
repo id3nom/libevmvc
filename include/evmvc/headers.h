@@ -255,11 +255,18 @@ public:
     http_headers()
         : _hdrs(std::make_shared<header_map>())
     {
+        EVMVC_DEF_TRACE("headers {:p} created", (void*)this);
     }
 
     http_headers(sp_header_map hdrs)
         : _hdrs(hdrs)
     {
+        EVMVC_DEF_TRACE("headers {:p} created", (void*)this);
+    }
+    
+    ~http_headers()
+    {
+        EVMVC_DEF_TRACE("headers {:p} released", (void*)this);
     }
     
     bool exists(evmvc::field header_name) const

@@ -438,13 +438,13 @@ public:
                 _id, force ? "true" : "false"
             );
             // closing worker on the master process
-            _channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+            //_channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+            _channel.release();
             if(force)
                 event_base_loopbreak(global::ev_base());
             else
                 event_base_loopexit(global::ev_base(), nullptr);
             
-            _channel.release();
             return;
         }
         
@@ -452,6 +452,9 @@ public:
             try{
                 _log->info("Sending close message to worker: {}", _id);
                 _channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+                _channel->close_channels();
+                _channel.release();
+                this->_status = running_state::stopped;
                 return;
             }catch(const std::exception& err){
                 _log->warn(err);
@@ -589,7 +592,7 @@ public:
         if(_ptype == process_type::master)
             return;
         
-        _log->info("Starting worker");
+        _log->info("Starting worker, pid: {}", _pid);
         
         // will send a SIGINT when the parent dies
         prctl(PR_SET_PDEATHSIG, SIGINT);

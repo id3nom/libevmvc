@@ -115,16 +115,12 @@ public:
         _out_hdrs(std::make_shared<header_map>()),
         _init(false), _cookies(), _locked(false)
     {
-        EVMVC_DEF_TRACE(
-            "cookies '{}' created", this->id()
-        );
+        EVMVC_DEF_TRACE("cookies {} {:p} created", _id, (void*)this);
     }
     
     ~http_cookies()
     {
-        EVMVC_DEF_TRACE(
-            "cookies '{}' released", this->id()
-        );
+        EVMVC_DEF_TRACE("cookies {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}

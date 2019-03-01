@@ -87,9 +87,7 @@ public:
         _body_params(std::make_unique<http_params_t>()),
         _files()
     {
-        EVMVC_DEF_TRACE(
-            "request '{}' created", this->id()
-        );
+        EVMVC_DEF_TRACE("request {} {:p} created", _id, (void*)this);
         
         if(_log->should_log(log_level::trace)){
             std::string hdrs_dbg;
@@ -139,9 +137,7 @@ public:
     
     ~request()
     {
-        EVMVC_DEF_TRACE(
-            "request '{}' released", this->id()
-        );
+        EVMVC_DEF_TRACE("request {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}

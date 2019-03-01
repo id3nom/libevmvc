@@ -356,16 +356,16 @@ void register_app_cbs()
     [&srv](
         const evmvc::sp_request req, evmvc::sp_response res, auto nxt
     ){
-        res->pause();
-        
+        //res->pause();
         evmvc::set_timeout(
             [req, res](auto ew){
-                res->resume();
-                res->status(evmvc::status::ok).send(
-                    "route: /set_timeout/:[timeout(\\d+)]"
-                );
+                //res->resume([res](auto err){
+                    res->status(evmvc::status::ok).send(
+                        "route: /set_timeout/:[timeout(\\d+)]"
+                    );
+                //});
             },
-            req->params("timeout", 3000)
+            req->params("timeout", 40000)
         );
     });
     

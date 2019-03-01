@@ -57,8 +57,14 @@ struct filter_rule_ctx_t
         std::shared_ptr<multip::multipart_content_file> file)
         : res(res), req(req), form(form), file(file)
     {
+        EVMVC_DEF_TRACE("filter_rule_ctx_t {:p} created", (void*)this);
     }
-
+    
+    ~filter_rule_ctx_t()
+    {
+        EVMVC_DEF_TRACE("filter_rule_ctx_t {:p} released", (void*)this);
+    }
+    
     sp_response res;
     sp_request req;
     std::shared_ptr<multip::multipart_content_form> form;

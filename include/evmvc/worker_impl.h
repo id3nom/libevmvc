@@ -31,7 +31,6 @@ namespace evmvc {
 void channel_cmd_read(int fd, short events, void* arg)
 {
     channel* chan = (channel*)arg;
-    size_t zll = 0;
     while(true){
         ssize_t l = evbuffer_read(chan->rcmd_buf, fd, 4096);
         if(l == -1){
@@ -46,7 +45,6 @@ void channel_cmd_read(int fd, short events, void* arg)
         }
         
         if(l > 0){
-            zll = 0;
             while(true){
                 size_t bl = evbuffer_get_length(chan->rcmd_buf);
                 if(bl < EVMVC_CMD_HEADER_SIZE)
@@ -75,12 +73,6 @@ void channel_cmd_read(int fd, short events, void* arg)
                 chan->worker()->parse_cmd(t, cmd_payload, ps);
                 evbuffer_drain(chan->rcmd_buf, ps);
             }
-        }
-        
-        if(l == 0 && ++zll > 1){
-            if(!chan->worker()->running())
-                chan->worker()->_channel.reset();
-            break;
         }
     }
 }

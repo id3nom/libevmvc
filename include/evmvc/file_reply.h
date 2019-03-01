@@ -49,6 +49,7 @@ public:
         cb(_cb),
         log(_log)
     {
+        EVMVC_DEF_TRACE("file_reply {:p} created", (void*)this);
     }
     ~file_reply()
     {
@@ -60,6 +61,7 @@ public:
         
         fclose(this->file_desc);
         evbuffer_free(this->buffer);
+        EVMVC_DEF_TRACE("file_reply {:p} released", (void*)this);
     }
     sp_response res;
     wp_connection conn;

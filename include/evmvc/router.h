@@ -49,12 +49,19 @@ class route_result
     route_result()
         : _route()
     {
+        EVMVC_DEF_TRACE("route_result {:p} created", (void*)this);
     }
     
 public:
     route_result(sp_route r)
         : _route(r)
     {
+        EVMVC_DEF_TRACE("route_result {:p} created", (void*)this);
+    }
+    
+    ~route_result()
+    {
+        EVMVC_DEF_TRACE("file_route_result {:p} released", (void*)this);
     }
     
     evmvc::sp_logger log();
@@ -87,12 +94,14 @@ protected:
     route(std::weak_ptr<router> rtr)
         : _rtr(rtr), _log(), _rp(""), _re(nullptr)
     {
+        EVMVC_DEF_TRACE("route {:p} created", (void*)this);
     }
     
 public:
     route(std::weak_ptr<router> rtr, evmvc::string_view route_path)
         : _rtr(rtr), _log(), _rp(route_path), _re(nullptr)
     {
+        EVMVC_DEF_TRACE("route {:p} created", (void*)this);
         this->_build_route_re(route_path);
     }
     
@@ -104,6 +113,7 @@ public:
         }
         _re = nullptr;
         _re_study = nullptr;
+        EVMVC_DEF_TRACE("route {:p} released", (void*)this);
     }
     
     static sp_route& null(wp_app a);
@@ -414,6 +424,7 @@ public:
     
     virtual ~router()
     {
+        EVMVC_DEF_TRACE("router {:p} released", (void*)this);
     }
     
     static sp_router& null(wp_app a);
@@ -812,6 +823,7 @@ public:
         _filepath(), _local_url(""),
         _not_found(true)
     {
+        EVMVC_DEF_TRACE("file_route_result {:p} created", (void*)this);
     }
     
     file_route_result(evmvc::sp_route rt, evmvc::sp_router rtr,
@@ -819,6 +831,12 @@ public:
         : route_result(rt), _rtr(rtr), 
         _filepath(filepath), _local_url(local_url), _not_found(false)
     {
+        EVMVC_DEF_TRACE("file_route_result {:p} created", (void*)this);
+    }
+    
+    ~file_route_result()
+    {
+        EVMVC_DEF_TRACE("file_route_result {:p} released", (void*)this);
     }
     
 protected:
@@ -851,6 +869,12 @@ public:
     file_route(std::weak_ptr<router> rtr)
         : route(rtr)
     {
+        EVMVC_DEF_TRACE("file_route {:p} created", (void*)this);
+    }
+    
+    ~file_route()
+    {
+        EVMVC_DEF_TRACE("file_route {:p} released", (void*)this);
     }
 };
 
@@ -865,6 +889,12 @@ public:
         : router(app, virt_path),
         _base_path(bfs::absolute(base_path)), _rt()
     {
+        EVMVC_DEF_TRACE("file_router {:p} created", (void*)this);
+    }
+    
+    ~file_router()
+    {
+        EVMVC_DEF_TRACE("file_router {:p} released", (void*)this);
     }
     
     sp_route_result resolve_url(

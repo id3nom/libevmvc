@@ -113,12 +113,20 @@ enum class parser_flag
 };
 
 class http_parser
+    : public std::enable_shared_from_this<http_parser>
 {
     friend class connection;
 public:
     http_parser(wp_connection conn, const sp_logger& log)
         : _conn(conn), _log(log->add_child("parser"))
     {
+        EVMVC_DEF_TRACE("http_parser {:p} created", (void*)this);
+    }
+    
+    ~http_parser()
+    {
+        this->reset();
+        EVMVC_DEF_TRACE("connection {:p} released", (void*)this);
     }
     
     sp_connection get_connection() const { return _conn.lock();}
@@ -191,6 +199,8 @@ public:
         _total_bytes_read = 0;
         
         _hdrs.reset();
+        if(_res)
+            _res->_resume_cb = nullptr;
         _res.reset();
         _rr.reset();
         

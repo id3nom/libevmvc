@@ -60,6 +60,12 @@ public:
                 "child server-" + config.name
         ))
     {
+        EVMVC_DEF_TRACE("child_server {:p} created", (void*)this);
+    }
+    
+    ~child_server()
+    {
+        EVMVC_DEF_TRACE("child_server {:p} released", (void*)this);
     }
     
     size_t id() const { return _id;}

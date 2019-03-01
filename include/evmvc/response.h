@@ -46,6 +46,7 @@ class response
     : public std::enable_shared_from_this<response>
 {
     friend class connection;
+    friend class http_parser;
     
 public:
     
@@ -71,16 +72,12 @@ public:
         _paused(false),
         _resuming(false)
     {
-        EVMVC_DEF_TRACE(
-            "response '{}' created", this->id()
-        );
+        EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
     }
     
     ~response()
     {
-        EVMVC_DEF_TRACE(
-            "response '{}' released", this->id()
-        );
+        EVMVC_DEF_TRACE("response {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}
@@ -326,6 +323,7 @@ private:
         _paused = _resuming = false;
         if(_resume_cb)
             _resume_cb(err);
+        _resume_cb = nullptr;
     }
     
     void _prepare_headers();

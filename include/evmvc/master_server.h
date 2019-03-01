@@ -74,6 +74,7 @@ public:
         _lsock(-1),
         _lev(nullptr)
     {
+        EVMVC_DEF_TRACE("listener {:p} created", (void*)this);
     }
     
     ~listener()
@@ -106,6 +107,8 @@ public:
         if(_lev)
             evconnlistener_free(_lev);
         _lev = nullptr;
+        
+        EVMVC_DEF_TRACE("listener {:p} released", (void*)this);
     }
     
     sp_master_server get_server() const;
@@ -294,12 +297,15 @@ public:
         _app(app), _config(config),
         _log(log->add_child("master-server:" + std::to_string(_id)))
     {
+        EVMVC_DEF_TRACE("master_server {:p} created", (void*)this);
     }
     
     ~master_server()
     {
         if(running())
             stop();
+        
+        EVMVC_DEF_TRACE("master_server {:p} released", (void*)this);
     }
     
     size_t id() const { return _id;}
