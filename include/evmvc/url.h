@@ -356,7 +356,7 @@ private:
                             }
                             
                             sub_sec = EVMVC_URL_PARSE_HOST;
-                            spos += at_idx +1;
+                            spos = at_idx +1;
                             break;
                         }
                         case EVMVC_URL_PARSE_HOST:{
@@ -365,7 +365,7 @@ private:
                             );
                             if(pidx > -1){
                                 _hostname = data_substring(data, spos, pidx);
-                                spos += pidx +1;
+                                spos = pidx +1;
                                 sub_sec = EVMVC_URL_PARSE_PORT;
                                 break;
                             }
@@ -385,7 +385,7 @@ private:
                                 (pidx == -1 || pidx > fidx)
                             ){
                                 _hostname = data_substring(data, spos, fidx);
-                                spos += fidx +1;
+                                spos = fidx +1;
                                 section = EVMVC_URL_PARSE_FRAG;
                                 break;
                             }
@@ -393,12 +393,12 @@ private:
                                 (pidx == -1 || pidx > qidx)
                             ){
                                 _hostname = data_substring(data, spos, qidx);
-                                spos += qidx +1;
+                                spos = qidx +1;
                                 section = EVMVC_URL_PARSE_QUERY;
                                 break;
                             }else if(pidx > -1){
                                 _hostname = data_substring(data, spos, pidx);
-                                spos += pidx +1;
+                                spos = pidx +1;
                                 section = EVMVC_URL_PARSE_PATH;
                                 break;
                             }
@@ -427,7 +427,7 @@ private:
                                 _port = evmvc::str_to_num<uint16_t>(
                                     _port_string
                                 );
-                                spos += fidx +1;
+                                spos = fidx +1;
                                 section = EVMVC_URL_PARSE_FRAG;
                                 break;
                             }
@@ -440,7 +440,7 @@ private:
                                 _port = evmvc::str_to_num<uint16_t>(
                                     _port_string
                                 );
-                                spos += qidx +1;
+                                spos = qidx +1;
                                 section = EVMVC_URL_PARSE_QUERY;
                                 break;
                             }
@@ -451,7 +451,7 @@ private:
                                 _port = evmvc::str_to_num<uint16_t>(
                                     _port_string
                                 );
-                                spos += pidx +1;
+                                spos = pidx +1;
                                 section = EVMVC_URL_PARSE_PATH;
                                 break;
                             }
@@ -489,7 +489,7 @@ private:
                         _path = data_substring(
                             data, spos, fidx
                         );
-                        spos += fidx +1;
+                        spos = fidx +1;
                         section = EVMVC_URL_PARSE_FRAG;
                         break;
                     }
@@ -497,7 +497,7 @@ private:
                         _path = data_substring(
                             data, spos, qidx
                         );
-                        spos += qidx +1;
+                        spos = qidx +1;
                         section = EVMVC_URL_PARSE_QUERY;
                         break;
                     }
@@ -520,7 +520,7 @@ private:
                         _query = data_substring(
                             data, spos, fidx
                         );
-                        spos += fidx +1;
+                        spos = fidx +1;
                         section = EVMVC_URL_PARSE_FRAG;
                         break;
                     }

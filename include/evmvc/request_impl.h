@@ -111,6 +111,7 @@ void request::_load_multipart_params(
                     mcf->size
                 )
             );
+            mcf->temp_path.clear();
         }else if(ct->type == multip::multipart_content_type::form){
             std::shared_ptr<multip::multipart_content_form> mcf = 
                 std::static_pointer_cast<

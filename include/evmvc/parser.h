@@ -38,8 +38,11 @@ SOFTWARE.
 #define EVMVC_EOL_SIZE 2
 #define EVMVC_EOH_SIZE 4
 #define EVVMC_ENCTYPE_FRM_URLENC "application/x-www-form-urlencoded"
+#define EVVMC_ENCTYPE_FRM_URLENC_L 33
 #define EVVMC_ENCTYPE_FRM_MULTIP "multipart/form-data"
+#define EVVMC_ENCTYPE_FRM_MULTIP_L 19
 #define EVVMC_ENCTYPE_FRM_TXTPLN "text/plain"
+#define EVVMC_ENCTYPE_FRM_TXTPLN_L 10
 
 
 namespace evmvc {
@@ -399,13 +402,34 @@ private:
                 it->second.front()
             );
             
-            if(!strcasecmp(ct_val.c_str(), EVVMC_ENCTYPE_FRM_URLENC))
-                _status = parser_state::parse_form_urlencoded;
-            else if(!strcasecmp(ct_val.c_str(), EVVMC_ENCTYPE_FRM_MULTIP)){
-                _status = parser_state::parse_form_multipart;
-                init_multip();
-            }else if(!strcasecmp(ct_val.c_str(), EVVMC_ENCTYPE_FRM_TXTPLN))
-                _status = parser_state::parse_form_text;
+            ssize_t sidx = -1;
+            while(sidx < (ssize_t)ct_val.size()){
+                ssize_t idx = sidx +1;
+                sidx = evmvc::find_ch(ct_val.c_str(), ct_val.size(), ';', idx);
+                if(sidx == -1)
+                    sidx = ct_val.size();
+                ssize_t l = sidx - idx;
+                if(l == EVVMC_ENCTYPE_FRM_URLENC_L &&
+                    !strncasecmp(
+                        ct_val.c_str()+idx, EVVMC_ENCTYPE_FRM_URLENC, l)
+                ){
+                    _status = parser_state::parse_form_urlencoded;
+                    break;
+                }else if(l == EVVMC_ENCTYPE_FRM_MULTIP_L &&
+                    !strncasecmp(
+                        ct_val.c_str()+idx, EVVMC_ENCTYPE_FRM_MULTIP, l)
+                ){
+                    _status = parser_state::parse_form_multipart;
+                    init_multip();
+                    break;
+                }else if(l == EVVMC_ENCTYPE_FRM_TXTPLN_L &&
+                    !strncasecmp(
+                        ct_val.c_str()+idx, EVVMC_ENCTYPE_FRM_TXTPLN, l)
+                ){
+                    _status = parser_state::parse_form_text;
+                    break;
+                }
+            }
             return;
         }
         

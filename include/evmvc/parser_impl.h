@@ -72,28 +72,28 @@ void http_parser::validate_headers()
         return;
     }
     base_url += evmvc::trim_copy(it->second.front());
-    url uri(base_url, _uri_string);
+    _uri = url(base_url, _uri_string);
     
     _log->success(
         "REQ received, "
         "host: '{}', method: '{}', uri: '{}'",
-        uri.hostname(),
+        _uri.hostname(),
         _method_string,
         _uri_string
     );
     
     sp_app a = this->_conn.lock()->get_worker()->get_app();
     
-    _rr = a->_router->resolve_url(_method_string, uri.path());
+    _rr = a->_router->resolve_url(_method_string, _uri.path());
     if(!_rr && _method == evmvc::method::head)
-        _rr = a->_router->resolve_url(evmvc::method::get, uri.path());
+        _rr = a->_router->resolve_url(evmvc::method::get, _uri.path());
     
     // stop request if no valid route found
     if(!_rr){
-        c->log()->fail(
-            "recv: [{}] [] from: [{}:{}], err: 404",
+        _log->fail(
+            "recv: [{}] [{}] from: [{}:{}], err: 404",
             _method_string,
-            uri.to_string(),
+            _uri.to_string(),
             c->remote_address(),
             c->remote_port()
         );
@@ -101,7 +101,7 @@ void http_parser::validate_headers()
         _status = parser_state::error;
         
         _res = _internal::create_http_response(
-            _conn, _http_ver, uri, _hdrs,
+            _conn, _http_ver, _uri, _hdrs,
             std::make_shared<route_result>(route::null(a))
         );
         
@@ -118,14 +118,14 @@ void http_parser::validate_headers()
     c->log()->success(
         "recv: [{}] [{}] from: [{}:{}]",
         _method_string,
-        uri.to_string(),
+        _uri.to_string(),
         c->remote_address(),
         c->remote_port()
     );
     
     // create the response
     _res = _internal::create_http_response(
-        _conn, _http_ver, uri, _hdrs, _rr
+        _conn, _http_ver, _uri, _hdrs, _rr
     );
     
     // create validation context

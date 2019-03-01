@@ -58,8 +58,9 @@ evmvc::sp_response create_http_response(
     static uint64_t cur_id = 0;
     uint64_t rid = ++cur_id;
     
+    sp_logger log = c->log()->add_child(rr->log()->path());
     evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
-        rid, rr->log(), rr->_route, uri, hdrs
+        rid, log, rr->_route, uri, hdrs
     );
     /*
         uint64_t id,
@@ -73,15 +74,14 @@ evmvc::sp_response create_http_response(
         sp_header_map hdrs,
         const sp_http_cookies& http_cookies,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p
-    
     */
     evmvc::sp_request req = std::make_shared<evmvc::request>(
-        rid, ver, conn, rr->log(), rr->_route, uri,
+        rid, ver, conn, log, rr->_route, uri,
         c->parser()->method(), c->parser()->method_string(),
         hdrs, cks, rr->params
     );
     evmvc::sp_response res = std::make_shared<evmvc::response>(
-        rid, req, conn, rr->log(), rr->_route, uri, cks
+        rid, req, conn, log, rr->_route, uri, cks
     );
     
     return res;

@@ -55,12 +55,32 @@ public:
     {
     }
     
+    ~http_file()
+    {
+        boost::system::error_code ec;
+        if(!_temp_path.empty() && bfs::exists(_temp_path, ec)){
+            if(ec){
+                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                    "Unable to verify file '{}' existence!\n{}",
+                    _temp_path.string(), ec.message()
+                ));
+                return;
+            }
+            bfs::remove(_temp_path, ec);
+            if(ec)
+                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                    "Unable to remove file '{}'!\n{}",
+                    _temp_path.string(), ec.message()
+                ));
+        }
+    }
+    
     const std::string& name() const { return _name;}
     const std::string& filename() const { return _filename;}
     const std::string& mime_type() const { return _mime_type;}
     size_t size() const { return _size;}
     
-    void save(bfs::path new_filepath, bool overwrite = true)
+    void save(bfs::path new_filepath, bool overwrite = false)
     {
         if(bfs::is_directory(new_filepath))
             new_filepath /= _filename;

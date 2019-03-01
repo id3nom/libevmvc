@@ -672,7 +672,7 @@ private:
         // fetch socket info
         char remote_addr[EVMVC_CTRL_MSG_MAX_ADDR_LEN]{0};
         uint16_t remote_port = 0;
-        struct sockaddr saddr;
+        struct sockaddr saddr = {0};
         socklen_t slen;
         
         if(getpeername(sock_fd, &saddr, &slen) == -1)

@@ -148,9 +148,22 @@ struct multipart_content_file_t
     
     ~multipart_content_file_t()
     {
-        //boost::system::error_code ec;
-        if(!temp_path.empty() && bfs::exists(temp_path))
-            bfs::remove(temp_path);
+        boost::system::error_code ec;
+        if(!temp_path.empty() && bfs::exists(temp_path, ec)){
+            if(ec){
+                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                    "Unable to verify file '{}' existence!\n{}",
+                    temp_path.string(), ec.message()
+                ));
+                return;
+            }
+            bfs::remove(temp_path, ec);
+            if(ec)
+                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                    "Unable to remove file '{}'!\n{}",
+                    temp_path.string(), ec.message()
+                ));
+        }
     }
     
     std::string filename;

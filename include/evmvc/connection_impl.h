@@ -40,7 +40,8 @@ void connection::close()
     _closed = true;
     EVMVC_TRACE(this->_log, "closing\n{}", this->debug_string());
     
-    _parser.reset();
+    if(_parser)
+        _parser.reset();
     if(_resume_ev){
         event_free(_resume_ev);
         _resume_ev = nullptr;

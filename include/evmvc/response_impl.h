@@ -66,9 +66,8 @@ void response::pause()
         return;
     _paused = true;
     this->log()->debug("Connection paused");
-    if(auto c = _conn.lock()){
+    if(auto c = _conn.lock())
         c->set_conn_flag(conn_flags::paused);
-    }
 }
 
 void response::resume()
@@ -85,6 +84,8 @@ void response::resume()
     this->log()->debug("Resuming connection");
     if(auto c = _conn.lock())
         c->resume();
+    else
+        _resume_cb = nullptr;
 }
 
 
@@ -92,14 +93,17 @@ void response::resume()
 
 void response::error(evmvc::status err_status, const cb_error& err)
 {
-    auto c = this->_conn.lock();
-    
+    std::string remote_addr("unknown");
+    std::string remote_port = "";
+    if(auto c = this->_conn.lock()){
+        remote_addr = c->remote_address();
+        remote_port = remote_addr.find("unix:") == 0 ? 
+            "" : ":" + std::to_string(c->remote_port());
+    }
     //auto con_addr_in = (sockaddr_in*)this->_ev_req->conn->saddr;
     std::string log_val = fmt::format(
         "[{}{}] [{}] [{}] [Status {} {}, {}]\n{}",
-        c->remote_address(),
-        c->remote_address().find("unix:") == 0 ? 
-            "" : ":" + std::to_string(c->remote_port()),
+        remote_addr, remote_port,
 
         to_string(_req->method()).data(),
 
@@ -312,7 +316,7 @@ void response::_reply_end()
     _ended = true;
     auto c = this->_conn.lock();
     if(!c)
-        return _log->error(EVMVC_ERR("Connection must be closed!"));
+        return _log->error(EVMVC_ERR("Connection closed!"));
         
     c->complete_response();
 }
@@ -326,7 +330,7 @@ void response::send_file(
     auto c = this->_conn.lock();
     if(!c){
         if(cb)
-            cb(EVMVC_ERR("Connection must be closed!"));
+            cb(EVMVC_ERR("Connection closed!"));
         return;
     }
     
