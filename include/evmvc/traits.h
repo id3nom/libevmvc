@@ -56,7 +56,7 @@ namespace std{
     template< class T >
     using decay_t = typename decay<T>::type;
 #endif
-#if __cplusplus <= 201402L
+//#if __cplusplus <= 201402L
     
     template <typename F, typename... Args>
     struct is_invocable :
@@ -76,7 +76,7 @@ namespace std{
     {
     };
 }
-#endif
+//#endif
 
 namespace mvc {
 
