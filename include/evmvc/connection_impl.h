@@ -378,7 +378,7 @@ void connection::on_connection_event(
     if(c->_ssl && !(events & BEV_EVENT_EOF)){
         // ssl error
         c->_log->error(EVMVC_ERR("SSL ERROR"));
-        c->close();
+        //c->close();
         //c->set_conn_flag(conn_flags::error);
         return;
     }
