@@ -9,6 +9,7 @@
                 "${workspaceFolder}/deps/date/include",
                 "${workspaceFolder}/deps/fmt/include",
                 "${workspaceFolder}/deps/json/single_include",
+                "${workspaceFolder}/deps/tools-md/include",
                 "${workspaceFolder}/deps",
                 "${workspaceFolder}/deps/googletest/googletest/include",
                 "${workspaceFolder}/deps/googletest/googlemock/include"

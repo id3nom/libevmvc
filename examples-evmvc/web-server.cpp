@@ -40,14 +40,14 @@ extern "C" {
 void _on_event_log(int severity, const char *msg)
 {
     if(severity == _EVENT_LOG_DEBUG)
-        evmvc::_internal::default_logger()->debug(msg);
+        md::log::default_logger()->debug(msg);
     else
-        evmvc::_internal::default_logger()->error(msg);
+        md::log::default_logger()->error(msg);
 }
 
 void _on_event_fatal_error(int err)
 {
-    evmvc::_internal::default_logger()->fatal(
+    md::log::default_logger()->fatal(
         "Exiting because libevent send a fatal error: '{}'",
         err
     );
@@ -65,7 +65,7 @@ void _sig_received(int sig)
 {
     auto srv = ::srv();
     if(srv)
-        srv->stop([](evmvc::cb_error err){
+        srv->stop([](md::callback::cb_error err){
             event_base_loopbreak(evmvc::global::ev_base());
         });
     else
@@ -84,13 +84,13 @@ int main(int argc, char** argv)
     
     evmvc::app_options opts;
     opts.stack_trace_enabled = true;
-    opts.log_console_level = evmvc::log_level::trace;
-    opts.log_file_level = evmvc::log_level::off;
+    opts.log_console_level = md::log::log_level::trace;
+    opts.log_file_level = md::log::log_level::off;
     if(argc > 1)
-        opts.worker_count = evmvc::str_to_num<int>(argv[1]);
+        opts.worker_count = md::str_to_num<int>(argv[1]);
     if(argc > 2)
         opts.log_console_level = 
-            (evmvc::log_level)evmvc::str_to_num<int>(argv[2]);
+            (md::log::log_level)md::str_to_num<int>(argv[2]);
     
     auto l_opts = evmvc::listen_options();
     l_opts.address = "0.0.0.0";
@@ -164,7 +164,7 @@ void register_app_cbs()
         
         evmvc::set_timeout(
             [](auto ev){
-                ::srv()->stop([](evmvc::cb_error /*err*/){
+                ::srv()->stop([](md::callback::cb_error /*err*/){
                     //event_base_loopbreak(evmvc::global::ev_base());
                 });
             },
@@ -193,7 +193,7 @@ void register_app_cbs()
     srv->get("/echo/:val",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->status(evmvc::status::ok).send(
-            //(evmvc::string_view)req->params()<evmvc::string_view>("val")
+            //(md::string_view)req->params()<md::string_view>("val")
             req->params("val")
         );
         nxt(nullptr);
@@ -224,7 +224,7 @@ void register_app_cbs()
         
         res->log()->info("sending file: '{0}'\n", path);
         
-        res->send_file(path, "", [path, res](evmvc::cb_error err){
+        res->send_file(path, "", [path, res](md::callback::cb_error err){
             if(err)
                 res->log()->error(
                     "send-file for file '{0}', failed!\n{1}\n",
@@ -289,7 +289,7 @@ void register_app_cbs()
     srv->get("/error",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
         res->error(
-            EVMVC_ERR("testing error sending.")
+            MD_ERR("testing error sending.")
         );
     });
     
@@ -355,7 +355,7 @@ void register_app_cbs()
         evmvc::set_interval(
             name,
             [name](auto ew){
-                evmvc::info("'{}' interval reached!", name);
+                md::log::info("'{}' interval reached!", name);
             },
             req->params("interval", 3000)
         );

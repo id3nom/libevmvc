@@ -28,17 +28,17 @@ namespace evmvc { namespace _internal{
 
 void send_error(
     evmvc::sp_response res, int status_code,
-    evmvc::string_view msg)
+    md::string_view msg)
 {
     res->error(
         (evmvc::status)status_code,
-        EVMVC_ERR(msg.data())
+        MD_ERR(msg.data())
     );
 }
 
 void send_error(
     evmvc::sp_response res, int status_code,
-    evmvc::cb_error err)
+    md::callback::cb_error err)
 {
     res->error((evmvc::status)status_code, err);
 }
@@ -53,12 +53,12 @@ evmvc::sp_response create_http_response(
 {
     auto c = conn.lock();
     if(!c)
-        throw EVMVC_ERR("Failed to lock the connection weak ptr!");
+        throw MD_ERR("Failed to lock the connection weak ptr!");
     
     static uint64_t cur_id = 0;
     uint64_t rid = ++cur_id;
     
-    sp_logger log = c->log()->add_child(rr->log()->path());
+    md::log::sp_logger log = c->log()->add_child(rr->log()->path());
     evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
         rid, log, rr->_route, uri, hdrs
     );
@@ -66,11 +66,11 @@ evmvc::sp_response create_http_response(
         uint64_t id,
         http_version ver,
         wp_connection conn,
-        evmvc::sp_logger log,
+        md::log::sp_logger log,
         const evmvc::sp_route& rt,
         url uri,
         evmvc::method met,
-        evmvc::string_view smet,
+        md::string_view smet,
         sp_header_map hdrs,
         const sp_http_cookies& http_cookies,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p

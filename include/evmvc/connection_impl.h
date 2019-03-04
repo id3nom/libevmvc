@@ -238,7 +238,7 @@ void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
         return;
     
     void* buf = evbuffer_pullup(c->bev_in(), blen);
-    cb_error ec;
+    md::callback::cb_error ec;
     size_t n = c->_parser->parse((const char*)buf, blen, ec);
     if(n > 0)
         evbuffer_drain(c->bev_in(), n);
@@ -273,7 +273,7 @@ void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
     
     // void* buf = evbuffer_pullup(c->bev_in(), ilen);
     
-    // cb_error ec;
+    // md::callback::cb_error ec;
     // size_t nread = c->_parser->parse((const char*)buf, ilen, ec);
     // if(nread > 0)
     //     evbuffer_drain(c->bev_in(), nread);
@@ -377,7 +377,7 @@ void connection::on_connection_event(
     
     if(c->_ssl && !(events & BEV_EVENT_EOF)){
         // ssl error
-        c->_log->error(EVMVC_ERR("SSL ERROR"));
+        c->_log->error(MD_ERR("SSL ERROR"));
         //c->close();
         //c->set_conn_flag(conn_flags::error);
         return;

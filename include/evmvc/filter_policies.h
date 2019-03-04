@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_filter_policies_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "utils.h"
 #include "headers.h"
 #include "fields.h"
@@ -46,7 +45,7 @@ enum class filter_type
     multipart_file,
 };
 
-typedef std::function<void(const cb_error& err)> validation_cb;
+typedef std::function<void(const md::callback::cb_error& err)> validation_cb;
 
 struct filter_rule_ctx_t
 {
@@ -111,7 +110,7 @@ typedef std::shared_ptr<filter_policy_t> filter_policy;
 typedef
     std::function<void(
         evmvc::policies::filter_policy,
-        evmvc::async_cb
+        md::callback::async_cb
     )> filter_policy_handler_cb;
 
 
@@ -170,7 +169,7 @@ protected:
         _rules[idx]->validate(
             ctx,
         [self = this->shared_from_this(), type, idx, ctx, cb]
-        (const cb_error& err) mutable {
+        (const md::callback::cb_error& err) mutable {
             if(err)
                 return cb(err);
             if(++idx >= self->_rules.size())
@@ -245,7 +244,7 @@ public:
             names.end()
         )
             return cb(
-                EVMVC_ERR(
+                MD_ERR(
                     "form name: '{}' is not allowed!", ctx->form->name
                 )
             );
@@ -255,7 +254,7 @@ public:
             names.end()
         )
             return cb(
-                EVMVC_ERR(
+                MD_ERR(
                     "mime type: '{}' is not allowed!", ctx->form->mime_type
                 )
             );
@@ -295,7 +294,7 @@ public:
             names.end()
         )
             return cb(
-                EVMVC_ERR(
+                MD_ERR(
                     "file name: '{}' is not allowed!", ctx->file->name
                 )
             );
@@ -306,14 +305,14 @@ public:
             names.end()
         )
             return cb(
-                EVMVC_ERR(
+                MD_ERR(
                     "mime type: '{}' is not allowed!", ctx->file->mime_type
                 )
             );
         
         if(max_size > 0 && ctx->file->size > max_size)
             return cb(
-                EVMVC_ERR(
+                MD_ERR(
                     "file size: '{}' is too big!", ctx->file->size
                 )
             );
@@ -354,7 +353,7 @@ public:
         std::string tok = _get_jwt(ctx->req);
         if(tok.empty()){
             cb(
-                EVMVC_ERR("Unable to find a valid JSON Web Token!")
+                MD_ERR("Unable to find a valid JSON Web Token!")
             );
             return;
         }

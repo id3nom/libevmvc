@@ -1,20 +1,25 @@
 /*
-    This file is part of libpq-async++
-    Copyright (C) 2011-2018 Michel Denommee (and other contributing authors)
-    
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Lesser General Public
-    License as published by the Free Software Foundation; either
-    version 2.1 of the License, or (at your option) any later version.
+MIT License
 
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Lesser General Public License for more details.
+Copyright (c) 2019 Michel Dénommée
 
-    You should have received a copy of the GNU Lesser General Public
-    License along with this library; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 */
 
 #include "evmvc_config.h"
@@ -52,8 +57,7 @@
 #include <pthread.h>
 
 #include "fmt/format.h"
-//#include <spdlog/spdlog.h>
-
+#include "tools-md/tools-md.h"
 
 #include <openssl/opensslconf.h>
 #include <openssl/dh.h>
@@ -75,11 +79,7 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/filesystem.hpp>
 
-#ifdef EVMVC_USE_STD_STRING_VIEW
-    #include <string_view>
-#else
-    #include <boost/utility/string_view.hpp>
-#endif
+#include "tools-md/tools-md.h"
 
 #ifndef _libevmvc_stable_headers_h
 #define _libevmvc_stable_headers_h
@@ -109,29 +109,7 @@ inline size_t evbuffer_add_iovec(
 namespace evmvc {
 namespace bfs = boost::filesystem;
 
-#ifdef EVMVC_USE_STD_STRING_VIEW
-    /// The type of string view used by the library
-    using string_view = std::string_view;
-    
-    /// The type of basic string view used by the library
-    template<class CharT, class Traits>
-    using basic_string_view = std::basic_string_view<CharT, Traits>;
-
-#else
-    
-    /// The type of string view used by the library
-    using string_view = boost::string_view;
-    
-    /// The type of basic string view used by the library
-    template<class CharT, class Traits>
-    using basic_string_view = boost::basic_string_view<CharT, Traits>;
-    
-#endif
-
 typedef nlohmann::json json;
-
-class logger;
-typedef std::shared_ptr<logger> sp_logger;
 
 class app;
 typedef std::shared_ptr<app> sp_app;
@@ -216,7 +194,7 @@ enum class running_state
     running,
     stopping,
 };
-evmvc::string_view to_string(evmvc::running_state s)
+md::string_view to_string(evmvc::running_state s)
 {
     switch(s){
         case evmvc::running_state::stopped:
@@ -241,7 +219,7 @@ enum class http_version
     http_11,
     http_2
 };
-evmvc::string_view to_string(http_version v)
+md::string_view to_string(http_version v)
 {
     switch(v){
         case http_version::http_10:
@@ -269,7 +247,7 @@ namespace multip{
     typedef struct multipart_parser_t multipart_parser;
 }
 namespace _internal{
-    evmvc::sp_logger& default_logger();
+    md::log::sp_logger& default_logger();
     
     evmvc::sp_response create_http_response(
         wp_connection conn,
@@ -280,7 +258,7 @@ namespace _internal{
     );
     evmvc::sp_response on_headers_completed(
         wp_connection conn,
-        sp_logger log,
+        md::log::sp_logger log,
         url uri,
         http_version ver,
         sp_header_map hdrs,
@@ -294,36 +272,10 @@ namespace _internal{
     
     void send_error(
         evmvc::sp_response res, int status_code,
-        evmvc::string_view msg = ""
+        md::string_view msg = ""
     );
     
     
-    /* Write "n" bytes to a descriptor. */
-    ssize_t writen(int fd, const void *vptr, size_t n)
-    {
-        size_t nleft;
-        ssize_t nwritten;
-        const char* ptr;
-        
-        ptr = (const char*)vptr;
-        nleft = n;
-        while(nleft > 0){
-            if((nwritten = write(fd, ptr, nleft)) <= 0){
-                if(errno == EINTR)
-                    nwritten = 0;/* and call write() again */
-                else if(errno == EAGAIN || errno == EWOULDBLOCK){
-                    fsync(fd);
-                    nwritten = 0;/* and call write() again */
-                }else
-                    return(-1);/* error */
-            }
-            
-            nleft -= nwritten;
-            ptr   += nwritten;
-        }
-        return(n);
-    }
-    /* end writen */
     
     #define EVMVC_CTRL_MSG_MAX_ADDR_LEN 113
     typedef struct ctrl_msg_data_t
@@ -336,18 +288,11 @@ namespace _internal{
     
 }}//ns evmvc::_internal
 
-#include "stack_debug.h"
-
-#define EVMVC_ERR(msg, ...) \
-    evmvc::stacked_error( \
-        fmt::format(msg, ##__VA_ARGS__), \
-        __FILE__, __LINE__, __PRETTY_FUNCTION__ \
-    )
 
 #if EVMVC_BUILD_DEBUG
-#define EVMVC_DEF_TRACE(msg, ...) evmvc::_internal::default_logger()->trace(msg, ##__VA_ARGS__)
-#define EVMVC_DEF_DBG(msg, ...) evmvc::_internal::default_logger()->debug(msg, ##__VA_ARGS__)
-#define EVMVC_DEF_INFO(msg, ...) evmvc::_internal::default_logger()->info(msg, ##__VA_ARGS__)
+#define EVMVC_DEF_TRACE(msg, ...) md::log::default_logger()->trace(msg, ##__VA_ARGS__)
+#define EVMVC_DEF_DBG(msg, ...) md::log::default_logger()->debug(msg, ##__VA_ARGS__)
+#define EVMVC_DEF_INFO(msg, ...) md::log::default_logger()->info(msg, ##__VA_ARGS__)
 
 #define EVMVC_TRACE(log, msg, ...) log->trace(msg, ##__VA_ARGS__)
 #define EVMVC_DBG(log, msg, ...) log->debug(msg, ##__VA_ARGS__)
@@ -418,60 +363,8 @@ inline std::string version()
     return ver;
 }
 
-class stacked_error : public std::runtime_error 
-{
-public:
-    stacked_error(evmvc::string_view msg)
-        : std::runtime_error(msg.data()),
-        _stack(evmvc::_internal::get_stacktrace()),
-        _file(), _line(), _func()
-    {
-    }
-    
-    stacked_error(
-        evmvc::string_view msg,
-        evmvc::string_view filename,
-        int line,
-        evmvc::string_view func)
-        : std::runtime_error(msg.data()),
-        _stack(evmvc::_internal::get_stacktrace()),
-        _file(filename), _line(line), _func(func)
-    {
-    }
-    
-    ~stacked_error(){}
-    
-    std::string stack() const { return _stack;}
-    evmvc::string_view file(){ return _file;}
-    int line(){ return _line;}
-    evmvc::string_view func(){ return _func;}
-    
-private:
-    std::string _stack;
-    evmvc::string_view _file;
-    int _line;
-    evmvc::string_view _func;
-};
 
 
 } //ns evmvc
-
-#ifdef EVMVC_USE_STD_STRING_VIEW
-    
-#else
-namespace fmt {
-    template <>
-    struct formatter<evmvc::string_view> {
-        template <typename ParseContext>
-        constexpr auto parse(ParseContext &ctx) { return ctx.begin(); }
-
-        template <typename FormatContext>
-        auto format(const evmvc::string_view &s, FormatContext &ctx) {
-            return format_to(ctx.out(), "{}", s.data());
-        }
-    };
-}
-    
-#endif
 
 #endif//_libevmvc_stable_headers_h

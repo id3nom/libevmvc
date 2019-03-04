@@ -28,20 +28,20 @@ SOFTWARE.
 namespace evmvc {
 
 
-evmvc::sp_logger route_result::log()
+md::log::sp_logger route_result::log()
 {
     if(_route)
         return _route->log();
-    return evmvc::_internal::default_logger();
+    return md::log::default_logger();
 }
 
-void route_result::execute(evmvc::sp_response res, async_cb cb)
+void route_result::execute(evmvc::sp_response res, md::callback::async_cb cb)
 {
     _route->_exec(res->req(), res, 0, cb);
 }
 
 
-evmvc::sp_logger route::log() const
+md::log::sp_logger route::log() const
 {
     if(!_log)
         _log = _rtr.lock()->log()->add_child(this->_rp);
@@ -62,7 +62,7 @@ router::router(evmvc::wp_app app)
     EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
-router::router(evmvc::wp_app app, const evmvc::string_view& path)
+router::router(evmvc::wp_app app, const md::string_view& path)
     : _app(app),
     _path(_norm_path(path)),
     _log(_app.lock()->log()->add_child(_path)),

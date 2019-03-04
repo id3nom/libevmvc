@@ -66,7 +66,7 @@ evmvc::url_scheme request::protocol() const
         else if(!strcasecmp(h->value(), "http"))
             return evmvc::url_scheme::http;
         else
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Invalid 'X-Forwarded-Proto': '{}'", h->value()
             );
     }

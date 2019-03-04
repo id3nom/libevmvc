@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_file_reply_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "utils.h"
 
 namespace evmvc {
@@ -37,8 +36,8 @@ public:
         sp_response _res,
         wp_connection _conn,
         FILE* _file_desc,
-        async_cb _cb,
-        sp_logger _log)
+        md::callback::async_cb _cb,
+        md::log::sp_logger _log)
         :
         res(_res),
         conn(_conn),
@@ -69,8 +68,8 @@ public:
     struct evbuffer* buffer;
     z_stream* zs;
     uLong zs_size;
-    evmvc::async_cb cb;
-    evmvc::sp_logger log;
+    md::callback::async_cb cb;
+    md::log::sp_logger log;
 };
 typedef std::shared_ptr<file_reply> sp_file_reply;
 

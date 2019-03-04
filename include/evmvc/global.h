@@ -54,7 +54,7 @@ struct event_base* ev_base(
 void set_event_base(struct event_base* evb)
 {
     if(!evb)
-        throw EVMVC_ERR("event_base must be valid!");
+        throw MD_ERR("event_base must be valid!");
     evmvc::global::ev_base(evb, true);
 }
 

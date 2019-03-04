@@ -21,8 +21,6 @@
 #define _libevmvc_headers_h
 
 #include "stable_headers.h"
-//#include "router.h"
-#include "stack_debug.h"
 #include "fields.h"
 #include "utils.h"
 
@@ -58,8 +56,8 @@ class header
 {
 public:
     constexpr header(
-        const evmvc::string_view& hdr_name,
-        const evmvc::string_view& hdr_value)
+        const md::string_view& hdr_name,
+        const md::string_view& hdr_value)
         : _hdr_name(hdr_name), _hdr_value(hdr_value)
     {
     }
@@ -68,7 +66,7 @@ public:
     const char* value() const { return _hdr_value.data();}
     
     bool compare_value(
-        evmvc::string_view val, bool case_sensitive = false) const
+        md::string_view val, bool case_sensitive = false) const
     {
         if(case_sensitive)
             return strcmp(_hdr_value.data(), val.data()) == 0;
@@ -76,8 +74,8 @@ public:
     }
     
     std::string attr(
-        evmvc::string_view name,
-        evmvc::string_view default_val = "",
+        md::string_view name,
+        md::string_view default_val = "",
         const char& attr_sep = ';',
         const char& val_sep = '=') const
     {
@@ -127,7 +125,7 @@ public:
         return default_val.to_string();
     }
     
-    bool flag(evmvc::string_view name,
+    bool flag(md::string_view name,
         const char& attr_sep = ';',
         const char& val_sep = '=') const
     {
@@ -195,7 +193,7 @@ public:
             
             auto qloc = ele.find(";");
             if(qloc == std::string::npos){
-                std::string enc_name = evmvc::trim_copy(ele);
+                std::string enc_name = md::trim_copy(ele);
                 encs.emplace_back(
                     accept_encoding() = {
                         enc_name == "gzip" ?
@@ -210,13 +208,13 @@ public:
                 );
             } else {
                 std::string enc_name = 
-                    evmvc::trim_copy(ele.substr(0, qloc));
+                    md::trim_copy(ele.substr(0, qloc));
                 std::string enc_q = 
-                    evmvc::trim_copy(ele.substr(qloc+1));
+                    md::trim_copy(ele.substr(qloc+1));
                 auto qvalloc = enc_q.find("=");
                 float q = 100.0f - (float)i;
                 if(qvalloc != std::string::npos)
-                    q = evmvc::str_to_num<float>(enc_q.substr(qvalloc+1));
+                    q = md::str_to_num<float>(enc_q.substr(qvalloc+1));
                 
                 encs.emplace_back(
                     accept_encoding() = {
@@ -242,8 +240,8 @@ public:
     }
     
 private:
-    const evmvc::string_view _hdr_name;
-    const evmvc::string_view _hdr_value;
+    const md::string_view _hdr_name;
+    const md::string_view _hdr_value;
 };
 
 template<bool READ_ONLY>
@@ -274,7 +272,7 @@ public:
         return exists(to_string(header_name));
     }
 
-    bool exists(evmvc::string_view header_name) const
+    bool exists(md::string_view header_name) const
     {
         auto it = _hdrs->find(header_name.to_string());
         return it != _hdrs->end();
@@ -285,7 +283,7 @@ public:
         return get(to_string(header_name));
     }
     
-    evmvc::sp_header get(evmvc::string_view header_name) const
+    evmvc::sp_header get(md::string_view header_name) const
     {
         auto it = _hdrs->find(header_name.to_string());
         if(it == _hdrs->end())
@@ -298,14 +296,14 @@ public:
 
     bool compare_value(
         evmvc::field header_name,
-        evmvc::string_view val, bool case_sensitive = false) const
+        md::string_view val, bool case_sensitive = false) const
     {
         return compare_value(to_string(header_name), val, case_sensitive);
     }
     
     bool compare_value(
-        evmvc::string_view header_name,
-        evmvc::string_view val, bool case_sensitive = false) const
+        md::string_view header_name,
+        md::string_view val, bool case_sensitive = false) const
     {
         sp_header hdr = get(header_name);
         if(!hdr)
@@ -321,7 +319,7 @@ public:
         return list(to_string(header_name));
     }
     
-    std::vector<evmvc::sp_header> list(evmvc::string_view header_name) const
+    std::vector<evmvc::sp_header> list(md::string_view header_name) const
     {
         std::vector<evmvc::sp_header> vals;
         
@@ -379,7 +377,7 @@ public:
     
     template<bool CAN_WRITE = !READ_ONLY>
     typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& set(
-        evmvc::field header_name, evmvc::string_view header_val,
+        evmvc::field header_name, md::string_view header_val,
         bool clear_existing = true)
     {
         // static_assert(
@@ -393,7 +391,7 @@ public:
     
     template<bool CAN_WRITE = !READ_ONLY>
     typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type& set(
-        evmvc::string_view header_name, evmvc::string_view header_val,
+        md::string_view header_name, md::string_view header_val,
         bool clear_existing = true)
     {
         std::string hn = header_name.to_string();
@@ -424,7 +422,7 @@ public:
     
     template<bool CAN_WRITE = !READ_ONLY>
     typename std::enable_if<CAN_WRITE, http_headers<READ_ONLY>>::type remove(
-        evmvc::string_view header_name)
+        md::string_view header_name)
     {
         _hdrs->erase(header_name.to_string());
         return *this;

@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_url_h
 
 #include "stable_headers.h"
-#include "logging.h"
 
 namespace evmvc {
 
@@ -37,7 +36,7 @@ enum class url_scheme
     unknown,
 };
 
-evmvc::string_view to_string(evmvc::url_scheme p)
+md::string_view to_string(evmvc::url_scheme p)
 {
     switch(p){
         case evmvc::url_scheme::http:
@@ -45,7 +44,7 @@ evmvc::string_view to_string(evmvc::url_scheme p)
         case evmvc::url_scheme::https:
             return "https";
         default:
-            throw EVMVC_ERR("UNKNOWN url_scheme: '{}'", (int)p);
+            throw MD_ERR("UNKNOWN url_scheme: '{}'", (int)p);
     }
 }
 
@@ -67,13 +66,13 @@ public:
     {
     }
     
-    url(evmvc::string_view u)
+    url(md::string_view u)
         : _empty(u.size() == 0)
     {
         _parse(u);
     }
     
-    url(const evmvc::string_view sbase, evmvc::string_view u)
+    url(const md::string_view sbase, md::string_view u)
         : _empty(sbase.size() == 0 && u.size() == 0)
     {
         url base(sbase);
@@ -95,7 +94,7 @@ public:
             _path = base._path + _path;
     }
     
-    url(const url& base, evmvc::string_view u)
+    url(const url& base, md::string_view u)
         : _empty(base.empty() && u.size() == 0)
     {
         _parse(u);
@@ -270,7 +269,7 @@ public:
     }
     
 private:
-    void _parse(evmvc::string_view u)
+    void _parse(md::string_view u)
     {
         if(u.size() == 0)
             return;
@@ -296,7 +295,7 @@ private:
                 case EVMVC_URL_PARSE_SCHEME:{
                     ssize_t idx1 = evmvc::find_ch(data, len, ':', spos);
                     if(idx1 == -1)
-                        throw EVMVC_ERR("Invalid uri: '{}'", u);
+                        throw MD_ERR("Invalid uri: '{}'", u);
                     
                     _scheme_string = data_substring(data, spos, idx1);
                     boost::to_lower(_scheme_string);
@@ -424,7 +423,7 @@ private:
                                 _port_string = data_substring(
                                     data, spos, fidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(
+                                _port = md::str_to_num<uint16_t>(
                                     _port_string
                                 );
                                 spos = fidx +1;
@@ -437,7 +436,7 @@ private:
                                 _port_string = data_substring(
                                     data, spos, qidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(
+                                _port = md::str_to_num<uint16_t>(
                                     _port_string
                                 );
                                 spos = qidx +1;
@@ -448,7 +447,7 @@ private:
                                 _port_string = data_substring(
                                     data, spos, pidx
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(
+                                _port = md::str_to_num<uint16_t>(
                                     _port_string
                                 );
                                 spos = pidx +1;
@@ -460,7 +459,7 @@ private:
                                 _port_string = data_substring(
                                     data, spos, len
                                 );
-                                _port = evmvc::str_to_num<uint16_t>(
+                                _port = md::str_to_num<uint16_t>(
                                     _port_string
                                 );
                                 spos += _port_string.size();
@@ -468,7 +467,7 @@ private:
                             }
                         }
                         default:
-                            throw EVMVC_ERR(
+                            throw MD_ERR(
                                 "Invalid parsing sub section: '{}'", sub_sec
                             );
                     }
@@ -541,7 +540,7 @@ private:
                     break;
                 }
                 default:
-                    throw EVMVC_ERR("Invalid parsing section: '{}'", section);
+                    throw MD_ERR("Invalid parsing section: '{}'", section);
             }
         }
     }

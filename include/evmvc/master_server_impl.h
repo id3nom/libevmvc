@@ -128,14 +128,14 @@ void listener::master_listen_cb(
     //     }
         
     if(!pw)
-        return a->log()->fail(EVMVC_ERR(
+        return a->log()->fail(MD_ERR(
             "Unable to find an available http_worker!"
         ));
     
     int res = pw->channel().sendmsg(&msgh, 0);
     close(sock);
     if(res == -1)
-        return a->log()->fatal(EVMVC_ERR(
+        return a->log()->fatal(MD_ERR(
             "sendmsg to http_worker failed: {}", errno
         ));
 }

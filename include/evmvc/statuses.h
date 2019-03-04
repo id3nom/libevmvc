@@ -142,7 +142,7 @@ public:
         return _retry;
     }
     
-    static evmvc::string_view category(int16_t code)
+    static md::string_view category(int16_t code)
     {
         if(code < 200)
             return "Info";
@@ -154,12 +154,12 @@ public:
             return "Client error";
         return "Server error";
     }
-    static evmvc::string_view category(evmvc::status s)
+    static md::string_view category(evmvc::status s)
     {
         return category((int16_t)s);
     }
     
-    static evmvc::string_view color(int16_t code)
+    static md::string_view color(int16_t code)
     {
         if(code < 300)
             return "green";
@@ -170,7 +170,7 @@ public:
             
         return "red";
     }
-    static evmvc::string_view color(evmvc::status s)
+    static md::string_view color(evmvc::status s)
     {
         return color((int16_t)s);
     }
@@ -248,7 +248,7 @@ public:
     
     static std::string status(int16_t code)
     {
-        std::string sc = evmvc::num_to_str(code, false);
+        std::string sc = md::num_to_str(code, false);
         auto it = codes().find(sc);
         if(it == codes().end())
             return "Invalid status code!";
@@ -260,7 +260,7 @@ public:
         return status((int16_t)s);
     }
     
-    static int16_t code(evmvc::string_view msg)
+    static int16_t code(md::string_view msg)
     {
         static evmvc::json _msgs = {
             {"continue", 100},

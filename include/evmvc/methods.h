@@ -45,7 +45,7 @@ enum class method
     unknown,
 };
 
-evmvc::string_view to_string(evmvc::method v)
+md::string_view to_string(evmvc::method v)
 {
     switch(v){
         case evmvc::method::get:
@@ -71,7 +71,7 @@ evmvc::string_view to_string(evmvc::method v)
     }
 }
 
-evmvc::method parse_method(evmvc::string_view s)
+evmvc::method parse_method(md::string_view s)
 {
     if(s.size() == 3){
         if(!strncasecmp("get", s.data(), 3))

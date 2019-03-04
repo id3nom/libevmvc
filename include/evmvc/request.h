@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_request_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "utils.h"
 #include "url.h"
 #include "headers.h"
@@ -60,11 +59,11 @@ public:
         uint64_t id,
         http_version ver,
         wp_connection conn,
-        evmvc::sp_logger log,
+        md::log::sp_logger log,
         const evmvc::sp_route& rt,
         url uri,
         evmvc::method met,
-        evmvc::string_view smet,
+        md::string_view smet,
         sp_header_map hdrs,
         const sp_http_cookies& http_cookies,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p
@@ -73,7 +72,7 @@ public:
         _version(ver),
         _conn(conn),
         _log(log->add_child(
-            "req-" + evmvc::num_to_str(id, false) +
+            "req-" + md::num_to_str(id, false) +
             "/" + uri.to_string()
         )),
         _rt(rt),
@@ -89,13 +88,13 @@ public:
     {
         EVMVC_DEF_TRACE("request {} {:p} created", _id, (void*)this);
         
-        if(_log->should_log(log_level::trace)){
+        if(_log->should_log(md::log::log_level::trace)){
             std::string hdrs_dbg;
             for(auto& it : *hdrs.get())
                 hdrs_dbg += fmt::format(
                     "{}: {}\n",
                     it.first,
-                    evmvc::join(it.second, "; ")
+                    md::join(it.second, "; ")
                 );
             EVMVC_TRACE(_log, hdrs_dbg);
         }
@@ -144,7 +143,7 @@ public:
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
-    evmvc::sp_logger log() const { return _log;}
+    md::log::sp_logger log() const { return _log;}
     const url& uri() const { return _uri;}
     
     std::string connection_ip() const;
@@ -160,7 +159,7 @@ public:
         if(!h)
             return connection_ip();
         
-        std::string ips = evmvc::trim_copy(h->value());
+        std::string ips = md::trim_copy(h->value());
         auto cp = ips.find(",");
         if(cp == std::string::npos)
             return ips;
@@ -174,7 +173,7 @@ public:
         if(!h)
             return {connection_ip()};
         
-        std::string ips = evmvc::trim_copy(h->value());
+        std::string ips = md::trim_copy(h->value());
         
         std::vector<std::string> vals;
         size_t start = 0;
@@ -209,12 +208,12 @@ public:
     http_files& files() const { return *(_files.get());}
     
     http_params_t& params() const { return *(_rt_params.get());}
-    http_param& params(evmvc::string_view name) const
+    http_param& params(md::string_view name) const
     {
         return *(_rt_params->get(name).get());
     }
     template<typename PARAM_T>
-    PARAM_T params(evmvc::string_view name, PARAM_T def_val) const
+    PARAM_T params(md::string_view name, PARAM_T def_val) const
     {
         auto p = _rt_params->get(name);
         if(p)
@@ -223,12 +222,12 @@ public:
     }
     
     http_params_t& query() const { return *(_qry_params.get());}
-    http_param& query(evmvc::string_view name) const
+    http_param& query(md::string_view name) const
     {
         return *(_qry_params->get(name).get());
     }
     template<typename PARAM_T>
-    PARAM_T query(evmvc::string_view name, PARAM_T def_val) const
+    PARAM_T query(md::string_view name, PARAM_T def_val) const
     {
         auto p = _qry_params->get(name);
         if(p)
@@ -237,12 +236,12 @@ public:
     }
     
     http_params_t& body() const { return *(_body_params.get());}
-    http_param& body(evmvc::string_view name) const
+    http_param& body(md::string_view name) const
     {
         return *(_body_params->get(name).get());
     }
     template<typename PARAM_T>
-    PARAM_T body(evmvc::string_view name, PARAM_T def_val) const
+    PARAM_T body(md::string_view name, PARAM_T def_val) const
     {
         auto p = _body_params->get(name);
         if(p)
@@ -280,7 +279,7 @@ protected:
     uint64_t _id;
     http_version _version;
     wp_connection _conn;
-    evmvc::sp_logger _log;
+    md::log::sp_logger _log;
     evmvc::sp_route _rt;
     evmvc::url _uri;
     evmvc::method _met;

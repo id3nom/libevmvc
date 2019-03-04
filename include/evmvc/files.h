@@ -60,7 +60,7 @@ public:
         boost::system::error_code ec;
         if(!_temp_path.empty() && bfs::exists(_temp_path, ec)){
             if(ec){
-                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                md::log::default_logger()->warn(MD_ERR(
                     "Unable to verify file '{}' existence!\n{}",
                     _temp_path.string(), ec.message()
                 ));
@@ -68,7 +68,7 @@ public:
             }
             bfs::remove(_temp_path, ec);
             if(ec)
-                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                md::log::default_logger()->warn(MD_ERR(
                     "Unable to remove file '{}'!\n{}",
                     _temp_path.string(), ec.message()
                 ));
@@ -116,18 +116,18 @@ public:
     sp_http_file get(size_t idx) const
     {
         if(idx >= _files.size())
-            throw EVMVC_ERR("Index is out of bound!");
+            throw MD_ERR("Index is out of bound!");
         return _files[idx];
     }
     
     sp_http_file operator [](size_t idx) const
     {
         if(idx >= _files.size())
-            throw EVMVC_ERR("Index is out of bound!");
+            throw MD_ERR("Index is out of bound!");
         return _files[idx];
     }
     
-    sp_http_file get(evmvc::string_view name) const
+    sp_http_file get(md::string_view name) const
     {
         for(auto& f : _files)
             if(strcasecmp(f->_name.c_str(), name.data()) == 0)

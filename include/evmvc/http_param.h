@@ -22,7 +22,6 @@
 
 #include "stable_headers.h"
 #include "router.h"
-#include "stack_debug.h"
 #include "fields.h"
 
 namespace evmvc {
@@ -31,8 +30,8 @@ class http_param
 {
 public:
     http_param(
-        const evmvc::string_view& param_name,
-        const evmvc::string_view& param_value)
+        const md::string_view& param_name,
+        const md::string_view& param_value)
         : _param_name(param_name), _param_value(param_value)
     {
     }
@@ -78,7 +77,7 @@ public:
     >
     ParamType get() const
     {
-        return str_to_num<ParamType>(_param_value);
+        return md::str_to_num<ParamType>(_param_value);
     }
     
     template<typename PARAM_T>
@@ -103,7 +102,7 @@ inline const char* evmvc::http_param::get<const char*, -1>() const
     return _param_value.c_str();
 }
 template<>
-inline evmvc::string_view evmvc::http_param::get<evmvc::string_view, -1>() const
+inline md::string_view evmvc::http_param::get<md::string_view, -1>() const
 {
     return _param_value.c_str();
 }
@@ -140,7 +139,7 @@ public:
         _params.emplace_back(p);
     }
     
-    sp_http_param get(evmvc::string_view name) const
+    sp_http_param get(md::string_view name) const
     {
         for(auto it : _params)
             if(strcasecmp(it->name(), name.data()) == 0)
@@ -149,7 +148,7 @@ public:
     }
     
     template<typename PARAM_T>
-    PARAM_T get(evmvc::string_view name, PARAM_T def_val = PARAM_T()) const
+    PARAM_T get(md::string_view name, PARAM_T def_val = PARAM_T()) const
     {
         for(auto it : _params)
             if(strcasecmp(it->name(), name.data()) == 0)
@@ -169,7 +168,7 @@ public:
     }
 
     template<typename PARAM_T>
-    PARAM_T operator[](evmvc::string_view name) const
+    PARAM_T operator[](md::string_view name) const
     {
         for(auto it : _params)
             if(strcasecmp(it->name(), name.data()) == 0)
@@ -179,7 +178,7 @@ public:
     
     template<typename PARAM_T>
     PARAM_T operator()(
-        evmvc::string_view name, PARAM_T def_val = PARAM_T()) const
+        md::string_view name, PARAM_T def_val = PARAM_T()) const
     {
         for(auto it : _params)
             if(strcasecmp(it->name(), name.data()) == 0)

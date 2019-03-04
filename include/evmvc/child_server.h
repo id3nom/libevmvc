@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "utils.h"
-#include "logging.h"
 #include "configuration.h"
 
 namespace evmvc {
@@ -53,7 +52,7 @@ class child_server
         return ++_id;
     }
 public:
-    child_server(const server_options& config, const sp_logger& log)
+    child_server(const server_options& config, const md::log::sp_logger& log)
         : _id(std::hash<std::string>{}(config.name)),
         _config(config),
         _log(log->add_child(
@@ -82,7 +81,7 @@ public:
     bool stopping() const { return _status == running_state::stopping;}
     
     const server_options& config() const { return _config;}
-    sp_logger log() const { return _log;}
+    md::log::sp_logger log() const { return _log;}
     SSL_CTX* ssl_ctx() const { return _ssl_ctx;}
     
     const struct timeval& atimeo() const { return _config.atimeo;}
@@ -95,7 +94,7 @@ public:
     void start()
     {
         if(!stopped())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Server must be in stopped state to start listening again"
             );
         _status = running_state::starting;
@@ -112,7 +111,7 @@ public:
     void stop()
     {
         if(stopped() || stopping())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Child server must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
@@ -135,14 +134,14 @@ private:
         unsigned char c;
         
         if(!RAND_poll())
-            _log->fatal(EVMVC_ERR("RAND_poll failed"));
+            _log->fatal(MD_ERR("RAND_poll failed"));
         
         if(!RAND_bytes(&c, 1))
-            _log->fatal(EVMVC_ERR("RAND_bytes failed"));
+            _log->fatal(MD_ERR("RAND_bytes failed"));
         
         _ssl_ctx = SSL_CTX_new(TLS_server_method());
         if(!_ssl_ctx)
-            _log->fatal(EVMVC_ERR("SSL_CTX_new out of memory!"));
+            _log->fatal(MD_ERR("SSL_CTX_new out of memory!"));
         
         SSL_CTX_set_options(
             _ssl_ctx,
@@ -161,14 +160,14 @@ private:
             
             nid = OBJ_sn2nid(_config.ssl.named_curve.c_str());
             if(nid == 0)
-                _log->fatal(EVMVC_ERR(
+                _log->fatal(MD_ERR(
                     "ECDH init failed with unknown curve: " +
                     std::string(_config.ssl.named_curve)
                 ));
             
             ecdh = EC_KEY_new_by_curve_name(nid);
             if(!ecdh)
-                _log->fatal(EVMVC_ERR(
+                _log->fatal(MD_ERR(
                     "ECDH init failed for curve: " +
                     std::string(_config.ssl.named_curve)
                 ));
@@ -178,7 +177,7 @@ private:
         }else{
             EC_KEY* ecdh = EC_KEY_new_by_curve_name(NID_X9_62_prime256v1);
             if(!ecdh)
-                _log->fatal(EVMVC_ERR(
+                _log->fatal(MD_ERR(
                     "ECDH init failed for curve: NID_X9_62_prime256v1"
                 ));
             
@@ -193,14 +192,14 @@ private:
             
             fh = fopen(_config.ssl.dhparams.c_str(), "r");
             if(!fh)
-                _log->error(EVMVC_ERR(
+                _log->error(MD_ERR(
                     "DH init failed: unable to open file: {}",
                     _config.ssl.dhparams
                 ));
             else{
                 dh = PEM_read_DHparams(fh, nullptr, nullptr, nullptr);
                 if(!dh)
-                    _log->error(EVMVC_ERR(
+                    _log->error(MD_ERR(
                         "DH init failed: unable to parse file: {}",
                         _config.ssl.dhparams
                     ));
@@ -218,7 +217,7 @@ private:
             if(SSL_CTX_set_cipher_list(
                 _ssl_ctx, _config.ssl.ciphers.c_str()) == 0
             )
-                _log->fatal(EVMVC_ERR("set_cipher_list"));
+                _log->fatal(MD_ERR("set_cipher_list"));
         }
         
         if(!_config.ssl.cafile.empty())
@@ -253,7 +252,7 @@ private:
         // verify if cert_file exists
         struct stat fst;
         if(stat(_config.ssl.cert_file.c_str(), &fst))
-            _log->fatal(EVMVC_ERR(
+            _log->fatal(MD_ERR(
                 "bad cert_file, errno: " + std::to_string(errno)
             ));
         
@@ -267,12 +266,12 @@ private:
         if(_config.ssl.decrypt_cb){
             EVP_PKEY* pkey = _config.ssl.decrypt_cb(key);
             if(!pkey)
-                _log->fatal(EVMVC_ERR("decrypt_cb(key)"));
+                _log->fatal(MD_ERR("decrypt_cb(key)"));
             SSL_CTX_use_PrivateKey(_ssl_ctx, pkey);
             EVP_PKEY_free(pkey);
         }else{
             if(stat(_config.ssl.cert_key_file.c_str(), &fst))
-                _log->fatal(EVMVC_ERR(
+                _log->fatal(MD_ERR(
                     "bad cert_key_file, errno: " + std::to_string(errno)
                 ));
             
@@ -323,7 +322,7 @@ private:
     evmvc::running_state _status = running_state::stopped;
     size_t _id;
     server_options _config;
-    sp_logger _log;
+    md::log::sp_logger _log;
     
     SSL_CTX* _ssl_ctx = nullptr;
     

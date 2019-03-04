@@ -36,7 +36,7 @@ struct bufferevent* http_parser::bev() const
 void http_parser::exec()
 {
     if(_status != parser_state::ready_to_exec)
-        throw EVMVC_ERR("Invalid state: {}", to_string(_status));
+        throw MD_ERR("Invalid state: {}", to_string(_status));
     _status = parser_state::responding;
     
     try{
@@ -52,7 +52,7 @@ void http_parser::exec()
     }catch(const std::exception& err){
         _res->error(
             evmvc::status::internal_server_error,
-            EVMVC_ERR(err.what())
+            MD_ERR(err.what())
         );
     }
 }
@@ -71,7 +71,7 @@ void http_parser::validate_headers()
         _status = parser_state::error;
         return;
     }
-    base_url += evmvc::trim_copy(it->second.front());
+    base_url += md::trim_copy(it->second.front());
     _uri = url(base_url, _uri_string);
     
     _log->success(
@@ -107,7 +107,7 @@ void http_parser::validate_headers()
         
         _res->error(
             evmvc::status::not_found,
-            EVMVC_ERR(
+            MD_ERR(
                 "Unable to find ressource at '{}'",
                 _uri.to_string()
             )
@@ -136,12 +136,12 @@ void http_parser::validate_headers()
     _rr->validate_access(
         ctx,
     [self = this->shared_from_this(), a, rr = _rr, res = _res]
-    (const evmvc::cb_error& err){
+    (const md::callback::cb_error& err){
         if(err)
             self->_log->fail("Access Denied!\n{}", err.c_str());
         
         res->resume([a, /*_rr = rr, */res, v_err = err]
-        (const evmvc::cb_error& err){
+        (const md::callback::cb_error& err){
             if(err)
                 return res->error(
                     evmvc::status::unauthorized,
@@ -168,7 +168,7 @@ void http_parser::init_multip()
     
     std::string boundary = multip::get_boundary(_log, _hdrs);
     if(boundary.size() == 0){
-        _log->error(EVMVC_ERR(
+        _log->error(MD_ERR(
             "Invalid multipart/form-data boundary"
         ));
         _status = parser_state::error;

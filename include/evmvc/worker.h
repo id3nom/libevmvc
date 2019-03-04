@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_worker_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "configuration.h"
 #include "unix_socket_utils.h"
 #include "child_server.h"
@@ -93,7 +92,7 @@ public:
     {
         if(_type == channel_type::master)
             return ::sendmsg(usock, __message, __flags);
-        throw EVMVC_ERR("sendmsg can only be called in master process!");
+        throw MD_ERR("sendmsg can only be called in master process!");
     }
     
     ssize_t sendcmd(int cmd_id, const char* payload, size_t payload_len)
@@ -102,7 +101,7 @@ public:
             ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
         
         ssize_t tn = 0;
-        ssize_t n = _internal::writen(
+        ssize_t n = md::files::writen(
             fd,
             &cmd_id,
             sizeof(int)
@@ -114,7 +113,7 @@ public:
             return -1;
         }
         tn += n;
-        n = _internal::writen(
+        n = md::files::writen(
             fd,
             &payload_len,
             sizeof(size_t)
@@ -127,7 +126,7 @@ public:
         }
         tn += n;
         if(payload_len > 0){
-            n = _internal::writen(
+            n = md::files::writen(
                 fd,
                 payload,
                 payload_len
@@ -157,8 +156,8 @@ private:
         if(usock > -1 && remove(usock_path.c_str()) == -1){
             int err = errno;
             if(err != ENOENT)
-                evmvc::_internal::default_logger()->error(
-                    EVMVC_ERR(
+                md::log::default_logger()->error(
+                    MD_ERR(
                         "unable to remove unix socket, err: {}, path: '{}'",
                         err, usock_path
                     )
@@ -198,8 +197,8 @@ private:
         if(usock > -1 && remove(usock_path.c_str()) == -1){
             int err = errno;
             if(err != ENOENT)
-                evmvc::_internal::default_logger()->error(
-                    EVMVC_ERR(
+                md::log::default_logger()->error(
+                    MD_ERR(
                         "unable to remove unix socket, err: {}, path: '{}'",
                         err, usock_path
                     )
@@ -254,29 +253,29 @@ enum class worker_type
     http = 0,
     cache = 1,
 };
-evmvc::string_view to_string(worker_type t)
+md::string_view to_string(worker_type t)
 {
     switch(t){
         case worker_type::http:     return "http";
         case worker_type::cache:    return "cache";
         default:
-            throw EVMVC_ERR("UNKNOWN worker_type: '{}'", (int)t);
+            throw MD_ERR("UNKNOWN worker_type: '{}'", (int)t);
     }
 }
 
 namespace sinks{
 class child_sink
-    : public logger_sink
+    : public md::log::sinks::logger_sink
 {
 public:
     child_sink(std::weak_ptr<worker> w)
-        : logger_sink(log_level::info), _w(w)
+        : md::log::sinks::logger_sink(md::log::log_level::info), _w(w)
     {
     }
     
     void log(
-        evmvc::string_view log_path,
-        log_level lvl, evmvc::string_view msg
+        md::string_view log_path,
+        md::log::log_level lvl, md::string_view msg
     ) const;
 private:
     std::weak_ptr<worker> _w;
@@ -301,21 +300,21 @@ protected:
     static void _on_event_log(int severity, const char *msg)
     {
         if(severity == _EVENT_LOG_DEBUG)
-            evmvc::_internal::default_logger()->debug(msg);
+            md::log::default_logger()->debug(msg);
         else
-            evmvc::_internal::default_logger()->error(msg);
+            md::log::default_logger()->error(msg);
     }
     
     static void _on_event_fatal_error(int err)
     {
-        evmvc::_internal::default_logger()->fatal(
+        md::log::default_logger()->fatal(
             "Exiting because libevent send a fatal error: '{}'",
             err
         );
     }
     
     worker(const wp_app& app, const app_options& config,
-        worker_type wtype, const sp_logger& log)
+        worker_type wtype, const md::log::sp_logger& log)
         : _app(app),
         _config(config),
         _wtype(wtype),
@@ -360,7 +359,7 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
-    sp_logger log() const { return _log;}
+    md::log::sp_logger log() const { return _log;}
     
     int id() const { return _id;}
     int pid() { return _pid;}
@@ -374,7 +373,7 @@ public:
     virtual void start(int argc, char** argv, int pid)
     {
         if(!stopped())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Worker must be in stopped state to start listening again"
             );
         _status = running_state::starting;
@@ -427,7 +426,7 @@ public:
     void stop(bool force = false)
     {
         if(stopped() || stopping())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Worker must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
@@ -483,7 +482,7 @@ public:
     }
     
     ssize_t send_log(
-        evmvc::log_level lvl, evmvc::string_view path, evmvc::string_view msg)
+        md::log::log_level lvl, md::string_view path, md::string_view msg)
     {
         size_t pl =
             sizeof(int) + // log level
@@ -518,7 +517,7 @@ protected:
     app_options _config;
     worker_type _wtype;
     int _id;
-    sp_logger _log;
+    md::log::sp_logger _log;
     
     int _pid;
     process_type _ptype;
@@ -526,8 +525,8 @@ protected:
 };
 
 void sinks::child_sink::log(
-    evmvc::string_view log_path,
-    log_level lvl, evmvc::string_view msg) const
+    md::string_view log_path,
+    md::log::log_level lvl, md::string_view msg) const
 {
     if(auto w = _w.lock())
         w->send_log(lvl, log_path, msg);
@@ -552,7 +551,7 @@ void channel::_init()
         channel_type::unknown;
     
     if(ct == channel_type::unknown)
-        throw EVMVC_ERR("invalid channel_type 'unknown'!");
+        throw MD_ERR("invalid channel_type 'unknown'!");
     
     _type = ct;
     switch(ct){
@@ -575,7 +574,7 @@ class http_worker
     
 public:
     http_worker(const wp_app& app, const app_options& config,
-        const sp_logger& log)
+        const md::log::sp_logger& log)
         : worker(app, config, worker_type::http, log)
     {
     }
@@ -626,14 +625,14 @@ public:
             return nullptr;
         return it->second;
     }
-    sp_child_server find_server_by_name(evmvc::string_view name)
+    sp_child_server find_server_by_name(md::string_view name)
     {
         for(auto& s : _servers)
             if(!strcasecmp(s.second->name().c_str(), name.data()))
                 return s.second;
         return nullptr;
     }
-    sp_child_server find_server_by_alias(evmvc::string_view name)
+    sp_child_server find_server_by_alias(md::string_view name)
     {
         for(auto& s : _servers){
             for(auto& alias : s.second->aliases()){
@@ -709,7 +708,7 @@ private:
         
         sp_child_server srv = find_server_by_id(srv_id);
         if(!srv)
-            _log->fatal(EVMVC_ERR(
+            _log->fatal(MD_ERR(
                 "Invalid server id: '{}'", srv_id
             ));
         url_scheme proto = (url_scheme)iproto;
@@ -738,7 +737,7 @@ class cache_worker
 {
 public:
     cache_worker(const wp_app& app, const app_options& config,
-        const sp_logger& log)
+        const md::log::sp_logger& log)
         : worker(app, config, worker_type::cache, log)
     {
     }

@@ -165,9 +165,9 @@ endif()
 
 
 
-####################
+################
 ### libevmvc ###
-####################
+################
 
 # configure a header file to pass some of the CMake settings
 # to the source code
@@ -187,6 +187,7 @@ include_directories("${PROJECT_BINARY_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/date/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/fmt/include"
     "${CMAKE_CURRENT_SOURCE_DIR}/deps/json/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/tools-md/include"
 )
 
 set(CMAKE_INCLUDE_CURRENT_DIR ON)

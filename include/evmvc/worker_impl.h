@@ -37,7 +37,7 @@ void channel_cmd_read(int fd, short events, void* arg)
             int err = errno;
             if(err == EAGAIN || err == EWOULDBLOCK)
                 return;
-            chan->worker()->log()->error(EVMVC_ERR(
+            chan->worker()->log()->error(MD_ERR(
                 "Unable to read from pipe: {}, err: {}",
                 fd, err
             ));
@@ -116,7 +116,7 @@ void channel::_init_child_channels()
     if(remove(usock_path.c_str()) == -1){
         int err = errno;
         if(err != ENOENT)
-            return _worker->log()->fatal(EVMVC_ERR(
+            return _worker->log()->fatal(MD_ERR(
                 "unable to remove unix socket '{}', err: {}", usock_path, err
             ));
     }
@@ -124,12 +124,12 @@ void channel::_init_child_channels()
     // create the client listener.
     int lfd = _internal::unix_bind(usock_path.c_str(), SOCK_STREAM);
     if(lfd == -1)
-        return _worker->log()->fatal(EVMVC_ERR(
+        return _worker->log()->fatal(MD_ERR(
             "unix_bind '{}', err: {}", usock_path, errno
         ));
     
     if(listen(lfd, 5) == -1)
-        return _worker->log()->fatal(EVMVC_ERR(
+        return _worker->log()->fatal(MD_ERR(
             "listen: {}", std::to_string(errno)
         ));
     
@@ -138,7 +138,7 @@ void channel::_init_child_channels()
         usock = accept(lfd, nullptr, nullptr);
         if(usock == -1)
             _worker->log()->warn(
-                EVMVC_ERR("accept err: {}", errno)
+                MD_ERR("accept err: {}", errno)
             );
     }while(usock == -1);
     _internal::unix_set_sock_opts(usock);
@@ -224,7 +224,7 @@ void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
         }
         case EVMVC_CMD_LOG:{
             //EVMVC_DBG(_log, "CMD LOG recv");
-            log_level lvl = (log_level)(*(int*)p);
+            md::log::log_level lvl = (md::log::log_level)(*(int*)p);
             p += sizeof(int);
             
             size_t log_path_size = *(size_t*)p;
@@ -238,9 +238,9 @@ void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
             p += log_msg_size;
             
             _log->log(
-                evmvc::string_view(log_path, log_path_size),
+                md::string_view(log_path, log_path_size),
                 lvl,
-                evmvc::string_view(log_msg, log_msg_size)
+                md::string_view(log_msg, log_msg_size)
             );
             
             break;
@@ -251,7 +251,7 @@ void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
                     "unknown cmd_id: '{}', payload len: '{}'\n"
                     "payload: '{}'",
                     cmd_id, plen,
-                    evmvc::base64_encode(evmvc::string_view(p, plen))
+                    md::base64_encode(md::string_view(p, plen))
                 );
             else
                 _log->warn(
@@ -299,7 +299,7 @@ void http_worker::on_http_worker_accept(int fd, short events, void* arg)
             if(terrno == EAGAIN || terrno == EWOULDBLOCK)
                 return;
             
-            w->_log->fatal(EVMVC_ERR(
+            w->_log->fatal(MD_ERR(
                 "recvmsg: " + std::to_string(terrno)
             ));
         }
@@ -314,11 +314,11 @@ void http_worker::on_http_worker_accept(int fd, short events, void* arg)
         cmsgp = CMSG_FIRSTHDR(&msgh);
         /* Check the validity of the 'cmsghdr' */
         if (cmsgp == NULL || cmsgp->cmsg_len != CMSG_LEN(sizeof(int)))
-            w->_log->fatal(EVMVC_ERR("bad cmsg header / message length"));
+            w->_log->fatal(MD_ERR("bad cmsg header / message length"));
         if (cmsgp->cmsg_level != SOL_SOCKET)
-            w->_log->fatal(EVMVC_ERR("cmsg_level != SOL_SOCKET"));
+            w->_log->fatal(MD_ERR("cmsg_level != SOL_SOCKET"));
         if (cmsgp->cmsg_type != SCM_RIGHTS)
-            w->_log->fatal(EVMVC_ERR("cmsg_type != SCM_RIGHTS"));
+            w->_log->fatal(MD_ERR("cmsg_type != SCM_RIGHTS"));
         
         #pragma GCC diagnostic push
         #pragma GCC diagnostic ignored "-Wstrict-aliasing"

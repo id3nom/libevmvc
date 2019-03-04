@@ -30,7 +30,6 @@ SOFTWARE.
 #include "configuration.h"
 #include "events.h"
 #include "router.h"
-#include "stack_debug.h"
 
 #include "worker.h"
 #include "master_server.h"
@@ -57,25 +56,26 @@ public:
         
         // init the default logger
         if(_options.use_default_logger){
-            std::vector<evmvc::sinks::sp_logger_sink> sinks;
+            std::vector<md::log::sinks::sp_logger_sink> sinks;
             
-            auto out_sink = std::make_shared<evmvc::sinks::console_sink>(
+            auto out_sink = std::make_shared<md::log::sinks::console_sink>(
                 _options.log_console_enable_color
             );
             out_sink->set_level(_options.log_console_level);
             sinks.emplace_back(out_sink);
             
             bfs::create_directories(_options.log_dir);
-            auto file_sink = std::make_shared<evmvc::sinks::rotating_file_sink>(
-                evmvc::global::ev_base(),
-                (_options.log_dir / "libevmvc.log").c_str(),
-                _options.log_file_max_size,
-                _options.log_file_max_files
-            );
+            auto file_sink = 
+                std::make_shared<md::log::sinks::rotating_file_sink>(
+                    evmvc::global::ev_base(),
+                    (_options.log_dir / "libevmvc.log").c_str(),
+                    _options.log_file_max_size,
+                    _options.log_file_max_files
+                );
             file_sink->set_level(_options.log_file_level);
             sinks.emplace_back(file_sink);
             
-            _log = std::make_shared<evmvc::logger>(
+            _log = std::make_shared<md::log::logger>(
                 "/", sinks.begin(), sinks.end()
             );
             _log->set_level(
@@ -83,9 +83,9 @@ public:
                     _options.log_file_level, _options.log_console_level
                 )
             );
-            _internal::default_logger() = _log;
+            md::log::default_logger() = _log;
         }else
-            _log = _internal::default_logger()->add_child(
+            _log = md::log::default_logger()->add_child(
                 "/"
             );
     }
@@ -104,11 +104,11 @@ public:
     
     app_options& options(){ return _options;}
     
-    void replace_logger(evmvc::sp_logger l)
+    void replace_logger(md::log::sp_logger l)
     {
         _log = l;
     }
-    evmvc::sp_logger log()
+    md::log::sp_logger log()
     {
         return _log;
     }
@@ -124,7 +124,7 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
-    bfs::path abs_path(evmvc::string_view rel_path)
+    bfs::path abs_path(md::string_view rel_path)
     {
         std::string rp(rel_path.data(), rel_path.size());
         if(rp[0] == '~')
@@ -138,7 +138,7 @@ public:
     int start(int argc, char** argv, bool start_event_loop = false)
     {
         if(!stopped())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "app must be in stopped state to start listening again"
             );
         _status = running_state::starting;
@@ -176,14 +176,14 @@ public:
                     w->channel().usock_path.c_str(), SOCK_STREAM
                 );
                 if(w->channel().usock == -1){
-                    _log->info(EVMVC_ERR(
+                    _log->info(MD_ERR(
                         "unix connect err: {}", errno
                     ));
                 }else
                     break;
                 
                 if(++tryout >= 5){
-                    _log->fatal(EVMVC_ERR(
+                    _log->fatal(MD_ERR(
                         "unable to connect to client: {}",
                         w->id()
                     ));
@@ -212,7 +212,7 @@ public:
         return 0;
     }
     
-    void stop(async_cb cb = nullptr, bool free_ev_base = false)
+    void stop(md::callback::async_cb cb = nullptr, bool free_ev_base = false)
     {
         if(auto w = worker::active_worker()){
             if(w->is_child()){
@@ -224,7 +224,7 @@ public:
         }
         
         if(stopped() || stopping())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "app must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
@@ -290,70 +290,70 @@ public:
     }
     
     sp_router all(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->all(route_path, cb, pol);
     }
     sp_router options(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->options(route_path, cb, pol);
     }
     sp_router del(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->del(route_path, cb, pol);
     }
     sp_router head(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->head(route_path, cb, pol);
     }
     sp_router get(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->get(route_path, cb, pol);
     }
     sp_router post(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->post(route_path, cb, pol);
     }
     sp_router put(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->put(route_path, cb, pol);
     }
     sp_router connect(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->connect(route_path, cb, pol);
     }
     sp_router trace(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->trace(route_path, cb, pol);
     }
     sp_router patch(
-        const evmvc::string_view& route_path, route_handler_cb cb,
+        const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
@@ -361,8 +361,8 @@ public:
     }
     
     sp_router register_route_handler(
-        const evmvc::string_view& verb,
-        const evmvc::string_view& route_path,
+        const md::string_view& verb,
+        const md::string_view& route_path,
         route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
@@ -377,22 +377,22 @@ public:
     }
     
     sp_router register_policy(
-        const evmvc::string_view& route_path, policies::filter_policy pol)
+        const md::string_view& route_path, policies::filter_policy pol)
     {
         return _router->register_policy(route_path, pol);
     }
     
     sp_router register_policy(
         evmvc::method method,
-        const evmvc::string_view& route_path,
+        const md::string_view& route_path,
         policies::filter_policy pol)
     {
         return _router->register_policy(method, route_path, pol);
     }
     
     sp_router register_policy(
-        const evmvc::string_view& method,
-        const evmvc::string_view& route_path,
+        const md::string_view& method,
+        const md::string_view& route_path,
         policies::filter_policy pol)
     {
         return _router->register_policy(method, route_path, pol);
@@ -454,7 +454,7 @@ private:
     running_state _status;
     app_options _options;
     sp_router _router;
-    evmvc::sp_logger _log;
+    md::log::sp_logger _log;
     
     std::vector<evmvc::sp_worker> _workers;
     std::vector<evmvc::sp_master_server> _servers;

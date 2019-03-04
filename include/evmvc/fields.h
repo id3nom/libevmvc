@@ -401,12 +401,12 @@ inline char ascii_tolower(char c)
 struct field_table
 {
     using array_type =
-        std::array<string_view, 353>;
+        std::array<md::string_view, 353>;
 
     struct hash
     {
         std::size_t
-        operator()(string_view s) const
+        operator()(md::string_view s) const
         {
             auto const n = s.size();
             return
@@ -421,8 +421,8 @@ struct field_table
         // assumes inputs have equal length
         bool
         operator()(
-            string_view lhs,
-            string_view rhs) const
+            md::string_view lhs,
+            md::string_view rhs) const
         {
             auto p1 = lhs.data();
             auto p2 = rhs.data();
@@ -450,7 +450,7 @@ struct field_table
     };
 
     using map_type = std::unordered_map<
-        string_view, field, hash, iequal>;
+        md::string_view, field, hash, iequal>;
 
     array_type by_name_;
     std::vector<map_type> by_size_;
@@ -857,7 +857,7 @@ struct field_table
     }
 
     field
-    string_to_field(string_view s) const
+    string_to_field(md::string_view s) const
     {
         if(s.size() >= by_size_.size())
             return field::unknown;
@@ -905,7 +905,7 @@ get_field_table()
 }
 
 template<class = void>
-string_view
+md::string_view
 to_string(field f)
 {
     auto const& v = get_field_table();
@@ -919,7 +919,7 @@ to_string(field f)
 /** Convert a field enum to a string.
     @param f The field to convert
 */
-inline string_view to_string(field f)
+inline md::string_view to_string(field f)
 {
     return detail::to_string(f);
 }
@@ -929,7 +929,7 @@ inline string_view to_string(field f)
     @return The corresponding field, or @ref field::unknown
     if no known field matches.
 */
-inline field string_to_field(string_view s)
+inline field string_to_field(md::string_view s)
 {
     return detail::get_field_table().string_to_field(s);
 }    

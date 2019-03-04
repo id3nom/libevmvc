@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_response_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "utils.h"
 #include "url.h"
 #include "statuses.h"
@@ -54,7 +53,7 @@ public:
         uint64_t id,
         sp_request req,
         wp_connection conn,
-        evmvc::sp_logger log,
+        md::log::sp_logger log,
         const sp_route& rt,
         url uri,
         const sp_http_cookies& http_cookies)
@@ -62,7 +61,7 @@ public:
         _req(req),
         _conn(conn),
         _log(log->add_child(
-            "res-" + evmvc::num_to_str(id, false) + uri.path()
+            "res-" + md::num_to_str(id, false) + uri.path()
         )),
         _rt(rt),
         _headers(std::make_shared<response_headers>()),
@@ -88,7 +87,7 @@ public:
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
-    evmvc::sp_logger log() const { return _log;}
+    md::log::sp_logger log() const { return _log;}
     
     evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
@@ -96,10 +95,10 @@ public:
     
     bool paused() const { return _paused;}
     void pause();
-    void resume(async_cb cb)
+    void resume(md::callback::async_cb cb)
     {
         if(!_paused || _resuming){
-            _log->warn(EVMVC_ERR(
+            _log->warn(MD_ERR(
                 "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
                 _paused ? "true" : "false",
                 _resuming ? "true" : "false"
@@ -118,7 +117,7 @@ public:
         if(!_started)
             this->encoding("utf-8").type("txt")._reply_start();
         if(_ended){
-            _log->error(EVMVC_ERR(
+            _log->error(MD_ERR(
                 "MUST NOT END, ended: true"
             ));
             return;
@@ -146,20 +145,20 @@ public:
     }
     
     bool has_encoding(){ return !_enc.empty();}
-    evmvc::string_view encoding(){ return _enc;}
-    response& encoding(evmvc::string_view enc)
+    md::string_view encoding(){ return _enc;}
+    response& encoding(md::string_view enc)
     {
         _enc = enc.to_string();
         return *this;
     }
     
     bool has_type(){ return !_type.empty();}
-    evmvc::string_view get_type()
+    md::string_view get_type()
     {
         return _type.empty() ? "" : _type;
     }
     
-    response& type(evmvc::string_view type, evmvc::string_view enc = "")
+    response& type(md::string_view type, md::string_view enc = "")
     {
         _type = evmvc::mime::get_type(type);
         if(_type.empty())
@@ -187,7 +186,7 @@ public:
         this->send(evmvc::statuses::status(code));
     }
     
-    void send(evmvc::string_view body)
+    void send(md::string_view body)
     {
         if(this->_paused)
             this->resume();
@@ -197,7 +196,7 @@ public:
         
         this->headers().set(
             evmvc::field::content_length,
-            evmvc::num_to_str(body.size())
+            md::num_to_str(body.size())
         );
         
         _reply_start();
@@ -205,7 +204,7 @@ public:
         this->end();
     }
     
-    void html(evmvc::string_view html_val)
+    void html(md::string_view html_val)
     {
         this->encoding("utf-8").type("html").send(html_val);
     }
@@ -230,7 +229,7 @@ public:
     void jsonp(
         const evmvc::json& json_val,
         bool escape = false,
-        evmvc::string_view cb_name = "callback"
+        md::string_view cb_name = "callback"
         )
     {
         if(!this->has_encoding())
@@ -241,8 +240,8 @@ public:
         }
         
         std::string sv = json_val.dump();
-        evmvc::replace_substring(sv, "\u2028", "\\u2028");
-        evmvc::replace_substring(sv, "\u2029", "\\u2029");
+        md::replace_substring(sv, "\u2028", "\\u2028");
+        md::replace_substring(sv, "\u2029", "\\u2029");
         
         sv = "/**/ typeof " + cb_name.to_string() + " === 'function' && " +
             cb_name.to_string() + "(" + sv + ");";
@@ -250,9 +249,9 @@ public:
     }
     
     void download(const bfs::path& filepath,
-        evmvc::string_view filename = "",
-        const evmvc::string_view& enc = "utf-8", 
-        async_cb cb = evmvc::noop_cb)
+        md::string_view filename = "",
+        const md::string_view& enc = "utf-8", 
+        md::callback::async_cb cb = md::callback::noop_cb)
     {
         this->headers().set(
             evmvc::field::content_disposition,
@@ -268,17 +267,17 @@ public:
     
     void send_file(
         const bfs::path& filepath,
-        const evmvc::string_view& enc = "utf-8", 
-        async_cb cb = evmvc::noop_cb
+        const md::string_view& enc = "utf-8", 
+        md::callback::async_cb cb = md::callback::noop_cb
     );
     
-    void error(const cb_error& err)
+    void error(const md::callback::cb_error& err)
     {
         this->error(evmvc::status::internal_server_error, err);
     }
-    void error(evmvc::status err_status, const cb_error& err);
+    void error(evmvc::status err_status, const md::callback::cb_error& err);
     
-    void redirect(evmvc::string_view new_location,
+    void redirect(md::string_view new_location,
         evmvc::status redir_status = evmvc::status::found)
     {
         //"See 'https://developer.mozilla.org/en-US/docs/Web/HTTP/
@@ -301,7 +300,7 @@ public:
                 break;
             
             default:
-                throw EVMVC_ERR(
+                throw MD_ERR(
                     "Invalid redirection status!"
                 );
         }
@@ -309,10 +308,10 @@ public:
     
 private:
     
-    void _resume(cb_error err)
+    void _resume(md::callback::cb_error err)
     {
         if(!_paused || !_resuming){
-            _log->warn(EVMVC_ERR(
+            _log->warn(MD_ERR(
                 "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
                 _paused ? "true" : "false",
                 _resuming ? "true" : "false"
@@ -331,7 +330,7 @@ private:
     void _reply_start()
     {
         if(_started){
-            _log->error(EVMVC_ERR(
+            _log->error(MD_ERR(
                 "MUST NOT _reply_start, started: true"
             ));
             return;
@@ -349,7 +348,7 @@ private:
     uint64_t _id;
     evmvc::sp_request _req;
     wp_connection _conn;
-    evmvc::sp_logger _log;
+    md::log::sp_logger _log;
     sp_route _rt;
     evmvc::sp_response_headers _headers;
     sp_http_cookies _cookies;
@@ -360,7 +359,7 @@ private:
     std::string _enc;
     bool _paused;
     bool _resuming;
-    async_cb _resume_cb;
+    md::callback::async_cb _resume_cb;
 };
 
 

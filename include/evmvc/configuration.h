@@ -28,7 +28,6 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "utils.h"
 #include "ssl_utils.h"
-#include "logging.h"
 
 namespace evmvc {
 
@@ -43,7 +42,7 @@ enum class ssl_verify_mode
     client_once = SSL_VERIFY_CLIENT_ONCE
     //post_handshake = SSL_VERIFY_POST_HANDSHAKE,
 };
-EVMVC_ENUM_FLAGS(evmvc::ssl_verify_mode);
+MD_ENUM_FLAGS(evmvc::ssl_verify_mode);
 
 enum class ssl_cache_type
 {
@@ -387,9 +386,9 @@ public:
         run_dir(base_dir / ".run"),
         use_default_logger(true),
         
-        log_console_level(log_level::warning),
+        log_console_level(md::log::log_level::warning),
         log_console_enable_color(true),
-        log_file_level(log_level::warning),
+        log_file_level(md::log::log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false),
@@ -406,9 +405,9 @@ public:
         run_dir(base_dir / ".run"),
         use_default_logger(true),
         
-        log_console_level(log_level::warning),
+        log_console_level(md::log::log_level::warning),
         log_console_enable_color(true),
-        log_file_level(log_level::warning),
+        log_file_level(md::log::log_level::warning),
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false),
@@ -455,9 +454,9 @@ public:
         servers(std::move(other.servers))
     {
         other.use_default_logger = true;
-        other.log_console_level = log_level::warning;
+        other.log_console_level = md::log::log_level::warning;
         other.log_console_enable_color = true;
-        other.log_file_level = log_level::warning;
+        other.log_file_level = md::log::log_level::warning;
         other.log_file_max_size = 1048576 * 5;
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
@@ -485,9 +484,9 @@ public:
         servers = std::move(other.servers);
         
         other.use_default_logger = true;
-        other.log_console_level = log_level::warning;
+        other.log_console_level = md::log::log_level::warning;
         other.log_console_enable_color = true;
-        other.log_file_level = log_level::warning;
+        other.log_file_level = md::log::log_level::warning;
         other.log_file_max_size = 1048576 * 5;
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
@@ -505,10 +504,10 @@ public:
     
     bool use_default_logger;
     
-    log_level log_console_level;
+    md::log::log_level log_console_level;
     bool log_console_enable_color;
     
-    log_level log_file_level;
+    md::log::log_level log_file_level;
     size_t log_file_max_size;
     size_t log_file_max_files;
     

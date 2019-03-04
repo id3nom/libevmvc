@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "utils.h"
-#include "logging.h"
 #include "configuration.h"
 
 namespace evmvc {
@@ -56,7 +55,7 @@ class listener
 public:
     listener(wp_master_server server,
         const listen_options& config,
-        const sp_logger& log)
+        const md::log::sp_logger& log)
         : _server(server), _config(config),
         _log(
             log->add_child(
@@ -126,12 +125,12 @@ public:
         _parse(ipv6_only);
         
         if((_lsock = socket(_sa->sa_family, SOCK_STREAM, 0)) == -1)
-            return _log->fatal(EVMVC_ERR("couldn't create socket"));
+            return _log->fatal(MD_ERR("couldn't create socket"));
         
         _set_sock_options(ipv6_only);
         
         if(bind(_lsock, _sa, _sin_len) == -1)
-            return _log->fatal(EVMVC_ERR("couldn't bind the socket"));
+            return _log->fatal(MD_ERR("couldn't bind the socket"));
         
         _lev = evconnlistener_new(
             evmvc::global::ev_base(),
@@ -172,7 +171,7 @@ private:
             _csa = sockun;
             
             if(strlen(baddr) >= sizeof(sockun->sun_path))
-                throw EVMVC_ERR(
+                throw MD_ERR(
                     "UNIX socket path '{}' is out of bound",
                     baddr
                 );
@@ -226,29 +225,29 @@ private:
         int off = 0;
         if(setsockopt(
             _lsock, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on)) == -1)
-            return _log->fatal(EVMVC_ERR("setsockopt: SO_KEEPALIVE"));
+            return _log->fatal(MD_ERR("setsockopt: SO_KEEPALIVE"));
         if(setsockopt(
             _lsock, SOL_SOCKET, SO_REUSEADDR, (void*)&on, sizeof(on)) == -1)
-            return _log->fatal(EVMVC_ERR("setsockopt: SO_REUSEADDR"));
+            return _log->fatal(MD_ERR("setsockopt: SO_REUSEADDR"));
         if(setsockopt(
             _lsock, SOL_SOCKET, SO_REUSEPORT, (void*)&on, sizeof(on)) == -1
         ){
             if(errno != EOPNOTSUPP)
-                return _log->fatal(EVMVC_ERR("setsockopt: SO_REUSEPORT"));
+                return _log->fatal(MD_ERR("setsockopt: SO_REUSEPORT"));
             _log->warn("SO_REUSEPORT NOT SUPPORTED");
         }
         if(setsockopt(_lsock, IPPROTO_TCP, TCP_NODELAY, 
             (void*)&on, sizeof(on)) == -1
         ){
             if(errno != EOPNOTSUPP)
-                return _log->fatal(EVMVC_ERR("setsockopt: TCP_NODELAY"));
+                return _log->fatal(MD_ERR("setsockopt: TCP_NODELAY"));
             _log->warn("TCP_NODELAY NOT SUPPORTED");
         }
         if(setsockopt(_lsock, IPPROTO_TCP, TCP_DEFER_ACCEPT, 
             (void*)&on, sizeof(on)) == -1
         ){
             if(errno != EOPNOTSUPP)
-                return _log->fatal(EVMVC_ERR("setsockopt: TCP_DEFER_ACCEPT"));
+                return _log->fatal(MD_ERR("setsockopt: TCP_DEFER_ACCEPT"));
             std::clog << "TCP_DEFER_ACCEPT NOT SUPPORTED";
         }
         
@@ -258,14 +257,14 @@ private:
                     _lsock, IPPROTO_IPV6, IPV6_V6ONLY,
                     (void*)&on, sizeof(on)) == -1
                 )
-                    return _log->fatal(EVMVC_ERR("setsockopt: IPV6_V6ONLY on"));
+                    return _log->fatal(MD_ERR("setsockopt: IPV6_V6ONLY on"));
             }else{
                 if(setsockopt(
                     _lsock, IPPROTO_IPV6, IPV6_V6ONLY,
                     (void*)&off, sizeof(off)) == -1
                 )
                     return _log->fatal(
-                        EVMVC_ERR("setsockopt: IPV6_V6ONLY off")
+                        MD_ERR("setsockopt: IPV6_V6ONLY off")
                     );
             }
         }
@@ -274,7 +273,7 @@ private:
     wp_master_server _server;
     
     listen_options _config;
-    sp_logger _log;
+    md::log::sp_logger _log;
     
     address_type _type;
     void* _csa;
@@ -290,7 +289,7 @@ class master_server
 {
 public:
     master_server(wp_app app, const server_options& config,
-        const sp_logger& log)
+        const md::log::sp_logger& log)
         : 
         _id(std::hash<std::string>{}(config.name)),
         _status(evmvc::running_state::stopped),
@@ -326,7 +325,7 @@ public:
     void start()
     {
         if(!stopped())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Server must be in stopped state to start listening again"
             );
         _status = running_state::starting;
@@ -345,7 +344,7 @@ public:
     void stop()
     {
         if(stopped() || stopping())
-            throw EVMVC_ERR(
+            throw MD_ERR(
                 "Server must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
@@ -360,7 +359,7 @@ private:
     evmvc::running_state _status;
     wp_app _app;
     server_options _config;
-    sp_logger _log;
+    md::log::sp_logger _log;
     
     std::vector<up_listener> _listeners;
 };

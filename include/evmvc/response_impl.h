@@ -73,7 +73,7 @@ void response::pause()
 void response::resume()
 {
     if(!_paused || _resuming){
-        _log->warn(EVMVC_ERR(
+        _log->warn(MD_ERR(
             "SHOULD NOT RESUME, is paused: {}, is resuming: {}",
             _paused ? "true" : "false",
             _resuming ? "true" : "false"
@@ -91,7 +91,7 @@ void response::resume()
 
 
 
-void response::error(evmvc::status err_status, const cb_error& err)
+void response::error(evmvc::status err_status, const md::callback::cb_error& err)
 {
     std::string remote_addr("unknown");
     std::string remote_port = "";
@@ -316,7 +316,7 @@ void response::_reply_end()
     _ended = true;
     auto c = this->_conn.lock();
     if(!c)
-        return _log->error(EVMVC_ERR("Connection closed!"));
+        return _log->error(MD_ERR("Connection closed!"));
         
     c->complete_response();
 }
@@ -324,18 +324,18 @@ void response::_reply_end()
 
 void response::send_file(
     const bfs::path& filepath,
-    const evmvc::string_view& enc, 
-    async_cb cb)
+    const md::string_view& enc, 
+    md::callback::async_cb cb)
 {
     auto c = this->_conn.lock();
     if(!c){
         if(cb)
-            cb(EVMVC_ERR("Connection closed!"));
+            cb(MD_ERR("Connection closed!"));
         return;
     }
     
     if(filepath.empty()){
-        _log->error(EVMVC_ERR(
+        _log->error(MD_ERR(
             "Filepath is empty!"
         ));
         
@@ -346,7 +346,7 @@ void response::send_file(
     boost::system::error_code ec;
     if(!bfs::exists(filepath, ec)){
         if(ec){
-            _log->error(EVMVC_ERR(
+            _log->error(MD_ERR(
                 "Unable to verify file '{}' existence!\n{}",
                 filepath.string(), ec.message()
             ));
@@ -360,7 +360,7 @@ void response::send_file(
     
     FILE* file_desc = fopen(filepath.c_str(), "r");
     if(!file_desc){
-        _log->error(EVMVC_ERR(
+        _log->error(MD_ERR(
             "fopen failed, errno: {}", errno
         ));
         
@@ -420,7 +420,7 @@ void response::send_file(
                     EVMVC_ZLIB_STRATEGY// Z_DEFAULT_STRATEGY
                     ) != Z_OK
                 ){
-                    throw EVMVC_ERR("deflateInit2 failed!");
+                    throw MD_ERR("deflateInit2 failed!");
                 }
                 
                 this->headers().set(

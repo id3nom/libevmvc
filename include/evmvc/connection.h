@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_connection_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "child_server.h"
 #include "url.h"
 #include "parser.h"
@@ -58,7 +57,7 @@ enum class conn_flags
     
     sending_file    = (1 << 8),
 };
-EVMVC_ENUM_FLAGS(evmvc::conn_flags);
+MD_ENUM_FLAGS(evmvc::conn_flags);
 
 
 
@@ -85,12 +84,12 @@ class connection
     
 public:
     connection(
-        const sp_logger& log,
+        const md::log::sp_logger& log,
         wp_http_worker worker,
         sp_child_server server,
         int sock_fd,
         evmvc::url_scheme p,
-        evmvc::string_view remote_addr,
+        md::string_view remote_addr,
         uint16_t remote_port)
         :
         _closed(false),
@@ -130,7 +129,7 @@ public:
                 );
                 break;
             default:
-                throw EVMVC_ERR("Unkonwn protocol: '{}'", (int)_protocol);
+                throw MD_ERR("Unkonwn protocol: '{}'", (int)_protocol);
         }
         
         if(_protocol == url_scheme::https){
@@ -187,7 +186,7 @@ public:
     }
     
     int id() const { return _id;}
-    const sp_logger& log() const { return _log;}
+    const md::log::sp_logger& log() const { return _log;}
     sp_http_worker get_worker() const;
     sp_child_server server() const { return _server;}
     evmvc::url_scheme protocol() const { return _protocol;}
@@ -196,7 +195,7 @@ public:
     
     bool flag_is(conn_flags flag)
     {
-        return EVMVC_TEST_FLAG(_flags, flag);
+        return MD_TEST_FLAG(_flags, flag);
     }
     conn_flags& flags() { return _flags;}
     conn_flags flags() const { return _flags;}
@@ -316,7 +315,7 @@ public:
     void send_file(sp_file_reply file)
     {
         if(this->flag_is(conn_flags::sending_file))
-            throw EVMVC_ERR("Already sending a file");
+            throw MD_ERR("Already sending a file");
         
         set_conn_flag(conn_flags::sending_file);
         _file = file;
@@ -410,7 +409,7 @@ private:
     
     int _closed;
     int _id;
-    sp_logger _log;
+    md::log::sp_logger _log;
     wp_http_worker _worker;
     sp_child_server _server;
     int _sock_fd;

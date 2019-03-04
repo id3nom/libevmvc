@@ -21,7 +21,6 @@
 #define _libevmvc_multipart_utils_h
 
 #include "stable_headers.h"
-#include "logging.h"
 #include "headers.h"
 
 // max content buffer size of 10KiB
@@ -85,7 +84,7 @@ struct multipart_content_t
     {
     }
     
-    std::string get(evmvc::string_view pname)
+    std::string get(md::string_view pname)
     {
         auto it = headers->find(pname.data());
         if(it == headers->end())
@@ -151,7 +150,7 @@ struct multipart_content_file_t
         boost::system::error_code ec;
         if(!temp_path.empty() && bfs::exists(temp_path, ec)){
             if(ec){
-                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                md::log::default_logger()->warn(MD_ERR(
                     "Unable to verify file '{}' existence!\n{}",
                     temp_path.string(), ec.message()
                 ));
@@ -159,7 +158,7 @@ struct multipart_content_file_t
             }
             bfs::remove(temp_path, ec);
             if(ec)
-                evmvc::_internal::default_logger()->warn(EVMVC_ERR(
+                md::log::default_logger()->warn(MD_ERR(
                     "Unable to remove file '{}'!\n{}",
                     temp_path.string(), ec.message()
                 ));
@@ -228,20 +227,20 @@ std::string get_boundary(const std::string& hdr_val)
     boost::split(kvs, hdr_val, boost::is_any_of(";"));
     for(auto& kv_val : kvs){
         std::vector<std::string> kv;
-        auto tkv_val = evmvc::trim_copy(kv_val);
+        auto tkv_val = md::trim_copy(kv_val);
         boost::split(kv, tkv_val, boost::is_any_of("="));
         
         if(kv.size() != 2)
             continue;
         
-        if(evmvc::trim_copy(kv[0]) == "boundary")
-            return evmvc::trim_copy(kv[1]);
+        if(md::trim_copy(kv[0]) == "boundary")
+            return md::trim_copy(kv[1]);
     }
     return "";
 }
 
 std::string get_boundary(
-    evmvc::sp_logger log, const std::shared_ptr<header_map>& hdrs)
+    md::log::sp_logger log, const std::shared_ptr<header_map>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_type).data());
     if(it != hdrs->end()){
@@ -250,7 +249,7 @@ std::string get_boundary(
             return val;
     }
     
-    log->error(EVMVC_ERR(
+    log->error(MD_ERR(
         "Invalid multipart/form-data query, boundary not found!"
     ));
     return "";
@@ -264,14 +263,14 @@ std::string get_header_attribute(
     boost::split(kvs, hdr_val, boost::is_any_of(";"));
     for(auto& kv_val : kvs){
         std::vector<std::string> kv;
-        auto tkv_val = evmvc::trim_copy(kv_val);
+        auto tkv_val = md::trim_copy(kv_val);
         boost::split(kv, tkv_val, boost::is_any_of("="));
         
         if(kv.size() != 2)
             continue;
         
-        if(evmvc::trim_copy(kv[0]) == attr_name)
-            return evmvc::trim_copy(kv[1]);
+        if(md::trim_copy(kv[0]) == attr_name)
+            return md::trim_copy(kv[1]);
     }
     return "";
 }
@@ -280,7 +279,7 @@ uint64_t get_content_length(const std::shared_ptr<header_map>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_length).data());
     if(it != hdrs->end())
-        return evmvc::str_to_num<uint64_t>(it->second.front());
+        return md::str_to_num<uint64_t>(it->second.front());
     return 0;
 }
 

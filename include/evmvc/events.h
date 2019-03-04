@@ -26,7 +26,6 @@ SOFTWARE.
 #define _libevmvc_events_h
 
 #include "stable_headers.h"
-#include "cb_def.h"
 
 namespace evmvc { 
 
@@ -41,7 +40,7 @@ enum class event_type
     edege_trigger = EV_ET,
     timed_out = EV_TIMEOUT
 };
-EVMVC_ENUM_FLAGS(evmvc::event_type)
+MD_ENUM_FLAGS(evmvc::event_type)
 
 // namespace
 namespace _internal {
@@ -49,7 +48,7 @@ namespace _internal {
 class event_wrapper_base
 {
 public:
-    event_wrapper_base(evmvc::string_view name)
+    event_wrapper_base(md::string_view name)
         : _name(name.to_string())
     {
     }
@@ -86,9 +85,9 @@ class event_wrapper
     };
 public:
     event_wrapper(
-        evmvc::string_view name,
+        md::string_view name,
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, evmvc::async_cb _nxt,
+        evmvc::sp_response _res, md::callback::async_cb _nxt,
         std::function<void(
             std::shared_ptr<event_wrapper<T>>, int, event_type, T)
             > _cb
@@ -101,7 +100,7 @@ public:
 
     event_wrapper(
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, evmvc::async_cb _nxt,
+        evmvc::sp_response _res, md::callback::async_cb _nxt,
         T _arg,
         std::function<void(
             std::shared_ptr<event_wrapper<T>>, int, event_type, T)
@@ -123,14 +122,14 @@ public:
     {
         this->_create_event();
         if(event_add(this->ev, nullptr) == -1)
-            throw EVMVC_ERR("event_add failed!");
+            throw MD_ERR("event_add failed!");
     }
     
     void wait(const struct timeval& tv)
     {
         this->_create_event();
         if(event_add(this->ev, &tv) == -1)
-            throw EVMVC_ERR("event_add failed!");
+            throw MD_ERR("event_add failed!");
     }
     
     void stop()
@@ -158,7 +157,7 @@ public:
     event_base* ev_base;
     event* ev;
     evmvc::sp_response res;
-    evmvc::async_cb nxt;
+    md::callback::async_cb nxt;
     T arg;
     std::function<void(
         std::shared_ptr<event_wrapper<T>>, int, event_type, T)
@@ -200,9 +199,9 @@ class event_wrapper<void>
     };
 public:
     event_wrapper(
-        evmvc::string_view name,
+        md::string_view name,
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, evmvc::async_cb _nxt,
+        evmvc::sp_response _res, md::callback::async_cb _nxt,
         std::function<void(
             std::shared_ptr<event_wrapper<void>>, int, event_type)
             > _cb
@@ -223,14 +222,14 @@ public:
     {
         this->_create_event();
         if(event_add(this->ev, nullptr) == -1)
-            throw EVMVC_ERR("event_add failed!");
+            throw MD_ERR("event_add failed!");
     }
     
     void wait(const struct timeval& tv)
     {
         this->_create_event();
         if(event_add(this->ev, &tv) == -1)
-            throw EVMVC_ERR("event_add failed!");
+            throw MD_ERR("event_add failed!");
     }
     
     void stop()
@@ -260,7 +259,7 @@ public:
     event_base* ev_base;
     event* ev;
     evmvc::sp_response res;
-    evmvc::async_cb nxt;
+    md::callback::async_cb nxt;
     std::function<void(
         std::shared_ptr<event_wrapper<void>>, int, event_type)
         > cb;
@@ -293,7 +292,7 @@ private:
 // template<typename T>
 // std::shared_ptr<event_wrapper<T>> new_event(
 //     event_base* _ev_base, int fd, event_type events,
-//     evmvc::sp_response _res, evmvc::async_cb _nxt,
+//     evmvc::sp_response _res, md::callback::async_cb _nxt,
 //     T _arg,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<T>>, int, event_type, T)
@@ -308,7 +307,7 @@ private:
 // //template<>
 // std::shared_ptr<event_wrapper<void>> new_event(
 //     event_base* _ev_base, int fd, event_type events,
-//     evmvc::sp_response _res, evmvc::async_cb _nxt,
+//     evmvc::sp_response _res, md::callback::async_cb _nxt,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<void>>, int, event_type)
 //         > _cb
@@ -321,7 +320,7 @@ private:
 
 // std::shared_ptr<event_wrapper<void>> new_event(
 //     int fd, event_type events,
-//     evmvc::sp_response _res, evmvc::async_cb _nxt,
+//     evmvc::sp_response _res, md::callback::async_cb _nxt,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<void>>, int, event_type)
 //         > _cb
@@ -338,16 +337,16 @@ std::string next_event_name()
 {
     std::unique_lock<std::mutex> lock(events_mutex());
     static size_t uid = 0;
-    return "da724ca0-308c-11e9-9071-5b3166957f05_" + evmvc::num_to_str(++uid);
+    return "da724ca0-308c-11e9-9071-5b3166957f05_" + md::num_to_str(++uid);
 }
 
 void register_event(sp_evw ev)
 {
-    evmvc::debug("Registering event: '{}'", ev->name());
+    EVMVC_DEF_TRACE("Registering event: '{}'", ev->name());
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     auto it = named_events().find(ev->name());
     if(it != named_events().end())
-        throw EVMVC_ERR(
+        throw MD_ERR(
             "Event: '{}' is already registered!", ev->name()
         );
     named_events().emplace(std::make_pair(ev->name(), ev));
@@ -363,7 +362,7 @@ bool event_exists(const std::string& name)
 
 }//ns: _internal
 
-bool timeout_exists(evmvc::string_view name)
+bool timeout_exists(md::string_view name)
 {
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
@@ -371,7 +370,7 @@ bool timeout_exists(evmvc::string_view name)
     return _internal::event_exists(n);
 }
 
-bool interval_exists(evmvc::string_view name)
+bool interval_exists(md::string_view name)
 {
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
@@ -381,7 +380,7 @@ bool interval_exists(evmvc::string_view name)
 
 void clear_events()
 {
-    evmvc::debug("Clearing all events");
+    EVMVC_DEF_TRACE("Clearing all events");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     std::vector<_internal::sp_evw> evs;
@@ -397,7 +396,7 @@ void clear_events()
 
 void clear_timeouts()
 {
-    evmvc::debug("Clearing all timeouts");
+    EVMVC_DEF_TRACE("Clearing all timeouts");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     std::vector<_internal::sp_evw> evs;
@@ -417,7 +416,7 @@ void clear_timeouts()
 }
 void clear_intervals()
 {
-    evmvc::debug("Clearing all intervals");
+    EVMVC_DEF_TRACE("Clearing all intervals");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     std::vector<_internal::sp_evw> evs;
@@ -437,9 +436,9 @@ void clear_intervals()
 }
 
 
-void clear_timeout(evmvc::string_view name)
+void clear_timeout(md::string_view name)
 {
-    evmvc::debug("Clearing timeout '{}'", name);
+    EVMVC_DEF_TRACE("Clearing timeout '{}'", name);
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     auto ns = "to:" + name.to_string();
@@ -450,9 +449,9 @@ void clear_timeout(evmvc::string_view name)
     it->second->stop();
 }
 
-void clear_interval(evmvc::string_view name)
+void clear_interval(md::string_view name)
 {
-    evmvc::debug("Clearing interval '{}'", name);
+    EVMVC_DEF_TRACE("Clearing interval '{}'", name);
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
     auto ns = "iv:" + name.to_string();
@@ -472,7 +471,7 @@ void clear_interval(std::shared_ptr<_internal::event_wrapper_base> ev)
 }
 
 std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
-    evmvc::string_view name,
+    md::string_view name,
     int fd, event_type et,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
@@ -514,7 +513,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 
 
 std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
-    evmvc::string_view name,
+    md::string_view name,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
         > _cb,
@@ -558,7 +557,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 
 
 std::shared_ptr<_internal::event_wrapper<void>> set_interval(
-    evmvc::string_view name,
+    md::string_view name,
     int fd, event_type et,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
@@ -600,7 +599,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
 }
 
 std::shared_ptr<_internal::event_wrapper<void>> set_interval(
-    evmvc::string_view name,
+    md::string_view name,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
         > _cb,

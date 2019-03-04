@@ -107,7 +107,7 @@ void unix_set_sock_opts(int sock)
     
     int on = 1;
     if(setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (void*)&on, sizeof(on)) == -1)
-        return throw EVMVC_ERR(
+        return throw MD_ERR(
             "Unable to set option SO_KEEPALIVE on unix socket"
         );
 }

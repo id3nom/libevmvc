@@ -40,7 +40,7 @@ TEST_F(router_test, routes)
         evmvc::app_options opts;
         opts.use_default_logger = false;
         opts.log_console_level = 
-            opts.log_file_level = evmvc::log_level::off;
+            opts.log_file_level = md::log::log_level::off;
         
         evmvc::sp_app srv = std::make_shared<evmvc::app>(
             nullptr,
@@ -56,7 +56,7 @@ TEST_F(router_test, routes)
         // r->get("/abc-a/123",
         // [&rt_val](
         //      const evmvc::request& /*req*/, evmvc::response& /*res*/,
-        //      async_cb cb
+        //      md::callback::async_cb cb
         // ){
         //     rt_val = "abc-a";
         // });
@@ -67,7 +67,7 @@ TEST_F(router_test, routes)
         // r->get("/abc-b/123/*",
         // [&rt_val](
         //      const evmvc::request& /*req*/, evmvc::response& /*res*/
-        //      async_cb cb){
+        //      md::callback::async_cb cb){
         //     rt_val = "abc-b";
         // });
         
@@ -76,7 +76,7 @@ TEST_F(router_test, routes)
         // /abc-c/123/**
         r->get("/abc-c/123/**",
         [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
-            async_cb cb
+            md::callback::async_cb cb
         ){
             rt_val = "abc-c";
             
@@ -88,7 +88,7 @@ TEST_F(router_test, routes)
         // // /abc-d/123/:p1/[:p2]
         // r->get("/abc-d/123/:p1/[:p2]",
         // [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
-        //      async_cb cb
+        //      md::callback::async_cb cb
         // ){
         //     rt_val = "abc-d";
         // });
@@ -99,7 +99,7 @@ TEST_F(router_test, routes)
         r->get("/abc-e/123/:p1(\\d+)/:[p2]",
         [&rt_val](
             const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
-            async_cb cb
+            md::callback::async_cb cb
         ){
             rt_val = "abc-e";
             
@@ -110,7 +110,7 @@ TEST_F(router_test, routes)
         // /abc-f/123/[:p1(\\d+)]
         r->get("/abc-f/123/:[p1(\\d+)]",
         [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
-            async_cb cb
+            md::callback::async_cb cb
         ){
             rt_val = "abc-f";
 
@@ -121,7 +121,7 @@ TEST_F(router_test, routes)
         // /abc-g/123/:p1(\\d+)/[:p2]/[:p3]
         r->get("/abc-g/123/:p1(\\d+)/:[p2]/:[p3]",
         [&rt_val](const evmvc::sp_request req, evmvc::sp_response /*res*/,
-            async_cb next
+            md::callback::async_cb next
         ){
             rt_val = "abc-g";
             

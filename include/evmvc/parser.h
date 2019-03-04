@@ -27,7 +27,6 @@ SOFTWARE.
 
 #include "stable_headers.h"
 #include "utils.h"
-#include "logging.h"
 
 #include "statuses.h"
 #include "headers.h"
@@ -60,7 +59,7 @@ enum class parser_state
     completed               ,
     error                   
 };
-evmvc::string_view to_string(parser_state s)
+md::string_view to_string(parser_state s)
 {
     switch(s){
         case parser_state::parse_req_line:
@@ -120,7 +119,7 @@ class http_parser
 {
     friend class connection;
 public:
-    http_parser(wp_connection conn, const sp_logger& log)
+    http_parser(wp_connection conn, const md::log::sp_logger& log)
         : _conn(conn), _log(log->add_child("parser"))
     {
         EVMVC_DEF_TRACE("http_parser {:p} created", (void*)this);
@@ -133,7 +132,7 @@ public:
     }
     
     sp_connection get_connection() const { return _conn.lock();}
-    sp_logger log() const { return _log;}
+    md::log::sp_logger log() const { return _log;}
     
     struct bufferevent* bev() const;
     
@@ -210,7 +209,7 @@ public:
         reset_multip();
     }
     
-    size_t parse(const char* in_data, size_t in_len, cb_error& ec)
+    size_t parse(const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         EVMVC_TRACE(_log,
             "parsing, len: {}\n{}", in_len, std::string(in_data, in_len)
@@ -296,36 +295,36 @@ public:
     void exec();
     
 private:
-    size_t parse_req_line(const char* line, size_t line_len, cb_error& ec)
+    size_t parse_req_line(const char* line, size_t line_len, md::callback::cb_error& ec)
     {
         if(line_len == 0){
             _status = parser_state::error;
-            ec = EVMVC_ERR("Bad request line format");
+            ec = MD_ERR("Bad request line format");
             return 0;
         }
         
         ssize_t em_idx = find_ch(line, line_len, ' ', 0);
         if(em_idx == -1){
             _status = parser_state::error;
-            ec = EVMVC_ERR("Bad request line format");
+            ec = MD_ERR("Bad request line format");
             return 0;
         }
         ssize_t eu_idx = find_ch(line, line_len, ' ', em_idx+1);
         if(eu_idx == -1){
             _status = parser_state::error;
-            ec = EVMVC_ERR("Bad request line format");
+            ec = MD_ERR("Bad request line format");
             return 0;
         }
         
         _method_string = data_substr(line, 0, em_idx);
-        evmvc::trim(_method_string);
+        md::trim(_method_string);
         _method = evmvc::parse_method(_method_string);
         
         _uri_string = data_substring(line, em_idx+1, eu_idx);
         _uri = url(_uri_string);
         
         _http_ver_string = data_substring(line, eu_idx+1, line_len);
-        evmvc::trim(_http_ver_string);
+        md::trim(_http_ver_string);
         _http_ver = http_version::unknown;
         if(!strcasecmp(_http_ver_string.c_str(), "http/1.0"))
             _http_ver = http_version::http_10;
@@ -342,7 +341,7 @@ private:
         return line_len;
     }
     
-    size_t parse_headers(const char* line, size_t line_len, cb_error& ec)
+    size_t parse_headers(const char* line, size_t line_len, md::callback::cb_error& ec)
     {
         // if header section has ended.
         if(line_len == 0){
@@ -354,7 +353,7 @@ private:
         ssize_t sep = find_ch(line, line_len, ':', 0);
         if(sep == -1){
             _status = parser_state::error;
-            ec = EVMVC_ERR("Bad header line format");
+            ec = MD_ERR("Bad header line format");
             return 0;
         }
         
@@ -389,7 +388,7 @@ private:
         // look for content-length header:
         auto it = _hdrs->find("content-length");
         if(it != _hdrs->end()){
-            _body_size = evmvc::str_to_num<size_t>(
+            _body_size = md::str_to_num<size_t>(
                 it->second.front()
             );
             _status = parser_state::parse_body;
@@ -398,7 +397,7 @@ private:
             if(it == _hdrs->end())
                 return;
             
-            std::string ct_val = evmvc::trim_copy(
+            std::string ct_val = md::trim_copy(
                 it->second.front()
             );
             
@@ -436,7 +435,7 @@ private:
         _status = parser_state::ready_to_exec;
     }
     
-    size_t parse_body(const char* in_data, size_t in_len, cb_error& ec)
+    size_t parse_body(const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
@@ -457,12 +456,12 @@ private:
     
     void init_multip();
     
-    size_t parse_form_urlenc(const char* in_data, size_t in_len, cb_error& ec)
+    size_t parse_form_urlenc(const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
     
-    size_t parse_form_txtpln(const char* in_data, size_t in_len, cb_error& ec)
+    size_t parse_form_txtpln(const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
@@ -542,7 +541,7 @@ private:
         );
         
         if(!ct.empty()){
-            _mp_current->mime_type = evmvc::trim_copy(ct);
+            _mp_current->mime_type = md::trim_copy(ct);
             
             auto filename = multip::get_header_attribute(
                 cd, "filename"
@@ -583,7 +582,7 @@ private:
         return true;
     }
     
-    evmvc::cb_error _mp_parse_end_of_section(bool& ended, char* line)
+    md::callback::cb_error _mp_parse_end_of_section(bool& ended, char* line)
     {
         EVMVC_TRACE(_log, "parse_end_of_section");
 
@@ -600,7 +599,7 @@ private:
                 _mp_current = nc;
                 
             }else{
-                return EVMVC_ERR(
+                return MD_ERR(
                     "Unable to lock parent weak reference"
                 );
             }
@@ -625,11 +624,11 @@ private:
                     );
                     _mp_current = nc;
                 }else
-                    return EVMVC_ERR(
+                    return MD_ERR(
                         "Unable to lock parent weak reference"
                     );
             }else
-                return EVMVC_ERR(
+                return MD_ERR(
                     "Unable to lock parent weak reference"
                 );
         }
@@ -642,7 +641,7 @@ private:
         return nullptr;
     }
     
-    evmvc::cb_error _mp_on_read_form_data(bool& has_works)
+    md::callback::cb_error _mp_on_read_form_data(bool& has_works)
     {
         EVMVC_TRACE(_log, "on_read_form_data");
         
@@ -656,7 +655,7 @@ private:
         
         EVMVC_TRACE(_log, "recv: '{}'\n", line);
         bool ended = false;
-        evmvc::cb_error cberr = _mp_parse_end_of_section(ended, line);
+        md::callback::cb_error cberr = _mp_parse_end_of_section(ended, line);
         if(cberr || ended){
             free(line);
             return cberr;
@@ -672,7 +671,7 @@ private:
         return nullptr;
     }
     
-    evmvc::cb_error _mp_on_read_file_data(bool& has_works)
+    md::callback::cb_error _mp_on_read_file_data(bool& has_works)
     {
         EVMVC_TRACE(_log, "on_read_file_data");
         size_t len;
@@ -685,11 +684,11 @@ private:
         if(line != nullptr){
             EVMVC_TRACE(_log, "recv: '{}'\n", line);
             bool ended = false;
-            evmvc::cb_error cberr = _mp_parse_end_of_section(ended, line);
+            md::callback::cb_error cberr = _mp_parse_end_of_section(ended, line);
             if(cberr || ended){
                 if(mf->fd != -1){
                     if(close(mf->fd) < 0){
-                        cberr = EVMVC_ERR(
+                        cberr = MD_ERR(
                             "Failed to close temp file '{}'\nErr: {}",
                             mf->temp_path.c_str(), strerror(errno)
                         );
@@ -704,8 +703,8 @@ private:
         if(line == nullptr){
             size_t buf_size = evbuffer_get_length(_mp_buf);
             if(buf_size >= EVMVC_MAX_CONTENT_BUF_LEN){
-                if(mf->append_crlf && _internal::writen(mf->fd, "\r\n", 2) < 0){
-                    return EVMVC_ERR(
+                if(mf->append_crlf && md::files::writen(mf->fd, "\r\n", 2) < 0){
+                    return MD_ERR(
                         "Failed to write to temp file '{}'\nErr: {}",
                         mf->temp_path.c_str(), strerror(errno)
                     );
@@ -718,8 +717,8 @@ private:
                     "extracted: '{}'",
                     std::string(buf, buf+buf_size)
                 );
-                if(_internal::writen(mf->fd, buf, buf_size) < 0){
-                    return EVMVC_ERR(
+                if(md::files::writen(mf->fd, buf, buf_size) < 0){
+                    return MD_ERR(
                         "Failed to write to temp file '{}'\nErr: {}",
                         mf->temp_path.c_str(), strerror(errno)
                     );
@@ -729,17 +728,17 @@ private:
             return nullptr;
         }
         
-        if(mf->append_crlf && _internal::writen(mf->fd, "\r\n", 2) < 0){
+        if(mf->append_crlf && md::files::writen(mf->fd, "\r\n", 2) < 0){
             free(line);
-            return EVMVC_ERR(
+            return MD_ERR(
                 "Failed to write to temp file '{}'\nErr: {}",
                 mf->temp_path.c_str(), strerror(errno)
             );
         }
         
-        if(_internal::writen(mf->fd, line, len) < 0){
+        if(md::files::writen(mf->fd, line, len) < 0){
             free(line);
-            return EVMVC_ERR(
+            return MD_ERR(
                 "Failed to write to temp file '{}'\nErr: {}",
                 mf->temp_path.c_str(), strerror(errno)
             );
@@ -759,7 +758,7 @@ private:
     }
     
     //void _mp_on_read_multipart_data(evbuffer* buf, void *arg)
-    size_t parse_form_multip(const char* in_data, size_t in_len, cb_error& ec)
+    size_t parse_form_multip(const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         //auto mp = (evmvc::multip::multipart_parser*)arg;
         if(_mp_state == multip::multipart_parser_state::failed)
@@ -775,7 +774,7 @@ private:
         evbuffer_add(_mp_buf, in_data, in_len);
         
         evmvc::status res = evmvc::status::ok;
-        evmvc::cb_error cberr(nullptr);
+        md::callback::cb_error cberr(nullptr);
         
         bool has_works = true;
         while(has_works && !_mp_completed){
@@ -793,7 +792,7 @@ private:
                     EVMVC_TRACE(_log, "recv: '{}'", line);
                     if(_mp_current->get_parent()->start_boundary != line){
                         free(line);
-                        cberr = EVMVC_ERR(
+                        cberr = MD_ERR(
                             "must start with the boundary\n'{}'\n"
                             "But started with '{}'\n",
                             _mp_current->get_parent()->start_boundary,
@@ -817,7 +816,7 @@ private:
                         
                     }else{
                         free(line);
-                        cberr = EVMVC_ERR(
+                        cberr = MD_ERR(
                             "Unable to lock parent weak reference"
                         );
                         res = evmvc::status::internal_server_error;
@@ -840,7 +839,7 @@ private:
                         // end of header part
                         free(line);
                         if(!_mp_assign_content_type()){
-                            cberr = EVMVC_ERR(
+                            cberr = MD_ERR(
                                 "Unable to assign content type!"
                             );
                             res = evmvc::status::bad_request;
@@ -852,7 +851,7 @@ private:
                     if(!_mp_parse_boundary_header(line)){
                         free(line);
                         
-                        cberr = EVMVC_ERR(
+                        cberr = MD_ERR(
                             "Unable to parse the boundary header!"
                         );
                         res = evmvc::status::bad_request;
@@ -874,7 +873,7 @@ private:
                             
                         default:
                             if(res == evmvc::status::ok){
-                                cberr = EVMVC_ERR(
+                                cberr = MD_ERR(
                                     "Invalid multipart content type!"
                                 );
                                 res = evmvc::status::internal_server_error;
@@ -890,7 +889,7 @@ private:
                 
                 case multip::multipart_parser_state::failed:{
                     if(res == evmvc::status::ok){
-                        cberr = EVMVC_ERR(
+                        cberr = MD_ERR(
                             "Multipart parser has failed!"
                         );
                         res = evmvc::status::internal_server_error;
@@ -904,7 +903,7 @@ private:
     
         if(cberr || res != evmvc::status::ok){
             if(!cberr)
-                cberr = EVMVC_ERR(
+                cberr = MD_ERR(
                     "Unknown error has occured!"
                 );
             if(res == evmvc::status::ok)
@@ -929,7 +928,7 @@ private:
     
     /// private vars
     wp_connection _conn;
-    sp_logger _log;
+    md::log::sp_logger _log;
     
     parser_state _status = parser_state::parse_req_line;
     
