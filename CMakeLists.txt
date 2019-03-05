@@ -122,7 +122,7 @@ endif()
 # add subdirs
 
 # deps
-if(NOT TARGET date)
+if(NOT TARGET tz)
     subdirs(deps/date)
 endif()
 if(NOT TARGET fmt)
