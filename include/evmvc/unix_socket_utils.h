@@ -36,7 +36,7 @@ int unix_build_address(const char *path, struct sockaddr_un *addr);
 int unix_connect(const char *path, int type);
 int unix_bind(const char *path, int type);
 
-int unix_build_address(const char *path, struct sockaddr_un *addr)
+inline int unix_build_address(const char *path, struct sockaddr_un *addr)
 {
     if(addr == NULL || path == NULL){
         errno = EINVAL;
@@ -55,7 +55,7 @@ int unix_build_address(const char *path, struct sockaddr_un *addr)
     }
 }
 
-int unix_connect(const char *path, int type)
+inline int unix_connect(const char *path, int type)
 {
     int sd, savedErrno;
     struct sockaddr_un addr;
@@ -78,7 +78,7 @@ int unix_connect(const char *path, int type)
     return sd;
 }
 
-int unix_bind(const char *path, int type)
+inline int unix_bind(const char *path, int type)
 {
     int sd, savedErrno;
     struct sockaddr_un addr;
@@ -100,7 +100,7 @@ int unix_bind(const char *path, int type)
     return sd;
 }
 
-void unix_set_sock_opts(int sock)
+inline void unix_set_sock_opts(int sock)
 {
     evutil_make_socket_closeonexec(sock);
     evutil_make_socket_nonblocking(sock);

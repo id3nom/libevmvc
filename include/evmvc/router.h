@@ -776,7 +776,7 @@ protected:
     
 };// class router
 
-void route::validate_access(
+inline void route::validate_access(
     evmvc::policies::filter_rule_ctx ctx,
     evmvc::policies::validation_cb cb)
 {
@@ -793,7 +793,7 @@ void route::validate_access(
     });
 }
 
-void route_result::validate_access(
+inline void route_result::validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
 {

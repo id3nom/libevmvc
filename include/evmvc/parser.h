@@ -59,7 +59,7 @@ enum class parser_state
     completed               ,
     error                   
 };
-md::string_view to_string(parser_state s)
+inline md::string_view to_string(parser_state s)
 {
     switch(s){
         case parser_state::parse_req_line:

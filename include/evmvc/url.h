@@ -36,7 +36,7 @@ enum class url_scheme
     unknown,
 };
 
-md::string_view to_string(evmvc::url_scheme p)
+inline md::string_view to_string(evmvc::url_scheme p)
 {
     switch(p){
         case evmvc::url_scheme::http:

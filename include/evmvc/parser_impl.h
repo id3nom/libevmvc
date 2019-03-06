@@ -27,13 +27,13 @@ SOFTWARE.
 
 namespace evmvc {
 
-struct bufferevent* http_parser::bev() const
+inline struct bufferevent* http_parser::bev() const
 {
     sp_connection c = get_connection();
     return c->bev();
 }
 
-void http_parser::exec()
+inline void http_parser::exec()
 {
     if(_status != parser_state::ready_to_exec)
         throw MD_ERR("Invalid state: {}", to_string(_status));
@@ -58,7 +58,7 @@ void http_parser::exec()
 }
 
 
-void http_parser::validate_headers()
+inline void http_parser::validate_headers()
 {
     sp_connection c = this->_conn.lock();
     if(!c){
@@ -159,7 +159,7 @@ void http_parser::validate_headers()
     });
 }
 
-void http_parser::init_multip()
+inline void http_parser::init_multip()
 {
     sp_app a = _conn.lock()->get_worker()->get_app();
     _mp_temp_dir = a->options().temp_dir;

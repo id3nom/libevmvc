@@ -32,7 +32,7 @@ SOFTWARE.
 
 namespace evmvc {
 
-long parse_ssl_options(const evmvc::json& jopts)
+inline long parse_ssl_options(const evmvc::json& jopts)
 {
     if(jopts.empty())
         return SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |

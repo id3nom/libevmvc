@@ -26,7 +26,7 @@ SOFTWARE.
 
 namespace evmvc { namespace _internal{
 
-void send_error(
+inline void send_error(
     evmvc::sp_response res, int status_code,
     md::string_view msg)
 {
@@ -36,7 +36,7 @@ void send_error(
     );
 }
 
-void send_error(
+inline void send_error(
     evmvc::sp_response res, int status_code,
     md::callback::cb_error err)
 {
@@ -44,7 +44,7 @@ void send_error(
 }
 
 
-evmvc::sp_response create_http_response(
+inline evmvc::sp_response create_http_response(
     wp_connection conn,
     http_version ver,
     url uri,

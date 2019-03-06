@@ -253,7 +253,7 @@ enum class worker_type
     http = 0,
     cache = 1,
 };
-md::string_view to_string(worker_type t)
+inline md::string_view to_string(worker_type t)
 {
     switch(t){
         case worker_type::http:     return "http";
@@ -524,7 +524,7 @@ protected:
     std::unique_ptr<evmvc::channel> _channel;
 };
 
-void sinks::child_sink::log(
+inline void sinks::child_sink::log(
     md::string_view log_path,
     md::log::log_level lvl, md::string_view msg) const
 {
@@ -541,7 +541,7 @@ void sinks::child_sink::log(
 }
 
 
-void channel::_init()
+inline void channel::_init()
 {
     channel_type ct = 
         _worker->proc_type() == process_type::master ?
@@ -754,7 +754,7 @@ private:
 
 namespace _internal {
     
-    int _ssl_sni_servername(SSL* s, int *al, void *arg)
+    inline int _ssl_sni_servername(SSL* s, int *al, void *arg)
     {
         const char* name = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
         if(!name)
@@ -804,13 +804,13 @@ namespace _internal {
     // {
     // }
 
-    int _ssl_new_cache_entry(SSL* /*ssl*/, SSL_SESSION* /*sess*/)
+    inline int _ssl_new_cache_entry(SSL* /*ssl*/, SSL_SESSION* /*sess*/)
     {
         //TODO: implement shared mem
         return 0;
     }
     
-    SSL_SESSION* _ssl_get_cache_entry(
+    inline SSL_SESSION* _ssl_get_cache_entry(
         SSL* /*ssl*/, const unsigned char* /*sid*/,
         int /*sid_len*/, int* /*copy*/)
     {
@@ -818,7 +818,7 @@ namespace _internal {
         return nullptr;
     }
     
-    void _ssl_remove_cache_entry(SSL_CTX* /*ctx*/, SSL_SESSION* /*sess*/)
+    inline void _ssl_remove_cache_entry(SSL_CTX* /*ctx*/, SSL_SESSION* /*sess*/)
     {
         //TODO: implement shared mem
         return;

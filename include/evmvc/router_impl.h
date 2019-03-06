@@ -28,27 +28,28 @@ SOFTWARE.
 namespace evmvc {
 
 
-md::log::sp_logger route_result::log()
+inline md::log::sp_logger route_result::log()
 {
     if(_route)
         return _route->log();
     return md::log::default_logger();
 }
 
-void route_result::execute(evmvc::sp_response res, md::callback::async_cb cb)
+inline void route_result::execute(
+    evmvc::sp_response res, md::callback::async_cb cb)
 {
     _route->_exec(res->req(), res, 0, cb);
 }
 
 
-md::log::sp_logger route::log() const
+inline md::log::sp_logger route::log() const
 {
     if(!_log)
         _log = _rtr.lock()->log()->add_child(this->_rp);
     return _log;
 }
 
-router::router(evmvc::wp_app app)
+inline router::router(evmvc::wp_app app)
     : _app(app), 
     _path(_norm_path("")),
     _log(_app.lock()->log()->add_child(_path)),
@@ -62,7 +63,7 @@ router::router(evmvc::wp_app app)
     EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
-router::router(evmvc::wp_app app, const md::string_view& path)
+inline router::router(evmvc::wp_app app, const md::string_view& path)
     : _app(app),
     _path(_norm_path(path)),
     _log(_app.lock()->log()->add_child(_path)),
@@ -76,7 +77,7 @@ router::router(evmvc::wp_app app, const md::string_view& path)
     EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
-sp_route& route::null(wp_app a)
+inline sp_route& route::null(wp_app a)
 {
     static sp_route rt = std::make_shared<route>(
         router::null(a), "null"
@@ -85,7 +86,7 @@ sp_route& route::null(wp_app a)
     return rt;
 }
 
-sp_router& router::null(wp_app a)
+inline sp_router& router::null(wp_app a)
 {
     static sp_router rtr = std::make_shared<router>(
         a.lock(), "null"

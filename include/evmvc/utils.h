@@ -57,7 +57,7 @@ PARAM_T json_default(
 }
 
 
-evmvc::json parse_jsonc_string(const std::string jsonwc)
+inline evmvc::json parse_jsonc_string(const std::string jsonwc)
 {
     bool in_str = false;
     // single line comments
@@ -146,7 +146,7 @@ evmvc::json parse_jsonc_string(const std::string jsonwc)
     
     return res;
 }
-evmvc::json parse_jsonc_file(
+inline evmvc::json parse_jsonc_file(
     const md::string_view jsonc_filename)
 {
     std::ifstream fin(

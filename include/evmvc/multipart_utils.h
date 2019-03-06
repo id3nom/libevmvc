@@ -221,7 +221,7 @@ struct multipart_subcontent_t
 
 
 
-std::string get_boundary(const std::string& hdr_val)
+inline std::string get_boundary(const std::string& hdr_val)
 {
     std::vector<std::string> kvs;
     boost::split(kvs, hdr_val, boost::is_any_of(";"));
@@ -239,7 +239,7 @@ std::string get_boundary(const std::string& hdr_val)
     return "";
 }
 
-std::string get_boundary(
+inline std::string get_boundary(
     md::log::sp_logger log, const std::shared_ptr<header_map>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_type).data());
@@ -256,7 +256,7 @@ std::string get_boundary(
 }
 
 
-std::string get_header_attribute(
+inline std::string get_header_attribute(
     const std::string& hdr_val, const std::string& attr_name)
 {
     std::vector<std::string> kvs;
@@ -275,7 +275,7 @@ std::string get_header_attribute(
     return "";
 }
 
-uint64_t get_content_length(const std::shared_ptr<header_map>& hdrs)
+inline uint64_t get_content_length(const std::shared_ptr<header_map>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_length).data());
     if(it != hdrs->end())

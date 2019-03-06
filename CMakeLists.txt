@@ -3,7 +3,7 @@ cmake_policy(SET CMP0054 NEW)
 project(libevmvc VERSION 0.1.0 LANGUAGES CXX C)
 
 # define module path
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMake" ${CMAKE_MODULE_PATH})
 
 if(NOT PrecompiledHeader_CMake_INCLUDED)
     include(PrecompiledHeader)
@@ -76,9 +76,11 @@ if (ZLIB_FOUND)
 endif()
 
 # FindICU
-find_package(ICU REQUIRED)
-if (ICU_FOUND)
-    include_directories(${ICU_INCLUDE_DIRS})
+if(NOT TARGET "ICU::UC")
+    find_package(ICU REQUIRED)
+    if (ICU_FOUND)
+        include_directories(${ICU_INCLUDE_DIRS})
+    endif()
 endif()
 
 # # find spdlog

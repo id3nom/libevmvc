@@ -194,7 +194,7 @@ enum class running_state
     running,
     stopping,
 };
-md::string_view to_string(evmvc::running_state s)
+inline md::string_view to_string(evmvc::running_state s)
 {
     switch(s){
         case evmvc::running_state::stopped:
@@ -219,7 +219,7 @@ enum class http_version
     http_11,
     http_2
 };
-md::string_view to_string(http_version v)
+inline md::string_view to_string(http_version v)
 {
     switch(v){
         case http_version::http_10:

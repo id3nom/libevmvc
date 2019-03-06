@@ -61,13 +61,13 @@ protected:
 };
 typedef std::shared_ptr<event_wrapper_base> sp_evw;
 
-std::unordered_map<std::string, sp_evw>& named_events()
+inline std::unordered_map<std::string, sp_evw>& named_events()
 {
     static std::unordered_map<std::string, sp_evw> _events;
     return _events;
 }
 
-std::mutex& events_mutex()
+inline std::mutex& events_mutex()
 {
     static std::mutex _m;
     return _m;
@@ -333,14 +333,14 @@ private:
 //     );
 // }
 
-std::string next_event_name()
+inline std::string next_event_name()
 {
     std::unique_lock<std::mutex> lock(events_mutex());
     static size_t uid = 0;
     return "da724ca0-308c-11e9-9071-5b3166957f05_" + md::num_to_str(++uid);
 }
 
-void register_event(sp_evw ev)
+inline void register_event(sp_evw ev)
 {
     EVMVC_DEF_TRACE("Registering event: '{}'", ev->name());
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
@@ -352,7 +352,7 @@ void register_event(sp_evw ev)
     named_events().emplace(std::make_pair(ev->name(), ev));
 }
 
-bool event_exists(const std::string& name)
+inline bool event_exists(const std::string& name)
 {
     std::unique_lock<std::mutex> lock(events_mutex());
     
@@ -362,7 +362,7 @@ bool event_exists(const std::string& name)
 
 }//ns: _internal
 
-bool timeout_exists(md::string_view name)
+inline bool timeout_exists(md::string_view name)
 {
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
@@ -370,7 +370,7 @@ bool timeout_exists(md::string_view name)
     return _internal::event_exists(n);
 }
 
-bool interval_exists(md::string_view name)
+inline bool interval_exists(md::string_view name)
 {
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
@@ -378,7 +378,7 @@ bool interval_exists(md::string_view name)
     return _internal::event_exists(n);
 }
 
-void clear_events()
+inline void clear_events()
 {
     EVMVC_DEF_TRACE("Clearing all events");
     
@@ -394,7 +394,7 @@ void clear_events()
         ev->stop();
 }
 
-void clear_timeouts()
+inline void clear_timeouts()
 {
     EVMVC_DEF_TRACE("Clearing all timeouts");
     
@@ -414,7 +414,7 @@ void clear_timeouts()
     for(auto& ev : evs)
         ev->stop();
 }
-void clear_intervals()
+inline void clear_intervals()
 {
     EVMVC_DEF_TRACE("Clearing all intervals");
     
@@ -436,7 +436,7 @@ void clear_intervals()
 }
 
 
-void clear_timeout(md::string_view name)
+inline void clear_timeout(md::string_view name)
 {
     EVMVC_DEF_TRACE("Clearing timeout '{}'", name);
     
@@ -449,7 +449,7 @@ void clear_timeout(md::string_view name)
     it->second->stop();
 }
 
-void clear_interval(md::string_view name)
+inline void clear_interval(md::string_view name)
 {
     EVMVC_DEF_TRACE("Clearing interval '{}'", name);
     
@@ -461,16 +461,16 @@ void clear_interval(md::string_view name)
     lock.unlock();
     it->second->stop();
 }
-void clear_timeout(std::shared_ptr<_internal::event_wrapper_base> ev)
+inline void clear_timeout(std::shared_ptr<_internal::event_wrapper_base> ev)
 {
     ev->stop();
 }
-void clear_interval(std::shared_ptr<_internal::event_wrapper_base> ev)
+inline void clear_interval(std::shared_ptr<_internal::event_wrapper_base> ev)
 {
     ev->stop();
 }
 
-std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     md::string_view name,
     int fd, event_type et,
     std::function<void(
@@ -500,7 +500,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     _internal::register_event(ev);
     return ev;
 }
-std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     int fd, event_type et,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
@@ -512,7 +512,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 }
 
 
-std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     md::string_view name,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
@@ -544,7 +544,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     _internal::register_event(ev);
     return ev;
 }
-std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
         > _cb,
@@ -556,7 +556,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 
 
 
-std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     md::string_view name,
     int fd, event_type et,
     std::function<void(
@@ -587,7 +587,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     _internal::register_event(ev);
     return ev;
 }
-std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     int fd, event_type et,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
@@ -598,7 +598,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     return set_interval(_internal::next_event_name(), fd, et, _cb, ms);
 }
 
-std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     md::string_view name,
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
@@ -631,7 +631,7 @@ std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     _internal::register_event(ev);
     return ev;
 }
-std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     std::function<void(
         std::shared_ptr<_internal::event_wrapper<void>>)
         > _cb,

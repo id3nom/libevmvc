@@ -28,12 +28,12 @@ SOFTWARE.
 namespace evmvc { 
 
 
-sp_http_worker connection::get_worker() const
+inline sp_http_worker connection::get_worker() const
 {
     return _worker.lock();
 }
 
-void connection::close()
+inline void connection::close()
 {
     if(_closed)
         return;
@@ -63,7 +63,7 @@ void connection::close()
         w->remove_connection(this->_id);
 }
 
-void connection::_send_file_chunk_start()
+inline void connection::_send_file_chunk_start()
 {
     EVMVC_TRACE(_log, "_send_file_chunk_start");
     
@@ -74,7 +74,7 @@ void connection::_send_file_chunk_start()
     _file->res->_started = true;
 }
 
-void connection::_send_chunk(struct evbuffer* chunk)
+inline void connection::_send_chunk(struct evbuffer* chunk)
 {
     size_t cs = evbuffer_get_length(chunk);
     if(cs == 0){
@@ -91,7 +91,7 @@ void connection::_send_chunk(struct evbuffer* chunk)
     bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);
 }
 
-void connection::_send_file_chunk_end()
+inline void connection::_send_file_chunk_end()
 {
     EVMVC_TRACE(_log, "_send_file_chunk_end");
 
@@ -102,7 +102,7 @@ void connection::_send_file_chunk_end()
     complete_response();
 }
 
-evmvc::status connection::_send_file_chunk()
+inline evmvc::status connection::_send_file_chunk()
 {
     char buf[EVMVC_READ_BUF_SIZE];
     size_t bytes_read;
@@ -178,7 +178,8 @@ evmvc::status connection::_send_file_chunk()
 
 
 
-void connection::on_connection_resume(int /*fd*/, short /*events*/, void* arg)
+inline void connection::on_connection_resume(
+    int /*fd*/, short /*events*/, void* arg)
 {
     connection* c = (connection*)arg;
     EVMVC_DBG(c->_log, "resuming");
@@ -222,7 +223,8 @@ void connection::on_connection_resume(int /*fd*/, short /*events*/, void* arg)
     
 }
 
-void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
+inline void connection::on_connection_read(
+    struct bufferevent* /*bev*/, void* arg)
 {
     connection* c = (connection*)arg;
     EVMVC_TRACE(c->_log, "on_connection_read\n{}", c->debug_string());
@@ -297,7 +299,8 @@ void connection::on_connection_read(struct bufferevent* /*bev*/, void* arg)
     // }
 }
 
-void connection::on_connection_write(struct bufferevent* /*bev*/, void* arg)
+inline void connection::on_connection_write(
+    struct bufferevent* /*bev*/, void* arg)
 {
     connection* c = (connection*)arg;
     EVMVC_TRACE(c->_log, "on_connection_write\n{}", c->debug_string());
@@ -350,7 +353,7 @@ void connection::on_connection_write(struct bufferevent* /*bev*/, void* arg)
     // }
 }
 
-void connection::on_connection_event(
+inline void connection::on_connection_event(
     struct bufferevent* /*bev*/, short events, void* arg)
 {
     connection* c = (connection*)arg;

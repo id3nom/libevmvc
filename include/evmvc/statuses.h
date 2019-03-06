@@ -338,7 +338,7 @@ public:
     
 };
 
-const char* to_status_string(uint16_t sc)
+inline const char* to_status_string(uint16_t sc)
 {
     switch(sc){
         case 100: return "Continue";
@@ -408,12 +408,12 @@ const char* to_status_string(uint16_t sc)
         default: return "UNKNOWN";
     }
 }
-const char* to_string(evmvc::status sc)
+inline const char* to_string(evmvc::status sc)
 {
     return to_status_string((uint16_t)sc);
 }
 
-const char* to_status_text(uint16_t sc)
+inline const char* to_status_text(uint16_t sc)
 {
     switch(sc){
         case 100: return "100";
@@ -483,7 +483,7 @@ const char* to_status_text(uint16_t sc)
         default: return "UNKNOWN";
     }
 }
-const char* to_status_text(evmvc::status sc)
+inline const char* to_status_text(evmvc::status sc)
 {
     return to_status_text((uint16_t)sc);
 }

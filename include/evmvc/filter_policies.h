@@ -71,7 +71,7 @@ struct filter_rule_ctx_t
 };
 typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
 
-filter_rule_ctx new_context(sp_response res)
+inline filter_rule_ctx new_context(sp_response res)
 {
     return std::make_shared<filter_rule_ctx_t>(
         res, res->req(),
@@ -183,7 +183,7 @@ protected:
     
 };
 
-filter_policy new_filter_policy()
+inline filter_policy new_filter_policy()
 {
     return filter_policy(new filter_policy_t());
 }
@@ -400,14 +400,14 @@ private:
 typedef std::shared_ptr<jwt_filter_rule_t> jwt_filter_rule;
 
 
-user_filter_rule new_user_filter(filter_type ft, user_validation_cb uvcb)
+inline user_filter_rule new_user_filter(filter_type ft, user_validation_cb uvcb)
 {
     return std::make_shared<user_filter_rule_t>(
         ft, uvcb
     );
 }
 
-form_filter_rule new_form_filter(
+inline form_filter_rule new_form_filter(
     std::initializer_list<std::string> names = {},
     std::initializer_list<std::string> mime_types = {}
 )
@@ -417,7 +417,7 @@ form_filter_rule new_form_filter(
     );
 }
 
-file_filter_rule new_file_filter(
+inline file_filter_rule new_file_filter(
     std::initializer_list<std::string> names = {},
     std::initializer_list<std::string> mime_types = {},
     size_t max_size = 0
@@ -429,7 +429,7 @@ file_filter_rule new_file_filter(
 }
 
 
-jwt_filter_rule new_jwt_filter(
+inline jwt_filter_rule new_jwt_filter(
     evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier)
 {
     return std::make_shared<jwt_filter_rule_t>(
@@ -437,7 +437,7 @@ jwt_filter_rule new_jwt_filter(
     );
 }
 
-jwt_filter_rule new_jwt_filter(
+inline jwt_filter_rule new_jwt_filter(
     evmvc::jwt::verifier<evmvc::jwt::default_clock> verifier,
     jwt_validation_cb jwcb)
 {

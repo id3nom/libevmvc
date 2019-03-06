@@ -47,20 +47,20 @@ static char* header_line_buf()
 }
 
 
-sp_connection response::connection() const { return _conn.lock();}
-bool response::secure() const { return _conn.lock()->secure();}
+inline sp_connection response::connection() const { return _conn.lock();}
+inline bool response::secure() const { return _conn.lock()->secure();}
 
-evmvc::sp_app response::get_app() const
+inline evmvc::sp_app response::get_app() const
 {
     return this->get_router()->get_app();
 }
-evmvc::sp_router response::get_router() const
+inline evmvc::sp_router response::get_router() const
 {
     return this->get_route()->get_router();
 }
 
 
-void response::pause()
+inline void response::pause()
 {
     if(_paused)
         return;
@@ -70,7 +70,7 @@ void response::pause()
         c->set_conn_flag(conn_flags::paused);
 }
 
-void response::resume()
+inline void response::resume()
 {
     if(!_paused || _resuming){
         _log->warn(MD_ERR(
@@ -91,7 +91,8 @@ void response::resume()
 
 
 
-void response::error(evmvc::status err_status, const md::callback::cb_error& err)
+inline void response::error(
+    evmvc::status err_status, const md::callback::cb_error& err)
 {
     std::string remote_addr("unknown");
     std::string remote_port = "";
@@ -183,7 +184,7 @@ void response::error(evmvc::status err_status, const md::callback::cb_error& err
     this->status(err_status).html(err_msg);
 }
 
-void response::_prepare_headers()
+inline void response::_prepare_headers()
 {
     EVMVC_TRACE(_log, "_prepare_headers");
     
@@ -302,14 +303,14 @@ void response::_prepare_headers()
     bufferevent_flush(c->bev(), EV_WRITE, BEV_FLUSH);
 }
 
-void response::_reply_raw(const char* data, size_t len)
+inline void response::_reply_raw(const char* data, size_t len)
 {
     EVMVC_TRACE(_log, "_reply_raw");
     if(auto c = this->_conn.lock())
         bufferevent_write(c->bev(), data, len);
 }
 
-void response::_reply_end()
+inline void response::_reply_end()
 {
     EVMVC_TRACE(_log, "_reply_end");
 
@@ -322,7 +323,7 @@ void response::_reply_end()
 }
 
 
-void response::send_file(
+inline void response::send_file(
     const bfs::path& filepath,
     const md::string_view& enc, 
     md::callback::async_cb cb)

@@ -29,11 +29,11 @@ SOFTWARE.
 
 namespace evmvc {
 
-sp_master_server listener::get_server() const { return _server.lock();}
-sp_app master_server::get_app() const { return _app.lock();}
+inline sp_master_server listener::get_server() const { return _server.lock();}
+inline sp_app master_server::get_app() const { return _app.lock();}
 
 
-void listener::master_listen_cb(
+inline void listener::master_listen_cb(
     struct evconnlistener*, int sock,
     sockaddr* saddr, int socklen, void* args)
 {

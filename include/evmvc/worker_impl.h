@@ -28,7 +28,7 @@ SOFTWARE.
 namespace evmvc {
 
 #define EVMVC_CMD_HEADER_SIZE (sizeof(int) + sizeof(size_t))
-void channel_cmd_read(int fd, short events, void* arg)
+inline void channel_cmd_read(int fd, short events, void* arg)
 {
     channel* chan = (channel*)arg;
     while(true){
@@ -77,7 +77,7 @@ void channel_cmd_read(int fd, short events, void* arg)
     }
 }
 
-void channel::_init_master_channels()
+inline void channel::_init_master_channels()
 {
     usock_path = (
         _worker->get_app()->options().run_dir /
@@ -103,7 +103,7 @@ void channel::_init_master_channels()
 }
 
 
-void channel::_init_child_channels()
+inline void channel::_init_child_channels()
 {
     usock_path = (
         _worker->get_app()->options().run_dir /
@@ -165,7 +165,7 @@ void channel::_init_child_channels()
     event_add(this->rcmd_ev, nullptr);
 }
 
-void worker::close_service()
+inline void worker::close_service()
 {
     if(this->is_child())
         _channel->sendcmd(EVMVC_CMD_CLOSE_APP, nullptr, 0);
@@ -174,7 +174,7 @@ void worker::close_service()
     }
 }
 
-void worker::sig_received(int sig)
+inline void worker::sig_received(int sig)
 {
     if(sig == SIGINT){
         auto w = active_worker();
@@ -187,7 +187,7 @@ void worker::sig_received(int sig)
     }
 }
 
-void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
+inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
 {
     switch(cmd_id){
         case EVMVC_CMD_PING:{
@@ -263,7 +263,7 @@ void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
 }
 
 
-void http_worker::on_http_worker_accept(int fd, short events, void* arg)
+inline void http_worker::on_http_worker_accept(int fd, short events, void* arg)
 {
     http_worker* w = (http_worker*)arg;
     

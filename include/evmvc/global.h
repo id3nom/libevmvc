@@ -29,7 +29,7 @@ SOFTWARE.
 
 namespace evmvc { namespace global {
 
-struct event_base* ev_base(
+inline struct event_base* ev_base(
     struct event_base* reset = nullptr,
     bool free_on_reset = false,
     bool debug = false)
@@ -51,7 +51,7 @@ struct event_base* ev_base(
     return _ev_base;
 }
 
-void set_event_base(struct event_base* evb)
+inline void set_event_base(struct event_base* evb)
 {
     if(!evb)
         throw MD_ERR("event_base must be valid!");
