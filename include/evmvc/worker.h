@@ -370,6 +370,14 @@ public:
     
     bool is_child() const { return _ptype == process_type::child;}
     
+    void set_callbacks(
+        md::callback::value_cb<evmvc::process_type> started_cb, 
+        md::callback::value_cb<evmvc::process_type> stopped_cb)
+    {
+        _started_cb = started_cb;
+        _stopped_cb = stopped_cb;
+    }
+    
     virtual void start(int argc, char** argv, int pid)
     {
         if(!stopped())
@@ -414,9 +422,18 @@ public:
             );
             c_sink->set_level(_log->level());
             _log->replace_sink(c_sink);
-            // std::clog << fmt::format(
-            //     "Sink level set to '{}'", to_string(_log->level())
-            // ) << std::endl;
+            
+            // will send a SIGINT when the parent dies
+            prctl(PR_SET_PDEATHSIG, SIGINT);
+            
+            event_set_log_callback(worker::_on_event_log);
+            event_set_fatal_callback(worker::_on_event_fatal_error);
+            global::ev_base(event_base_new(), false, true);
+            
+            if(_started_cb)
+                set_timeout([self = this->shared_from_this()](auto ew){
+                    self->_started_cb(nullptr, process_type::child);
+                }, 0);
         }
         
         _channel->_init();
@@ -443,6 +460,9 @@ public:
                 event_base_loopbreak(global::ev_base());
             else
                 event_base_loopexit(global::ev_base(), nullptr);
+            
+            if(_stopped_cb)
+                _stopped_cb(nullptr, process_type::child);
             
             return;
         }
@@ -522,6 +542,10 @@ protected:
     int _pid;
     process_type _ptype;
     std::unique_ptr<evmvc::channel> _channel;
+
+    md::callback::value_cb<evmvc::process_type> _started_cb;
+    md::callback::value_cb<evmvc::process_type> _stopped_cb;
+    
 };
 
 inline void sinks::child_sink::log(
@@ -588,17 +612,11 @@ public:
     void start(int argc, char** argv, int pid)
     {
         worker::start(argc, argv, pid);
-        if(_ptype == process_type::master)
+        if(_ptype != process_type::child)
             return;
         
         _log->info("Starting worker, pid: {}", _pid);
         
-        // will send a SIGINT when the parent dies
-        prctl(PR_SET_PDEATHSIG, SIGINT);
-        
-        event_set_log_callback(worker::_on_event_log);
-        event_set_fatal_callback(worker::_on_event_fatal_error);
-        global::ev_base(event_base_new(), false, true);
         
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,

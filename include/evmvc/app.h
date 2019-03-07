@@ -135,6 +135,14 @@ public:
             return _options.base_dir / rp;
     }
     
+    void set_callbacks(
+        md::callback::value_cb<evmvc::process_type> started_cb, 
+        md::callback::value_cb<evmvc::process_type> stopped_cb)
+    {
+        _started_cb = started_cb;
+        _stopped_cb = stopped_cb;
+    }
+    
     int start(int argc, char** argv, bool start_event_loop = false)
     {
         if(!stopped())
@@ -158,6 +166,7 @@ public:
                 );
                 return -1;
             }else if(pid == 0){// in child process
+                w->set_callbacks(_started_cb, _stopped_cb);
                 w->start(argc, argv, pid);
                 return 1;
             }else{// in master process
@@ -203,6 +212,11 @@ public:
         
         _status = running_state::running;
         
+        if(_started_cb)
+            set_timeout([self = this->shared_from_this()](auto ew){
+                self->_started_cb(nullptr, process_type::master);
+            }, 0);
+        
         if(start_event_loop){
             event_base_loop(global::ev_base(), 0);
             if(running())
@@ -247,6 +261,9 @@ public:
         this->_log->info("Service stopped");
         
         this->_status = running_state::stopped;
+        
+        if(_stopped_cb)
+            _stopped_cb(nullptr, process_type::master);
         
         if(cb)
             cb(nullptr);
@@ -458,6 +475,10 @@ private:
     
     std::vector<evmvc::sp_worker> _workers;
     std::vector<evmvc::sp_master_server> _servers;
+    
+    md::callback::value_cb<evmvc::process_type> _started_cb; 
+    md::callback::value_cb<evmvc::process_type> _stopped_cb;
+    
 };//evmvc::app
 
 
