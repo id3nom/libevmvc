@@ -30,6 +30,7 @@ SOFTWARE.
 #include "unix_socket_utils.h"
 #include "child_server.h"
 #include "connection.h"
+#include "cmd.h"
 
 #include <sys/prctl.h>
 
@@ -95,55 +96,13 @@ public:
         throw MD_ERR("sendmsg can only be called in master process!");
     }
     
-    ssize_t sendcmd(int cmd_id, const char* payload, size_t payload_len)
+    ssize_t sendcmd(const command& cmd)
     {
-        int fd = _type == channel_type::child ?
-            ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
-        
-        ssize_t tn = 0;
-        ssize_t n = md::files::writen(
-            fd,
-            &cmd_id,
-            sizeof(int)
-        );
-        if(n == -1){
-            std::cerr << fmt::format(
-                "Unable to send cmd, err: '{}'\n", errno
-            );
-            return -1;
-        }
-        tn += n;
-        n = md::files::writen(
-            fd,
-            &payload_len,
-            sizeof(size_t)
-        );
-        if(n == -1){
-            std::cerr << fmt::format(
-                "Unable to send cmd, err: '{}'\n", errno
-            );
-            return -1;
-        }
-        tn += n;
-        if(payload_len > 0){
-            n = md::files::writen(
-                fd,
-                payload,
-                payload_len
-            );
-            if(n == -1){
-                std::cerr << fmt::format(
-                    "Unable to send cmd, err: '{}'\n", errno
-                );
-                return -1;
-            }
-            tn += n;
-        }
-        
-        // send the command
-        fsync(fd);
-        
-        return tn;
+        return _sendcmd(cmd.id(), cmd.data(), cmd.size());
+    }
+    ssize_t sendcmd(sp_command cmd)
+    {
+        return _sendcmd(cmd->id(), cmd->data(), cmd->size());
     }
     
 private:
@@ -227,6 +186,58 @@ private:
         }
     }
     
+    ssize_t _sendcmd(int cmd_id, const char* payload, size_t payload_len)
+    {
+        int fd = _type == channel_type::child ?
+            ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
+        
+        ssize_t tn = 0;
+        ssize_t n = md::files::writen(
+            fd,
+            &cmd_id,
+            sizeof(int)
+        );
+        if(n == -1){
+            std::cerr << fmt::format(
+                "Unable to send cmd, err: '{}'\n", errno
+            );
+            return -1;
+        }
+        tn += n;
+        n = md::files::writen(
+            fd,
+            &payload_len,
+            sizeof(size_t)
+        );
+        if(n == -1){
+            std::cerr << fmt::format(
+                "Unable to send cmd, err: '{}'\n", errno
+            );
+            return -1;
+        }
+        tn += n;
+        if(payload_len > 0){
+            n = md::files::writen(
+                fd,
+                payload,
+                payload_len
+            );
+            if(n == -1){
+                std::cerr << fmt::format(
+                    "Unable to send cmd, err: '{}'\n", errno
+                );
+                return -1;
+            }
+            tn += n;
+        }
+        
+        // send the command
+        fsync(fd);
+        
+        return tn;
+    }
+    
+    
     evmvc::worker* _worker;
     channel_type _type = channel_type::unknown;
 
@@ -283,6 +294,9 @@ private:
 }//::sinks
 
 void channel_cmd_read(int fd, short events, void* arg);
+
+typedef std::function<bool(sp_command cmd)>
+    cmd_parser_fn;
 
 class worker
     : public std::enable_shared_from_this<worker>
@@ -470,7 +484,10 @@ public:
         if(!force){
             try{
                 _log->info("Sending close message to worker: {}", _id);
-                _channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+                //_channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
+                _channel->sendcmd(
+                    command(EVMVC_CMD_CLOSE)
+                );
                 _channel->close_channels();
                 _channel.release();
                 this->_status = running_state::stopped;
@@ -493,7 +510,7 @@ public:
     bool ping()
     {
         try{
-            _channel->sendcmd(EVMVC_CMD_PING, nullptr, 0);
+            _channel->sendcmd(command(EVMVC_CMD_PING));
             return true;
         }catch(const std::exception& err){
             
@@ -504,30 +521,48 @@ public:
     ssize_t send_log(
         md::log::log_level lvl, md::string_view path, md::string_view msg)
     {
-        size_t pl =
-            sizeof(int) + // log level
-            (sizeof(size_t) * 2) + // lengths of path and msg
-            path.size() + msg.size();
+        command c(evmvc::CMD_LOG);
+        c.write((int)lvl);
+        c.write(path);
+        c.write(msg);
+        return _channel->sendcmd(c);
+        // size_t pl =
+        //     sizeof(int) + // log level
+        //     (sizeof(size_t) * 2) + // lengths of path and msg
+        //     path.size() + msg.size();
         
-        char p[pl];
-        char* pp = p;
-        *((int*)pp) = (int)lvl;
-        pp += sizeof(int);
+        // char p[pl];
+        // char* pp = p;
+        // *((int*)pp) = (int)lvl;
+        // pp += sizeof(int);
         
-        *((size_t*)pp) = path.size();
-        pp += sizeof(size_t);
-        for(size_t i = 0; i < path.size(); ++i)
-            *((char*)pp++) = path.data()[i];
+        // *((size_t*)pp) = path.size();
+        // pp += sizeof(size_t);
+        // for(size_t i = 0; i < path.size(); ++i)
+        //     *((char*)pp++) = path.data()[i];
 
-        *((size_t*)pp) = msg.size();
-        pp += sizeof(size_t);
-        for(size_t i = 0; i < msg.size(); ++i)
-            *((char*)pp++) = msg.data()[i];
+        // *((size_t*)pp) = msg.size();
+        // pp += sizeof(size_t);
+        // for(size_t i = 0; i < msg.size(); ++i)
+        //     *((char*)pp++) = msg.data()[i];
         
-        return _channel->sendcmd(EVMVC_CMD_LOG, p, pl);
+        // return _channel->sendcmd(EVMVC_CMD_LOG, p, pl);
     }
     
+    void emplace_parser(cmd_parser_fn fn)
+    {
+        _cmd_parsers.emplace_back(fn);
+    }
 
+    ssize_t send_cmd(const command& cmd)
+    {
+        return _channel->sendcmd(cmd);
+    }
+    ssize_t send_cmd(sp_command cmd)
+    {
+        return _channel->sendcmd(cmd);
+    }
+    
 protected:
     virtual void parse_cmd(int cmd_id, const char* p, size_t plen);
     
@@ -546,6 +581,7 @@ protected:
     md::callback::value_cb<evmvc::process_type> _started_cb;
     md::callback::value_cb<evmvc::process_type> _stopped_cb;
     
+    std::vector<cmd_parser_fn> _cmd_parsers;
 };
 
 inline void sinks::child_sink::log(

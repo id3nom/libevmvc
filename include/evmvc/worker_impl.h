@@ -168,7 +168,7 @@ inline void channel::_init_child_channels()
 inline void worker::close_service()
 {
     if(this->is_child())
-        _channel->sendcmd(EVMVC_CMD_CLOSE_APP, nullptr, 0);
+        _channel->sendcmd(command(EVMVC_CMD_CLOSE_APP));
     else if(auto a = _app.lock()){
         a->stop();
     }
@@ -189,10 +189,13 @@ inline void worker::sig_received(int sig)
 
 inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
 {
+    sp_command c = std::make_shared<command>(
+        cmd_id, p, plen
+    );
     switch(cmd_id){
         case EVMVC_CMD_PING:{
             EVMVC_DBG(_log, "CMD PING recv");
-            _channel->sendcmd(EVMVC_CMD_PONG, nullptr, 0);
+            _channel->sendcmd(command(EVMVC_CMD_PONG));
             break;
         }
         case EVMVC_CMD_PONG:{
@@ -223,41 +226,52 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
             break;
         }
         case EVMVC_CMD_LOG:{
+            // //EVMVC_DBG(_log, "CMD LOG recv");
+            // md::log::log_level lvl = (md::log::log_level)(*(int*)p);
+            // p += sizeof(int);
+            
+            // size_t log_path_size = *(size_t*)p;
+            // p += sizeof(size_t);
+            // const char* log_path = p;
+            // p += log_path_size;
+            
+            // size_t log_msg_size = *(size_t*)p;
+            // p += sizeof(size_t);
+            // const char* log_msg = p;
+            // p += log_msg_size;
+
             //EVMVC_DBG(_log, "CMD LOG recv");
-            md::log::log_level lvl = (md::log::log_level)(*(int*)p);
-            p += sizeof(int);
-            
-            size_t log_path_size = *(size_t*)p;
-            p += sizeof(size_t);
-            const char* log_path = p;
-            p += log_path_size;
-            
-            size_t log_msg_size = *(size_t*)p;
-            p += sizeof(size_t);
-            const char* log_msg = p;
-            p += log_msg_size;
-            
+            md::log::log_level lvl = (md::log::log_level)c->read<int>();
+            std::string log_path = c->read<std::string>();
+            std::string log_msg = c->read<std::string>();
             _log->log(
-                md::string_view(log_path, log_path_size),
+                log_path,
                 lvl,
-                md::string_view(log_msg, log_msg_size)
+                log_msg
             );
             
             break;
         }
         default:
-            if(plen)
-                _log->warn(
-                    "unknown cmd_id: '{}', payload len: '{}'\n"
-                    "payload: '{}'",
-                    cmd_id, plen,
-                    md::base64_encode(md::string_view(p, plen))
-                );
-            else
-                _log->warn(
-                    "unknown cmd_id: '{}', payload len: '{}'",
-                    cmd_id, plen
-                );
+            if(_cmd_parsers.empty()){
+                if(plen)
+                    _log->warn(
+                        "unknown cmd_id: '{}', payload len: '{}'\n"
+                        "payload: '{}'",
+                        cmd_id, plen,
+                        md::base64_encode(md::string_view(p, plen))
+                    );
+                else
+                    _log->warn(
+                        "unknown cmd_id: '{}', payload len: '{}'",
+                        cmd_id, plen
+                    );
+            }else{
+                for(auto pfn : _cmd_parsers){
+                    if(pfn(c))
+                        break;
+                }
+            }
             break;
     }
 }
