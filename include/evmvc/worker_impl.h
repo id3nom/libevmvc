@@ -168,7 +168,7 @@ inline void channel::_init_child_channels()
 inline void worker::close_service()
 {
     if(this->is_child())
-        _channel->sendcmd(command(EVMVC_CMD_CLOSE_APP));
+        _channel->sendcmd(command(evmvc::CMD_CLOSE_APP));
     else if(auto a = _app.lock()){
         a->stop();
     }
@@ -192,68 +192,68 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
     sp_command c = std::make_shared<command>(
         cmd_id, p, plen
     );
-    switch(cmd_id){
-        case EVMVC_CMD_PING:{
-            EVMVC_DBG(_log, "CMD PING recv");
-            _channel->sendcmd(command(EVMVC_CMD_PONG));
-            break;
-        }
-        case EVMVC_CMD_PONG:{
-            EVMVC_DBG(_log, "CMD PONG recv");
-            
-            break;
-        }
-        case EVMVC_CMD_CLOSE:{
-            if(this->is_child()){
-                if(this->running())
-                    this->stop();
-                //raise(SIGINT);
-            }else{
-                event_active(_channel->rcmd_ev, EV_READ, 1);
-                this->_status = running_state::stopped;
+    if(cmd_id < evmvc::CMD_USER_ID){
+        switch(cmd_id){
+            case evmvc::CMD_PING:{
+                EVMVC_DBG(_log, "CMD PING recv");
+                _channel->sendcmd(command(evmvc::CMD_PONG));
+                break;
             }
-            break;
-        }
-        case EVMVC_CMD_CLOSE_APP:{
-            if(this->is_child())
-                return;
-            if(auto a = _app.lock())
-                a->stop([self = this->shared_from_this()](auto err){
-                    if(err)
-                        self->_log->error(err);
-                    event_base_loopbreak(global::ev_base());
-                });
-            break;
-        }
-        case EVMVC_CMD_LOG:{
-            // //EVMVC_DBG(_log, "CMD LOG recv");
-            // md::log::log_level lvl = (md::log::log_level)(*(int*)p);
-            // p += sizeof(int);
-            
-            // size_t log_path_size = *(size_t*)p;
-            // p += sizeof(size_t);
-            // const char* log_path = p;
-            // p += log_path_size;
-            
-            // size_t log_msg_size = *(size_t*)p;
-            // p += sizeof(size_t);
-            // const char* log_msg = p;
-            // p += log_msg_size;
+            case evmvc::CMD_PONG:{
+                EVMVC_DBG(_log, "CMD PONG recv");
+                
+                break;
+            }
+            case evmvc::CMD_CLOSE:{
+                if(this->is_child()){
+                    if(this->running())
+                        this->stop();
+                    //raise(SIGINT);
+                }else{
+                    event_active(_channel->rcmd_ev, EV_READ, 1);
+                    this->_status = running_state::stopped;
+                }
+                break;
+            }
+            case evmvc::CMD_CLOSE_APP:{
+                if(this->is_child())
+                    return;
+                if(auto a = _app.lock())
+                    a->stop([self = this->shared_from_this()](auto err){
+                        if(err)
+                            self->_log->error(err);
+                        event_base_loopbreak(global::ev_base());
+                    });
+                break;
+            }
+            case evmvc::CMD_LOG:{
+                // //EVMVC_DBG(_log, "CMD LOG recv");
+                // md::log::log_level lvl = (md::log::log_level)(*(int*)p);
+                // p += sizeof(int);
+                
+                // size_t log_path_size = *(size_t*)p;
+                // p += sizeof(size_t);
+                // const char* log_path = p;
+                // p += log_path_size;
+                
+                // size_t log_msg_size = *(size_t*)p;
+                // p += sizeof(size_t);
+                // const char* log_msg = p;
+                // p += log_msg_size;
 
-            //EVMVC_DBG(_log, "CMD LOG recv");
-            md::log::log_level lvl = (md::log::log_level)c->read<int>();
-            std::string log_path = c->read<std::string>();
-            std::string log_msg = c->read<std::string>();
-            _log->log(
-                log_path,
-                lvl,
-                log_msg
-            );
-            
-            break;
-        }
-        default:
-            if(_cmd_parsers.empty()){
+                //EVMVC_DBG(_log, "CMD LOG recv");
+                md::log::log_level lvl = (md::log::log_level)c->read<int>();
+                std::string log_path = c->read<std::string>();
+                std::string log_msg = c->read<std::string>();
+                _log->log(
+                    log_path,
+                    lvl,
+                    log_msg
+                );
+                
+                break;
+            }
+            default:
                 if(plen)
                     _log->warn(
                         "unknown cmd_id: '{}', payload len: '{}'\n"
@@ -266,14 +266,29 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
                         "unknown cmd_id: '{}', payload len: '{}'",
                         cmd_id, plen
                     );
-            }else{
-                for(auto pfn : _cmd_parsers){
-                    if(pfn(c))
-                        break;
-                }
-            }
-            break;
+                break;
+        }
+        
+    }else{
+        for(auto pfn : _cmd_parsers){
+            if(pfn(c))
+                return;
+        }
+        
+        if(plen)
+            _log->warn(
+                "unknown cmd_id: '{}', payload len: '{}'\n"
+                "payload: '{}'",
+                cmd_id, plen,
+                md::base64_encode(md::string_view(p, plen))
+            );
+        else
+            _log->warn(
+                "unknown cmd_id: '{}', payload len: '{}'",
+                cmd_id, plen
+            );
     }
+        
 }
 
 

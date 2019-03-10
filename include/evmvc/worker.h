@@ -34,15 +34,8 @@ SOFTWARE.
 
 #include <sys/prctl.h>
 
-
 #define EVMVC_PIPE_WRITE_FD 1
 #define EVMVC_PIPE_READ_FD 0
-
-#define EVMVC_CMD_PING 0
-#define EVMVC_CMD_PONG 1
-#define EVMVC_CMD_LOG 2
-#define EVMVC_CMD_CLOSE 3
-#define EVMVC_CMD_CLOSE_APP 4
 
 namespace evmvc {
 
@@ -486,7 +479,7 @@ public:
                 _log->info("Sending close message to worker: {}", _id);
                 //_channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
                 _channel->sendcmd(
-                    command(EVMVC_CMD_CLOSE)
+                    command(evmvc::CMD_CLOSE)
                 );
                 _channel->close_channels();
                 _channel.release();
@@ -510,7 +503,7 @@ public:
     bool ping()
     {
         try{
-            _channel->sendcmd(command(EVMVC_CMD_PING));
+            _channel->sendcmd(command(evmvc::CMD_PING));
             return true;
         }catch(const std::exception& err){
             

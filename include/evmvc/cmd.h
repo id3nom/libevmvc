@@ -30,17 +30,16 @@ SOFTWARE.
 #include "utils.h"
 #include "configuration.h"
 
-
-#define EVMVC_CMD_SYS_ID 0
-#define EVMVC_CMD_USER_ID 100
-
 namespace evmvc {
 
-constexpr int CMD_PING = EVMVC_CMD_SYS_ID + 0;
-constexpr int CMD_PONG = EVMVC_CMD_SYS_ID + 1;
-constexpr int CMD_LOG = EVMVC_CMD_SYS_ID + 2;
-constexpr int CMD_CLOSE = EVMVC_CMD_SYS_ID + 3;
-constexpr int CMD_CLOSE_APP = EVMVC_CMD_SYS_ID + 4;
+constexpr int CMD_SYS_ID = 0;
+constexpr int CMD_USER_ID = 100;
+
+constexpr int CMD_PING = evmvc::CMD_SYS_ID + 0;
+constexpr int CMD_PONG = evmvc::CMD_SYS_ID + 1;
+constexpr int CMD_LOG = evmvc::CMD_SYS_ID + 2;
+constexpr int CMD_CLOSE = evmvc::CMD_SYS_ID + 3;
+constexpr int CMD_CLOSE_APP = evmvc::CMD_SYS_ID + 4;
 
 class command;
 typedef std::shared_ptr<command> sp_command;
@@ -94,7 +93,7 @@ public:
     }
     
     template<typename T>
-    command& write(const std::vector<T>& v)
+    command& write_list(const std::vector<T>& v)
     {
         write(v.size());
         for(auto it = v.begin(); it != v.end(); ++it)
@@ -139,6 +138,10 @@ public:
         }
     }
     
+    void drain(size_t n)
+    {
+        evbuffer_drain(_buf, n);
+    }
     
 private:
     void _write(const char* d, size_t l)
@@ -179,12 +182,26 @@ inline command& command::write<md::string_view>(const md::string_view& v)
 }
 
 template<>
+inline command& command::write<evmvc::json>(const evmvc::json& v)
+{
+    return write(v.dump());
+}
+
+
+template<>
 inline std::string command::read<std::string>()
 {
     size_t l = read<size_t>();
     char b[l];
     _read(b, l);
     return std::string(b, l);
+}
+
+template<>
+inline evmvc::json command::read<evmvc::json>()
+{
+    std::string s = read<std::string>();
+    return evmvc::json::parse(s);
 }
 
 template<>
@@ -196,6 +213,14 @@ inline std::string command::peak(size_t offset) const
     _peak(b, l, offset);
     return std::string(b, l);
 }
+
+template<>
+inline evmvc::json command::peak<evmvc::json>(size_t offset) const
+{
+    std::string s = peak<std::string>(offset);
+    return evmvc::json::parse(s);
+}
+
 
 template<>
 inline void command::peak_list(std::vector<std::string>& v, size_t offset) const
