@@ -125,11 +125,24 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
+    /*
+    * convert a relative path to absolute representation
+    * if path starts with '~/' then it's append to base_dir
+    * if path starts with '$/' then it's append to cache_dir
+    * if path starts with '!/' then it's append to temp_dir
+    * if path starts with '@/' then it's append to view_dir
+    */
     bfs::path abs_path(md::string_view rel_path)
     {
         std::string rp(rel_path.data(), rel_path.size());
-        if(rp[0] == '~')
-            return _options.base_dir / rp.substr(1);
+        if(boost::algorithm::starts_with(rp, "~/"))
+            return _options.base_dir / rp.substr(2);
+        else if(boost::algorithm::starts_with(rp, "$/"))
+            return _options.cache_dir / rp.substr(2);
+        else if(boost::algorithm::starts_with(rp, "!/"))
+            return _options.temp_dir / rp.substr(2);
+        else if(boost::algorithm::starts_with(rp, "@/"))
+            return _options.view_dir / rp.substr(2);
         else if(rp[0] == '/')
             return rp;
         else

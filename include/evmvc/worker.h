@@ -646,6 +646,8 @@ public:
         
         _log->info("Starting worker, pid: {}", _pid);
         
+        // init the event queue
+        md::event_queue::reset(global::ev_base());
         
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
