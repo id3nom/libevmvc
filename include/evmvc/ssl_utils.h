@@ -34,7 +34,7 @@ namespace evmvc {
 
 inline long parse_ssl_options(const evmvc::json& jopts)
 {
-    if(jopts.empty())
+    if(jopts.empty() || jopts.is_null())
         return SSL_OP_ALL | SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
             SSL_MODE_RELEASE_BUFFERS | SSL_OP_NO_COMPRESSION;
     
