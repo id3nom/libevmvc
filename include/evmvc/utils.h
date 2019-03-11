@@ -53,6 +53,8 @@ PARAM_T json_default(
     auto it = jobj.find(key.to_string());
     if(it == jobj.end())
         return def_val;
+    if(it->is_null())
+        return def_val;
     return *it;
 }
 
