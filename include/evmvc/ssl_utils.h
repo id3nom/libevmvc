@@ -101,7 +101,7 @@ inline long parse_ssl_options(const evmvc::json& jopts)
         );
         
         for(auto sopt : vopts){
-            auto it = _opts_map.find(boost::to_upper_copy(sopt));
+            auto it = _opts_map.find(boost::to_upper_copy(md::trim_copy(sopt)));
             if(it != _opts_map.end())
                 opts |= it->second;
         }

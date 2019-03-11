@@ -51,7 +51,8 @@ public:
     {
         // force get_field_table initialization
         evmvc::detail::get_field_table();
-        
+
+        // set event_base
         evmvc::global::set_event_base(ev_base);
         
         // init the default logger
@@ -486,6 +487,7 @@ private:
 
 #include "worker_impl.h"
 #include "master_server_impl.h"
+#include "child_server_impl.h"
 #include "connection_impl.h"
 #include "parser_impl.h"
 #include "request_impl.h"

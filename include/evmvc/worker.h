@@ -655,7 +655,9 @@ public:
         event_add(_channel->rcmsg_ev, nullptr);
         
         for(auto& sc : _config.servers){
-            auto s = std::make_shared<child_server>(sc, _log);
+            auto s = std::make_shared<child_server>(
+                this->shared_from_this(), sc, _log
+            );
             s->start();
             _servers.emplace(s->id(), s);
         }
