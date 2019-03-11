@@ -172,6 +172,39 @@ public:
         o.cache_init_cb = nullptr;
         o.cache_args = nullptr;
     }
+
+    ssl_options& operator=(const ssl_options& o)
+    {
+        cert_file = o.cert_file;
+        cert_key_file = o.cert_key_file;
+        cafile = o.cafile;
+        capath = o.capath;
+        
+        ciphers = o.ciphers;
+        named_curve = o.named_curve;
+        dhparams = o.dhparams;
+        
+        ssl_opts = o.ssl_opts;
+        ssl_ctx_timeout = o.ssl_ctx_timeout;
+        
+        verify_mode = o.verify_mode;
+        verify_depth = o.verify_depth;
+        
+        x509_verify_cb = o.x509_verify_cb;
+        x509_chk_issued_cb = o.x509_chk_issued_cb;
+        decrypt_cb = o.decrypt_cb;
+        
+        store_flags = o.store_flags;
+        
+        cache_type = o.cache_type;
+        cache_timeout = o.cache_timeout;
+        cache_size = o.cache_size;
+        cache_init_cb = o.cache_init_cb;
+        cache_args = o.cache_args;
+        
+        return *this;
+    }
+
     
     ssl_options& operator=(ssl_options&& o)
     {
@@ -292,6 +325,16 @@ public:
         o.ssl = false;
         o.backlog = -1;
     }
+
+    listen_options& operator=(const listen_options& o)
+    {
+        address = o.address;
+        port = o.port;
+        ssl = o.ssl;
+        backlog = o.backlog;
+        
+        return *this;
+    }
     
     listen_options& operator=(listen_options&& o)
     {
@@ -344,6 +387,19 @@ public:
         o.atimeo = {3,0};
         o.rtimeo = {3,0};
         o.wtimeo = {3,0};
+    }
+
+    server_options& operator=(const server_options& o)
+    {
+        name = o.name;
+        aliases = o.aliases;
+        listeners = o.listeners;
+        ssl = o.ssl;
+        atimeo = o.atimeo;
+        rtimeo = o.rtimeo;
+        wtimeo = o.wtimeo;
+        
+        return *this;
     }
     
     server_options& operator=(server_options&& o)
@@ -461,6 +517,28 @@ public:
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
         other.worker_count = get_nprocs_conf();
+    }
+    
+    app_options& operator=(const app_options& other)
+    {
+        base_dir = other.base_dir;
+        view_dir = other.view_dir;
+        temp_dir = other.temp_dir;
+        cache_dir = other.cache_dir;
+        log_dir = other.log_dir;
+        run_dir = other.run_dir;
+        use_default_logger = other.use_default_logger;
+        
+        log_console_level = other.log_console_level;
+        log_console_enable_color = other.log_console_enable_color;
+        log_file_level = other.log_file_level;
+        log_file_max_size = other.log_file_max_size;
+        log_file_max_files = other.log_file_max_files;
+        stack_trace_enabled = other.stack_trace_enabled;
+        worker_count = other.worker_count;
+        servers = other.servers;
+        
+        return *this;
     }
     
     app_options& operator=(app_options&& other)

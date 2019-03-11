@@ -132,21 +132,24 @@ inline evmvc::json parse_jsonc_string(const std::string jsonwc)
         if(cur_chr == '}' || cur_chr == ']'){
             if(last_comma_loc > -1){
                 std::string tmp = res.substr(0, last_comma_loc);
-                tmp += res.substr(last_comma_loc+1);
+                if((size_t)(last_comma_loc+1) < res.size())
+                    tmp += res.substr(last_comma_loc+1);
                 res = tmp;
             }
             last_comma_loc = -1;
         }
         if(cur_chr == ','){
-            last_comma_loc = i;
-        }else if(last_comma_loc > -1 && !isspace(cur_chr)){
+            last_comma_loc = res.size();
+        }else if(last_comma_loc > -1 && !isspace(cur_chr) &&
+            cur_chr != '\t' && cur_chr != '\n' && cur_chr != '\r'
+        ){
             last_comma_loc = -1;
         }
         
         res += cur_chr;
     }
     
-    return res;
+    return evmvc::json::parse(res);
 }
 inline evmvc::json parse_jsonc_file(
     const md::string_view jsonc_filename)
