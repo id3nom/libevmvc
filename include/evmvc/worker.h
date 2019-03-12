@@ -373,6 +373,7 @@ public:
     process_type proc_type() const { return _ptype;}
     
     sp_app get_app() const { return _app.lock();}
+    bool is_valid() const { return (bool)_channel;}
     evmvc::channel& channel() const { return *(_channel.get());}
     
     bool is_child() const { return _ptype == process_type::child;}
@@ -494,6 +495,7 @@ public:
                 "Sending close message faied! closing channels"
             );
         
+        _channel->close_channels();
         _channel.release();
         this->_status = running_state::stopped;
     }

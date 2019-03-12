@@ -33,6 +33,11 @@ inline void channel_cmd_read(int fd, short events, void* arg)
     channel* chan = (channel*)arg;
     while(true){
         ssize_t l = evbuffer_read(chan->rcmd_buf, fd, 4096);
+        if(l == 0){
+            event_free(chan->rcmd_ev);
+            chan->rcmd_ev = nullptr;
+            return;
+        }
         if(l == -1){
             int err = errno;
             if(err == EAGAIN || err == EWOULDBLOCK)

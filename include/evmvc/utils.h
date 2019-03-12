@@ -90,7 +90,13 @@ inline evmvc::json parse_jsonc_string(const std::string jsonwc)
         if(in_mcom){
             if(cur_chr == '/' && prev_chr == '*'){
                 in_mcom = false;
+                
+            }else if(cur_chr == '\n'){
+                if(prev_chr == '\r')
+                    res += '\r';
+                res += '\n';
             }
+            
             continue;
         }
         

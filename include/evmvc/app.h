@@ -34,6 +34,8 @@ SOFTWARE.
 #include "worker.h"
 #include "master_server.h"
 
+#include <sys/wait.h>
+
 namespace evmvc {
 
 class app
@@ -47,7 +49,8 @@ public:
         evmvc::app_options&& opts)
         : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
-        _router()
+        _router(),
+        _ev_verif_childs(nullptr)
     {
         // force get_field_table initialization
         evmvc::detail::get_field_table();
@@ -93,6 +96,10 @@ public:
     
     ~app()
     {
+        if(_ev_verif_childs)
+            event_free(_ev_verif_childs);
+        _ev_verif_childs = nullptr;
+        
         evmvc::clear_events();
         _router.reset();
         
@@ -159,6 +166,9 @@ public:
     
     int start(int argc, char** argv, bool start_event_loop = false)
     {
+        _argc = argc;
+        _argv = argv;
+        
         if(!stopped())
             throw MD_ERR(
                 "app must be in stopped state to start listening again"
@@ -225,6 +235,15 @@ public:
         }
         
         _status = running_state::running;
+        
+        _ev_verif_childs = event_new(
+            global::ev_base(),
+            -1, EV_READ | EV_PERSIST,
+            app::_verify_child_processes,
+            this
+        );
+        timeval tv = md::date::ms_to_timeval(1000);
+        event_add(_ev_verif_childs, &tv);
         
         if(_started_cb)
             set_timeout([self = this->shared_from_this()](auto ew){
@@ -437,6 +456,89 @@ public:
     
 private:
     
+    static void _verify_child_processes(int /*fd*/, short /*events*/, void* arg)
+    {
+        app* self = (app*)arg;
+        
+        if(self->_status != running_state::running)
+            return;
+        
+        int wstatus = 0;
+        pid_t p = waitpid(-1, &wstatus, WNOHANG | WUNTRACED);
+        
+        if(p <= 0)
+            return;
+        
+        if(WIFSIGNALED(wstatus)){
+            int sig = WTERMSIG(wstatus);
+            if(sig == SIGINT ||
+                sig == SIGKILL
+            ){
+                return;
+            }
+        }
+        
+        // retreive worker instance
+        for(auto it = self->_workers.begin(); it != self->_workers.end(); ++it){
+            if((*it)->pid() == p){
+                //evmvc::sp_worker w = *it;
+                (*it)->stop(true);
+                self->_workers.erase(it);
+                
+                evmvc::sp_worker w = std::make_shared<evmvc::http_worker>(
+                    self->shared_from_this(), self->_options, self->_log
+                );
+                
+                // restart child proc
+                int pid = fork();
+                if(pid == -1){// fork failed
+                    self->_log->fatal(MD_ERR(
+                        "Failed to create new worker process!"
+                    ));
+                    return;
+                }else if(pid == 0){// in child process
+                    w->set_callbacks(self->_started_cb, self->_stopped_cb);
+                    w->start(self->_argc, self->_argv, pid);
+                    return;
+                }else{// in master process
+                    w->start(self->_argc, self->_argv, pid);
+                }
+                
+                // sleep to let time for children to open the unix socket.
+                usleep(30000);
+                int tryout = 0;
+                do{
+                    w->channel().usock = _internal::unix_connect(
+                        w->channel().usock_path.c_str(), SOCK_STREAM
+                    );
+                    if(w->channel().usock == -1){
+                        self->_log->info(MD_ERR(
+                            "unix connect err: {}", errno
+                        ));
+                    }else
+                        break;
+                    
+                    if(++tryout >= 5){
+                        self->_log->fatal(MD_ERR(
+                            "unable to connect to client: {}",
+                            w->id()
+                        ));
+                        return;
+                    }
+                }while(w->channel().usock == -1);
+                _internal::unix_set_sock_opts(w->channel().usock);
+                
+                self->_workers.emplace_back(w);
+                
+                return;
+            }
+        }
+        
+        self->_log->warn(MD_ERR(
+            "Unknown child has died, PID: '{}'", p
+        ));
+    }
+    
     inline void _init_router()
     {
         if(_init_rtr)
@@ -492,6 +594,10 @@ private:
     
     md::callback::value_cb<evmvc::process_type> _started_cb; 
     md::callback::value_cb<evmvc::process_type> _stopped_cb;
+    
+    event* _ev_verif_childs;
+    int _argc;
+    char** _argv;
     
 };//evmvc::app
 

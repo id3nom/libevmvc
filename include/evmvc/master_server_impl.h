@@ -51,6 +51,7 @@ inline void listener::master_listen_cb(
         return;
     }
     if(a->workers().empty()){
+        a->log()->warn("No worker avaiable to handle http connection");
         close(sock);
         return;
     }
@@ -102,7 +103,9 @@ inline void listener::master_listen_cb(
     
     sp_worker pw = nullptr;
     while(!pw){
-        if(a->workers()[rridx]->work_type() == worker_type::http)
+        if(a->workers()[rridx]->work_type() == worker_type::http &&
+            a->workers()[rridx]->is_valid()
+        )
             pw = a->workers()[rridx];
         else{
             ++rridx;
@@ -126,18 +129,25 @@ inline void listener::master_listen_cb(
     //         if(w->workload() < pw->workload())
     //             pw = w;
     //     }
-        
+    
     if(!pw)
         return a->log()->fail(MD_ERR(
             "Unable to find an available http_worker!"
         ));
-    
-    int res = pw->channel().sendmsg(&msgh, 0);
-    close(sock);
-    if(res == -1)
-        return a->log()->fatal(MD_ERR(
-            "sendmsg to http_worker failed: {}", errno
+    try{
+        int res = pw->channel().sendmsg(&msgh, MSG_NOSIGNAL);
+        close(sock);
+        if(res == -1)
+            return a->log()->error(MD_ERR(
+                "sendmsg to http_worker failed: {}", errno
+            ));
+    }catch(const std::exception& err){
+        close(sock);
+        a->log()->error(MD_ERR(
+            "sendmsg to http_worker failed\n{}",
+            err.what()
         ));
+    }
 }
 
 }//::evmvc
