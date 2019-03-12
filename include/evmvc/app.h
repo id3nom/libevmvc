@@ -164,6 +164,11 @@ public:
         _stopped_cb = stopped_cb;
     }
     
+    void initialize()
+    {
+        _init_directories();
+    }
+    
     int start(int argc, char** argv, bool start_event_loop = false)
     {
         _argc = argc;
@@ -175,7 +180,7 @@ public:
             );
         _status = running_state::starting;
         
-        _init_directories();
+        this->initialize();
         
         std::vector<sp_http_worker> twks;
         for(size_t i = 0; i < _options.worker_count; ++i){
@@ -337,6 +342,16 @@ public:
         //     if(cb)
         //         cb(nullptr);
         // }, 50);
+    }
+    
+    sp_router find_router(md::string_view route)
+    {
+        if(!_init_rtr)
+            throw MD_ERR(
+                "evmvc::app must be initialized by calling "
+                "initialize() method first!"
+            );
+        return _router->find_router(route);
     }
     
     sp_router all(
@@ -549,7 +564,7 @@ private:
             std::make_shared<router>(
                 this->shared_from_this(), "/"
             );
-        _router->_path = "";
+        //_router->_path = "";
     }
     
     inline void _init_directories()

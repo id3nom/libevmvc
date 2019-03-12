@@ -435,9 +435,23 @@ public:
     std::string full_path() const
     {
         if(this->_parent)
-            return this->_path + "/" + this->_parent->full_path();
+            return this->_parent->full_path() + this->_path;
         else
             return this->_path;
+    }
+    
+    sp_router find_router(md::string_view path)
+    {
+        if(!strcasecmp(this->full_path().c_str(), path.data()))
+            return this->shared_from_this();
+        
+        for(auto it = _routers.begin(); it != _routers.end(); ++it){
+            sp_router rtr = it->second->find_router(path);
+            if(rtr)
+                return rtr;
+        }
+        
+        return nullptr;
     }
     
     sp_route resolve_route(
@@ -475,8 +489,36 @@ public:
         const md::string_view& method,
         const md::string_view& url)
     {
-        std::string local_url = 
-            std::string(url).substr(_path.size());
+        // std::string local_url = 
+        //     std::string(url).substr(_path.size());
+        
+        // // verify if child router match path
+        // for(auto it = _routers.begin(); it != _routers.end(); ++it)
+        //     if(local_url.size() > it->first.size() &&
+        //         !std::strncmp(local_url.data(),
+        //             it->first.c_str(), it->first.size()
+        //         )
+        //     )
+        //         return it->second->resolve_url(
+        //             method,
+        //             local_url
+        //         );
+        
+        // auto rm = _verbs.find(std::string(method));
+        // if(rm != _verbs.end())
+        //     for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
+        //         if(it->second->has_callbacks()){
+        //             sp_route_result rr = it->second->match(local_url);
+        //             if(rr)
+        //                 return rr;
+        //         }
+        //     }
+        
+        // if(std::string(method) != "ALL")
+        //     return resolve_url("ALL", url);
+        
+        // return nullptr;
+        md::string_view local_url = url.substr(_path.size());
         
         // verify if child router match path
         for(auto it = _routers.begin(); it != _routers.end(); ++it)
@@ -490,6 +532,7 @@ public:
                     local_url
                 );
         
+        local_url = url.substr(_path.size() -1);
         auto rm = _verbs.find(std::string(method));
         if(rm != _verbs.end())
             for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
@@ -580,6 +623,11 @@ public:
     
     virtual sp_router register_router(sp_router router)
     {
+        if(router->path() == "/")
+            throw MD_ERR(
+                "invalid path '/', can't add router with root path!"
+            );
+        
         this->_log->info(
             "Registering router '{}'",
             router->_path
@@ -663,13 +711,17 @@ protected:
     
     static std::string _norm_path(const md::string_view& path)
     {
-        if(path.size() == 0)
+        if(path.size() == 0 || path == "/")
             return "/";
         
         std::string p(path);
+        md::replace_substring(p, "//", "");
         if(p[0] == '/')
-            return p;
-        return "/" + p;
+            p = p.substr(1);
+        if(p[p.size() -1] != '/')
+            p += "/";
+        
+        return p;
     }
     
     virtual sp_router register_handler(

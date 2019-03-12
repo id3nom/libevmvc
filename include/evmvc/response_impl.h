@@ -134,9 +134,8 @@ inline void response::error(
     free(what);
     
     evmvc::sp_app a = this->get_route()->get_router()->get_app();
-    if(a->options()
-        .stack_trace_enabled && err.has_stack()
-    ){
+
+    if(a->options().stack_trace_enabled && err.has_stack()){
         log_val += fmt::format(
             "\nAdditional info\n\n{}:{}\n{}\n\n{}\n",
             err.file(), err.line(), err.func(), err.stack()
@@ -164,13 +163,13 @@ inline void response::error(
         free(func);
         free(stack);
     }
-    
-    err_msg += fmt::format(
-        "<tr><td style='"
-        "border-top: 1px solid black; font-size:0.9em'>{}"
-        "</td></tr>\n",
-        evmvc::html_version()
-    );
+    if(a->options().stack_trace_enabled)
+        err_msg += fmt::format(
+            "<tr><td style='"
+            "border-top: 1px solid black; font-size:0.9em'>{}"
+            "</td></tr>\n",
+            evmvc::html_version()
+        );
     
     err_msg += "</table></body></html>";
     
