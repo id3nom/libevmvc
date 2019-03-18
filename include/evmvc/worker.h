@@ -399,10 +399,12 @@ public:
             _pid = pid;
             
         }else if(pid == 0){
-            struct sigaction sa;
-            sa.sa_handler = worker::sig_received;
-            //sa.sa_handler = SIG_IGN;
-            sigaction(SIGINT, &sa, nullptr);
+            struct sigaction sigint_sa;
+            sigint_sa.sa_handler = worker::sig_received;
+            sigaction(SIGINT, &sigint_sa, nullptr);
+            
+            sigint_sa.sa_handler = SIG_IGN;
+            sigaction(SIGPIPE, &sigint_sa, nullptr);
             
             _ptype = process_type::child;
             _pid = getpid();

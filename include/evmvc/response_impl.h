@@ -234,7 +234,8 @@ inline void response::_prepare_headers()
     sl[smsgl + 13] = '\r';
     sl[smsgl + 14] = '\n';
     
-    bufferevent_write(c->bev(), sl, smsgl+15);
+    if(bufferevent_write(c->bev(), sl, smsgl+15))
+        return this->_reply_end();
     
     // lookfor keepalive header
     if(c->parser()->http_ver() == http_version::http_10){
@@ -271,7 +272,8 @@ inline void response::_prepare_headers()
                 std::string(hl, it.first.size()+2+itv.size()+2);
             #endif //EVMVC_BUILD_DEBUG
             
-            bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
+            if(bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2))
+                return this->_reply_end();
         }
     }
     
@@ -290,7 +292,8 @@ inline void response::_prepare_headers()
                 std::string(hl, it.first.size()+2+itv.size()+2);
             #endif //EVMVC_BUILD_DEBUG
             
-            bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2);
+            if(bufferevent_write(c->bev(), hl, it.first.size()+2+itv.size()+2))
+                return this->_reply_end();
         }
     }
     
@@ -298,15 +301,21 @@ inline void response::_prepare_headers()
         _log->trace("Headers sent:\n{}", dbg_hdrs);
     #endif //EVMVC_BUILD_DEBUG
     
-    bufferevent_write(c->bev(), "\r\n", 2);
-    bufferevent_flush(c->bev(), EV_WRITE, BEV_FLUSH);
+    if(bufferevent_write(c->bev(), "\r\n", 2))
+        return this->_reply_end();
+    if(bufferevent_flush(c->bev(), EV_WRITE, BEV_FLUSH))
+        return this->_reply_end();
 }
 
 inline void response::_reply_raw(const char* data, size_t len)
 {
     EVMVC_TRACE(_log, "_reply_raw");
-    if(auto c = this->_conn.lock())
-        bufferevent_write(c->bev(), data, len);
+    if(auto c = this->_conn.lock()){
+        if(bufferevent_write(c->bev(), data, len))
+            return this->_reply_end();
+    }else{
+        return this->_reply_end();
+    }
 }
 
 inline void response::_reply_end()

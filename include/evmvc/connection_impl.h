@@ -380,11 +380,16 @@ inline void connection::on_connection_event(
     
     if(c->_ssl && !(events & BEV_EVENT_EOF)){
         // ssl error
-        c->_log->error(MD_ERR("SSL ERROR"));
-        //c->close();
-        //c->set_conn_flag(conn_flags::error);
+        unsigned long ssl_err = ERR_get_error();
+        if(ssl_err != 0){
+            c->_log->error(MD_ERR(
+                "SSL {} {}", ssl_err, ERR_error_string(ssl_err, nullptr)
+            ));
+            c->close();
+        }
         return;
     }
+    
     
     if(events == (BEV_EVENT_EOF | BEV_EVENT_READING)){
         EVMVC_TRACE(c->_log, "EOF | READING");
@@ -398,6 +403,12 @@ inline void connection::on_connection_event(
             return;
         }
         
+        c->close();
+        return;
+    }
+    
+    if((events & BEV_EVENT_EOF) == BEV_EVENT_EOF){
+        EVMVC_TRACE(c->_log, MD_ERR("Connection closed!"));
         c->close();
     }
     

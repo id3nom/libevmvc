@@ -242,8 +242,8 @@ public:
         _status = running_state::running;
         
         // enable child respawn on release build
+        // enable master shutdown on debug build
         // TODO: only respawn a limited number of time in a specified period.
-        #if EVMVC_BUILD_RELEASE
         _ev_verif_childs = event_new(
             global::ev_base(),
             -1, EV_READ | EV_PERSIST,
@@ -252,7 +252,6 @@ public:
         );
         timeval tv = md::date::ms_to_timeval(1000);
         event_add(_ev_verif_childs, &tv);
-        #endif
         
         if(_started_cb)
             set_timeout([self = this->shared_from_this()](auto ew){
@@ -496,6 +495,14 @@ private:
                 return;
             }
         }
+        
+        #if EVMVC_BUILD_DEBUG
+            self->_log->error(MD_ERR(
+                "Worker process crashed!"
+            ));
+            raise(SIGINT);
+            return;
+        #endif
         
         // retreive worker instance
         for(auto it = self->_workers.begin(); it != self->_workers.end(); ++it){

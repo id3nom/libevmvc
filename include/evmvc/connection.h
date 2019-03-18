@@ -106,13 +106,13 @@ public:
         _remote_addr(remote_addr),
         _remote_port(remote_port)
     {
-        EVMVC_DEF_TRACE("connection {:p} created", (void*)this);
+        EVMVC_DEF_TRACE("connection {} {:p} created", _id, (void*)this);
     }
     
     ~connection()
     {
         close();
-        EVMVC_DEF_TRACE("connection {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("connection {} {:p} released", _id, (void*)this);
     }
     
     void initialize()

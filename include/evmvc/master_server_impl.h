@@ -135,12 +135,50 @@ inline void listener::master_listen_cb(
             "Unable to find an available http_worker!"
         ));
     try{
-        int res = pw->channel().sendmsg(&msgh, MSG_NOSIGNAL);
-        close(sock);
-        if(res == -1)
-            return a->log()->error(MD_ERR(
-                "sendmsg to http_worker failed: {}", errno
-            ));
+        while(true){
+            if(pw->channel().usock <= 1){
+                a->log()->warn(MD_ERR(
+                    "invalid socket file number: {}",
+                    pw->channel().usock
+                ));
+                close(sock);
+                return;
+            }
+            
+            int res = pw->channel().sendmsg(&msgh, MSG_NOSIGNAL);
+            if(res == -1){
+                int err_no = errno;
+                if(err_no == EAGAIN || err_no == EWOULDBLOCK){
+                    usleep(500);
+                    continue;
+                }
+                a->log()->warn(MD_ERR(
+                    "send msg to http_worker failed err: {}",
+                    err_no
+                ));
+                if(err_no == EPIPE){
+                    pw->channel().usock = _internal::unix_connect(
+                        pw->channel().usock_path.c_str(), SOCK_STREAM
+                    );
+                    if(pw->channel().usock == -1){
+                        err_no = errno;
+                        a->log()->error(MD_ERR(
+                            "Unable to reconnect the unix socket err: {}",
+                            err_no
+                        ));
+                    }else{
+                        continue;
+                    }
+                }
+                
+                close(sock);
+                return a->log()->error(MD_ERR(
+                    "sendmsg to http_worker failed: {}", err_no
+                ));
+            }
+            close(sock);
+            break;
+        }
     }catch(const std::exception& err){
         close(sock);
         a->log()->error(MD_ERR(

@@ -128,7 +128,7 @@ public:
     ~http_parser()
     {
         this->reset();
-        EVMVC_DEF_TRACE("connection {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("http_parser {:p} released", (void*)this);
     }
     
     sp_connection get_connection() const { return _conn.lock();}
