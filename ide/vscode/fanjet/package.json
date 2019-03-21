@@ -1,9 +1,9 @@
 {
     "name": "fanjet",
-    "displayName": "C++ HTML template",
+    "displayName": "Fanjet syntax highlighting",
     "description": "",
     "version": "0.1.0",
-    "publisher": "michel denommee",
+    "publisher": "libevmvc",
     "engines": {
         "vscode": "^1.32.3"
     },
