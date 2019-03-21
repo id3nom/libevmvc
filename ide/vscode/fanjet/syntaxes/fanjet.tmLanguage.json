@@ -1,0 +1,624 @@
+{
+    "scopeName": "text.html.fan",
+    
+    "injections":{
+        "L:*":{
+            "patterns":[
+
+                {"include": "#fanjet-comments"},
+                {"include": "#fanjet-regions"},
+
+                {"include": "#fanjet-code"},
+                {"include": "#fanjet-functions"},
+                {"include": "#fanjet-outputs"},
+                {"include": "#fanjet-controls"},
+
+                {"include": "#fanjet-markup-html"},
+                {"include": "#fanjet-markup-markdown"},
+                
+                {"include": "#cpp-block"}
+            ]
+        }
+    },
+    
+    "patterns": [
+        {"include": "text.html.basic"},
+        {"include": "#strings"},
+
+        {"include": "#fanjet-directives"},
+
+        {"include": "#fanjet-comments"},
+        {"include": "#fanjet-regions"},
+        
+        {"include": "#fanjet-code"},
+        {"include": "#fanjet-functions"},
+        {"include": "#fanjet-outputs"},
+        {"include": "#fanjet-controls"},
+        
+        {"include": "#fanjet-markup-markdown"},
+        {"include": "#fanjet-markup-html"}
+        
+    ],
+    "repository": {
+        
+        "fanjet-comments": {
+            "name": "meta.comments.fan",
+            "patterns": [
+                {"include": "#fanjet-line-comments"},
+                {"include": "#fanjet-block-comments"}
+            ]
+        },
+        "fanjet-line-comments": {
+            "name": "comment.line.fan",
+            "begin": "@\\*\\*",
+            "captures": {
+                "0": {
+                    "name": "punctuation.definition.comment.source.cpp"
+                }
+            },
+            "end": "$"
+        },
+        "fanjet-block-comments": {
+            "name": "comment.block.fan",
+            "begin": "@\\*",
+            "captures": {
+                "0": {
+                    "name": "punctuation.definition.comment.source.cpp"
+                }
+            },
+            "end": "\\*@"
+        },
+        
+        
+        "fanjet-regions": {
+            "name": "meta.regions.fan",
+            "patterns": [
+                {"include": "#fanjet-regions-start"},
+                {"include": "#fanjet-regions-end"}
+            ]
+        },
+        "fanjet-regions-start": {
+            "name": "comment.line.fan",
+            "begin": "@region",
+            "end": "$"
+        },
+        "fanjet-regions-end": {
+            "name": "comment.line.fan",
+            "begin": "@endregion",
+            "end": "$"
+        },
+        
+        
+        "fanjet-code": {
+            "name": "meta.code.control.fan",
+            "patterns": [
+                {"include": "#fanjet-code-block"}
+            ]
+        },
+        "fanjet-code-block": {
+            "begin": "(@)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "#fanjet-await-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        
+        
+        "fanjet-markup-markdown": {
+            "begin": "(@\\((markdown|md)\\))(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.markdown"}
+            ]
+        },
+        "fanjet-markup-html": {
+            "begin": "(@\\((html|htm)\\))(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.basic"}
+            ]
+        },
+        
+        
+        "fanjet-directives": {
+            "name": "meta.directive.fan",
+            "patterns": [
+                {"include": "#fanjet-namespace-directive"},
+                {"include": "#fanjet-name-directive"},
+                {"include": "#fanjet-header-directive"},
+                {"include": "#fanjet-inherits-directive"},
+                {"include": "#fanjet-layout-directive"}
+            ]
+        },
+        "fanjet-namespace-directive": {
+            "name": "meta.directive.layout.fan",
+            "begin": "(@(namespace|ns))\\s+",
+            "captures": {
+                "0": {
+                    "name": "keyword.control.fan"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#cpp-namespace-identifier"
+                }
+            ],
+            "end": "$"
+        },
+        "fanjet-name-directive": {
+            "name": "meta.directive.layout.fan",
+            "begin": "(@name)\\s+",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            },
+            "patterns": [
+                {"include": "#cpp-type-name"}
+            ],
+            "end": "$"
+        },
+        "fanjet-header-directive": {
+            "name": "meta.directive.header.fan",
+            "begin": "(@header)\\s+",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            },
+            "patterns": [
+                {
+                    "include": "source.cpp"
+                }
+            ],
+            "end": ";"
+        },
+        "fanjet-inherits-directive": {
+            "name": "meta.directive.inherits.fan",
+            "begin": "(@inherits)\\s+",
+            "captures": {
+                "0": {
+                    "name": "keyword.control.fan"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#cpp-type-name"
+                }
+            ],
+            "end": ";"
+        },
+        "fanjet-layout-directive": {
+            "name": "meta.directive.layout.fan",
+            "begin": "(@layout)\\s+",
+            "captures": {
+                "0": {
+                    "name": "keyword.control.fan"
+                }
+            },
+            "patterns": [
+                {
+                    "include": "#cpp-type-name"
+                }
+            ],
+            "end": "$"
+        },
+        
+        
+        "fanjet-functions": {
+            "name": "meta.functions.fan",
+            "patterns": [
+                {"include": "#fanjet-h-functions"},
+                {"include": "#fanjet-cpp-functions"}
+            ]
+        },
+        "fanjet-h-functions": {
+            "name": "meta.functions.fan",
+            "begin": "(@funi)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns": [
+                {"include": "#fanjet-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-cpp-functions": {
+            "name": "meta.functions.fan",
+            "begin": "(@func)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns": [
+                {"include": "#fanjet-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        
+        
+        "fanjet-async-functions": {
+            "name": "meta.functions.async.fan",
+            "patterns": [
+                {"include": "#fanjet-def-async-functions"},
+                {"include": "#fanjet-await-async-functions"}
+            ]
+        },
+        "fanjet-def-async-functions": {
+            "name": "meta.functions.async.fan",
+            "match": "(@)(<)(.*)(>)\\s+(.*\\(.*\\))",
+            "captures":{
+                "1": { "name": "keyword.control.fan"},
+                "3": {
+                    "name": "meta.functions.async.type.fan",
+                    "patterns":[
+                        {"include": "#cpp-type-name"}
+                    ]
+                },
+                "5": {
+                    "name": "meta.functions.async.decl.fan",
+                    "patterns":[
+                        {"include": "source.cpp"}
+                    ]
+                }
+            }
+        },
+        "fanjet-await-async-functions": {
+            "name": "meta.functions.async.await.fan",
+            "match": "@await",
+            "captures":{
+                "0": { "name": "keyword.control.fan"}
+            }
+        },
+        
+        
+        "fanjet-outputs": {
+            "name": "meta.outputs.fan",
+            "patterns": [
+                {"include": "#fanjet-outputs-raw"},
+                {"include": "#fanjet-outputs-encode"}
+            ]
+        },
+        "fanjet-outputs-raw": {
+            "name": "meta.outputs.raw.fan",
+            "match": "(@::)(.*)(;)",
+            "captures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": {
+                    "name": "meta.outputs.expr.fan",
+                    "patterns":[
+                        {"include": "source.cpp"}
+                    ]
+                },
+                "3": { "name": "ponctuation.definition.semicolon"}
+            }
+        },
+        "fanjet-outputs-encode": {
+            "name": "meta.outputs.encode.fan",
+            "match": "(@:)(.*)(;)",
+            "captures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": {
+                    "name": "meta.outputs.expr.fan",
+                    "patterns":[
+                        {"include": "source.cpp"}
+                    ]
+                },
+                "3": { "name": "ponctuation.definition.semicolon"}
+            }
+        },
+        
+        "fanjet-controls": {
+            "name": "meta.control.fan",
+            "patterns": [
+                {"include": "#fanjet-if"},
+                {"include": "#fanjet-elif"},
+                {"include": "#fanjet-else"},
+                {"include": "#fanjet-switch"},
+                {"include": "#fanjet-while"},
+                {"include": "#fanjet-for"},
+                {"include": "#fanjet-do"},
+                {"include": "#fanjet-dowhile"},
+                {"include": "#fanjet-try"},
+                {"include": "#fanjet-trycatch"}
+            ]
+        },
+        "fanjet-if":{
+            "name": "meta.control.if.fan",
+            "begin": "(@if)\\s*\\(",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": "\\)",
+            "patterns": [
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-elif":{
+            "name": "meta.control.elif.fan",
+            "begin": "(else\\s+if)\\s*\\(",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": "\\)",
+            "patterns": [
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-else":{
+            "name": "meta.control.else.fan",
+            "match": "(else)",
+            "captures":{
+                "0": { "name": "keyword.control.fan"}
+            }
+        },
+        "fanjet-switch":{
+            "name": "meta.control.switch.fan",
+            "begin": "(@switch)\\s*\\(",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": "\\)",
+            "patterns": [
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-while":{
+            "name": "meta.control.while.fan",
+            "begin": "(@while)\\s*\\(",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": "\\)",
+            "patterns": [
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-for":{
+            "name": "meta.control.for.fan",
+            "begin": "(@for)\\s*\\(",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": "\\)",
+            "patterns": [
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-do": {
+            "name": "meta.control.do.fan",
+            "begin": "(@do)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "#fanjet-await-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-dowhile": {
+            "name": "meta.control.dowhile.fan",
+            "match": "\\b(while)\\b\\s*(\\(.*\\))\\s*(;)",
+            "captures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": {
+                    "name": "meta.outputs.expr.fan",
+                    "patterns":[
+                        {"include": "source.cpp"}
+                    ]
+                },
+                "3": { "name": "ponctuation.definition.semicolon"}
+            }
+        },
+        "fanjet-try": {
+            "name": "meta.control.try.fan",
+            "begin": "(@try)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "#fanjet-await-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-trycatch": {
+            "name": "meta.control.trycatch.fan",
+            "match": "\\b(catch)\\b\\s*(\\(.*\\))",
+            "captures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": {
+                    "name": "meta.control.trycatch.expr.fan",
+                    "patterns":[
+                        {"include": "source.cpp"}
+                    ]
+                }
+            }
+        },
+
+        
+        
+        "cpp-block":{
+            "begin": "{",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.section.block.begin.bracket.curly.cpp"
+                }
+            },
+            "end": "}|(?=\\s*#\\s*(?:elif|else|endif)\\b)",
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.section.block.end.bracket.curly.cpp"
+                }
+            },
+            "name": "meta.block.cpp",
+            "patterns": [
+                {"include": "#fanjet-await-async-functions"},
+                {"include": "source.cpp"}
+            ]
+        },
+        
+        "cpp-namespace-identifier": {
+            "patterns": [
+                {
+                    "name": "entity.name.type.namespace.cpp",
+                    "match": "[_[:alpha:]][_[:alnum:]]*"
+                }
+            ]
+        },
+        
+        "cpp-type-name": {
+            "patterns": [
+                {
+                    "match": "([_[:alpha:]][_[:alnum:]]*)\\s*(\\:\\:)",
+                    "captures": {
+                        "1": {
+                            "name": "entity.name.type.alias.cpp"
+                        },
+                        "2": {
+                            "name": "punctuation.separator.coloncolon.cpp"
+                        }
+                    }
+                },
+                {
+                    "match": "([_[:alpha:]][_[:alnum:]]*)\\s*(\\.)",
+                    "captures": {
+                        "1": {
+                            "name": "storage.type.cpp"
+                        },
+                        "2": {
+                            "name": "punctuation.accessor.cpp"
+                        }
+                    }
+                },
+                {
+                    "match": "(\\.)\\s*([_[:alpha:]][_[:alnum:]]*)",
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.accessor.cpp"
+                        },
+                        "2": {
+                            "name": "storage.type.cpp"
+                        }
+                    }
+                },
+                {
+                    "name": "storage.type.cpp",
+                    "match": "[_[:alpha:]][_[:alnum:]]*"
+                }
+            ]
+        },
+        
+        "string_placeholder-c": {
+            "patterns": [
+                {
+                    "match": "(?x) %\n(\\d+\\$)?\t\t\t\t\t\t   # field (argument #)\n[#0\\- +']*\t\t\t\t\t\t  # flags\n[,;:_]?\t\t\t\t\t\t\t  # separator character (AltiVec)\n((-?\\d+)|\\*(-?\\d+\\$)?)?\t\t  # minimum field width\n(\\.((-?\\d+)|\\*(-?\\d+\\$)?)?)?\t# precision\n(hh|h|ll|l|j|t|z|q|L|vh|vl|v|hv|hl)? # length modifier\n[diouxXDOUeEfFgGaACcSspn%]\t\t   # conversion type",
+                    "name": "constant.other.placeholder.cpp"
+                }
+            ]
+        },
+        "strings": {
+            "patterns": [
+                {
+                    "begin": "(u|u8|U|L)?\"",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.cpp"
+                        },
+                        "1": {
+                            "name": "meta.encoding.cpp"
+                        }
+                    },
+                    "end": "\"",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.cpp"
+                        }
+                    },
+                    "name": "string.quoted.double.cpp",
+                    "patterns": [
+                        {
+                            "match": "\\\\u\\h{4}|\\\\U\\h{8}",
+                            "name": "constant.character.escape.cpp"
+                        },
+                        {
+                            "match": "\\\\['\"?\\\\abfnrtv]",
+                            "name": "constant.character.escape.cpp"
+                        },
+                        {
+                            "match": "\\\\[0-7]{1,3}",
+                            "name": "constant.character.escape.cpp"
+                        },
+                        {
+                            "match": "\\\\x\\h+",
+                            "name": "constant.character.escape.cpp"
+                        },
+                        {
+                            "include": "#string_placeholder-c"
+                        }
+                    ]
+                },
+                {
+                    "begin": "(u|u8|U|L)?R\"(?:([^ ()\\\\\\t]{0,16})|([^ ()\\\\\\t]*))\\(",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.begin.cpp"
+                        },
+                        "1": {
+                            "name": "meta.encoding.cpp"
+                        },
+                        "3": {
+                            "name": "invalid.illegal.delimiter-too-long.cpp"
+                        }
+                    },
+                    "end": "\\)\\2(\\3)\"",
+                    "endCaptures": {
+                        "0": {
+                            "name": "punctuation.definition.string.end.cpp"
+                        },
+                        "1": {
+                            "name": "invalid.illegal.delimiter-too-long.cpp"
+                        }
+                    },
+                    "name": "string.quoted.double.raw.cpp"
+                }
+            ]
+        }
+    }
+}

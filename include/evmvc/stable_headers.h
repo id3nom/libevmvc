@@ -57,7 +57,6 @@ SOFTWARE.
 #include <pthread.h>
 
 #include "fmt/format.h"
-#include "tools-md/tools-md.h"
 
 #include <openssl/opensslconf.h>
 #include <openssl/dh.h>

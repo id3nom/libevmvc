@@ -1,0 +1,28 @@
+{
+    "HTML template": {
+        "prefix": "html",
+        "body": [
+            "<!DOCTYPE html>",
+            "<html>",
+            "<head>",
+            "\t<title>${1:Page Title}</title>",
+            "\t<link rel=\"stylesheet\" type=\"text/css\" href=\"${2:main.css}\" />",
+            "\t<script src=\"${3:main.js}\"></script>",
+            "</head>",
+            "<body>",
+            "\t$0",
+            "</body>",
+            "</html>"
+        ],
+        "description": "Simple HTML5 starting point"
+    },
+    
+    "Fanjet for": {
+        "prefix": "@for",
+        "body": [
+            "@for(${1:\\type} ${2:\\$index} = 0; ${2:\\$index} < ${3:\\$arr}.size(); ++${2:\\index}){",
+            "    $0",
+            "}"
+        ]
+    }
+}

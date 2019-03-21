@@ -1,0 +1,51 @@
+{
+    "name": "fanjet",
+    "displayName": "C++ HTML template",
+    "description": "",
+    "version": "0.1.0",
+    "publisher": "michel denommee",
+    "engines": {
+        "vscode": "^1.32.3"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "keywords": [
+        "c++", "c"
+    ],
+    "contributes": {
+        "languages": [
+            {
+                "id": "fanjet",
+                "extensions": [
+                    ".fan"
+                ],
+                "aliases": [
+                    "Fanjet", "fanjet"
+                ],
+                "mimetypes": ["text/html"],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "grammars": [
+            {
+                "language": "fanjet",
+                "scopeName": "text.html.fan",
+                "path": "./syntaxes/fanjet.tmLanguage.json",
+                "embeddedLanguages": {
+                    "section.embedded.source.fan": "html"
+                }
+            }
+        ],
+        "snippets": [
+            {
+                "language": "fanjet",
+                "path": "./snippets/fanjet.snippets.json"
+            }
+        ]
+    },
+    "scripts": {
+        
+    }
+    
+}
