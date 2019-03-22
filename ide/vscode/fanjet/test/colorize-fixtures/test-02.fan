@@ -106,12 +106,26 @@ public:
 * bullet b
 
 _test_
-    
+~~~ js
+
+    var i = 0;
+        }
+
+    function still_in_mardown(){
+        
+    }
+
+~~~
+
+### head3
+
     @(htm){
         <div>
         
         </div>
-    
+        @{
+            
+        }
     }
     
 }@* end of @(md) *@

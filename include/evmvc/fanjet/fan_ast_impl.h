@@ -22,41 +22,71 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_ast_parser_h
-#define _libevmvc_fanjet_ast_parser_h
-
-#include "../stable_headers.h"
-#include "fan_common.h"
-#include "fan_tokenizer.h"
 #include "fan_ast.h"
 
-namespace evmvc { namespace fanjet {
+#define EVMVC_AST_MARKDOWN_ESCAPE "``"
 
-class parser
+
+namespace evmvc { namespace fanjet { namespace ast {
+
+inline ast::token root_node_t::parse(ast::token t)
 {
-public:
-    
-    static ast_tree parse(token root)
-    {
-        
-        
-        return nullptr;
-    }
-    
-    
-    
-private:
-    static void parse_literal(token t, ast_node n)
-    {
-        
-    }
-    
-    static void parse_code(token t, ast_node n)
-    {
-        
-    }
-    
-};
+    // first node is always a literal node;
+    ast::literal_node l = std::make_shared<ast::literal_node_t>(
+        ast::section_type::markup_html
+    );
+    this->add_child(l);
+    return l->parse(t);
+}
 
-}}//::evmvc::fanjet
-#endif //_libevmvc_fanjet_ast_parser_h
+inline ast::token literal_node_t::parse(ast::token t)
+{
+    while(t){
+        
+        
+        
+        t = t->next();
+    }
+    return t;
+}
+
+inline ast::token expr_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token directive_node_t::parse(ast::token t)
+{
+}
+
+
+inline ast::token comment_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token output_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token clode_block_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token code_control_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token code_err_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token code_fun_node_t::parse(ast::token t)
+{
+}
+
+inline ast::token code_async_node_t::parse(ast::token t)
+{
+}
+
+
+
+}}}//::evmvc::fanjet::ast

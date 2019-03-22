@@ -27,7 +27,7 @@ SOFTWARE.
 
 #include "../stable_headers.h"
 
-namespace evmvc { namespace fanjet {
+namespace evmvc { namespace fanjet { namespace ast {
     
 class token_t;
 typedef std::shared_ptr<token_t> token;
@@ -38,9 +38,9 @@ class token_t
 public:
     token_t(
         token pre,
-        const std::string& _text, size_t _line, size_t _pos
-        sp_token nxt)
-        : prev(pre), text(_text), line(_line), pos(_pos), next(nxt)
+        const std::string& text, size_t line, size_t pos,
+        token next)
+        : _prev(pre), _text(text), _line(line), _pos(pos), _next(next)
     {
     }
     
@@ -48,49 +48,200 @@ public:
     {
     }
     
+    token prev() const { return _prev.lock();}
+    const std::string& text() const { return _text;}
+    size_t line() const { return _line;}
+    size_t pos() const { return _pos;}
+    token next() const { return _next;}
+    
     std::string norm_text();
     
     bool norm_is_empty()
     {
-        return this->text.size() > 0 && this->norm_text().size() > 0;
+        return this->_text.size() > 0 && this->norm_text().size() > 0;
     }
     
-    sp_token get_norm_non_empty_prev()
+    token get_norm_non_empty_prev()
     {
-        if(!this->prev)
-            return nullptr;
-        if(prev->norm_is_empty())
-            return prev->get_norm_non_empty_prev();
-        return prev;
+        auto p = this->_prev.lock();
+        if(!p)
+            return p;
+        if(p->norm_is_empty())
+            return p->get_norm_non_empty_prev();
+        return p;
     }
     
     std::string debug_string()
     {
+        auto p = this->_prev.lock();
         return fmt::format(
             "TOKEN: cur '{0}', prev '{1}', next '{2}'",
-            this->text,
-            this->prev ? this->prev->text : "NULL",
-            this->next ? this->next->text : "NULL"
+            this->_text,
+            p ? p->_text : "NULL",
+            this->_next ? this->_next->_text : "NULL"
         );
     }
     
-    token add_next(const std::string& _text, size_t _line, size_t _pos)
+    token add_next(const std::string& text, size_t line, size_t pos)
     {
-        this->next = std::make_shared(
+        this->_next = std::make_shared<token_t>(
             this->shared_from_this(),
-            _text,
-            _line,
-            _pos
+            text,
+            line,
+            pos
         );
+        
+        return this->_next;
     }
     
-    std::weak_ptr<token_t> prev;
+    /**
+     * detach the current token from the token list.
+     * after that call, _prev node is nullptr.
+     */
+    void snip()
+    {
+        _prev.reset();
+    }
     
-    std::string text;
-    size_t line;
-    size_t pos;
     
-    token next;
+    
+    
+    bool is_space() const { return _text == " ";}
+
+    bool is_cpp_line_comment() const { return _text == "//";}
+    bool is_cpp_blk_comment_open() const { return _text == "/*";}
+    bool is_cpp_blk_comment_close() const { return _text == "*/";}
+    
+    bool is_cpp_pointer() const { return _text == "->";}
+    
+    bool is_parenthesis_open() const { return _text == "(";}
+    bool is_parenthesis_close() const { return _text == ")";}
+    bool is_curly_brace_open() const { return _text == "{";}
+    bool is_curly_brace_close() const { return _text == "}";}
+    
+    bool is_htm_ltc() const { return _text == "</";}
+    bool is_htm_gtc() const { return _text == "/>";}
+    bool is_lt() const { return _text == "<";}
+    bool is_gt() const { return _text == ">";}
+    
+    bool is_fan_key() const
+    {
+        return
+            is_fan_escape() ||
+            is_fan_code_block() ||
+            is_fan_comment() ||
+            is_fan_directive() ||
+            is_fan_region() ||
+            is_fan_output() ||
+            is_fan_code() ||
+            
+            
+            is_fan_markup_open();
+    }
+    
+    bool is_fan_escape() const { return _text == "@@";}
+    
+    bool is_fan_code_block() const { return _text == "@{";}
+
+    bool is_fan_comment() const
+    {
+        return
+            is_fan_line_comment() ||
+            is_fan_blk_comment_open() ||
+            is_fan_blk_comment_close();
+    }
+    bool is_fan_line_comment() const { return _text == "@**";}
+    bool is_fan_blk_comment_open() const { return _text == "@*";}
+    bool is_fan_blk_comment_close() const { return _text == "*@";}
+    
+    bool is_fan_directive() const
+    {
+        return
+            is_fan_name() ||
+            is_fan_namespace() ||
+            is_fan_header() ||
+            is_fan_inherits();
+    }
+    bool is_fan_namespace() const
+    {
+        return _text == "@namespace" || _text == "ns";
+    }
+    bool is_fan_name() const { return _text == "@name";}
+    bool is_fan_layout() const { return _text == "@layout";}
+    bool is_fan_header() const { return _text == "@header";}
+    bool is_fan_inherits() const { return _text == "@inherits";}
+    
+    bool is_fan_region() const
+    {
+        return
+            is_fan_region_open() || is_fan_region_close();
+    }
+    bool is_fan_region_open() const { return _text == "@region";}
+    bool is_fan_region_close() const { return _text == "@endregion";}
+    
+    bool is_fan_output() const 
+    {
+        return is_fan_output_raw() || is_fan_output_enc();
+    }
+    bool is_fan_output_raw() const { return _text == "@::";}
+    bool is_fan_output_enc() const { return _text == "@:";}
+    
+    bool is_fan_code() const
+    {
+        return
+            is_fan_if() ||
+            is_fan_switch() ||
+            is_fan_while() ||
+            is_fan_for() ||
+            is_fan_do() ||
+            is_fan_code_try() ||
+            is_fan_funi() ||
+            is_fan_func() ||
+            is_fan_funa() ||
+            
+            is_fan_await();
+    }
+    
+    bool is_fan_if() const { return _text == "@if";}
+    bool is_cpp_else() const { return _text == "else";}
+    bool is_cpp_if() const { return _text == "if";}
+    
+    bool is_fan_switch() const { return _text == "@switch";}
+    
+    bool is_fan_while() const { return _text == "@while";}
+    bool is_fan_for() const { return _text == "@for";}
+    bool is_fan_do() const { return _text == "@do";}
+    bool is_cpp_while() const { return _text == "while";}
+    
+    bool is_fan_code_try() const { return _text == "@try";}
+    bool is_cpp_catch() const { return _text == "catch";}
+    bool is_cpp_try() const { return _text == "try";}
+    
+    bool is_fan_funi() const { return _text == "@funi";}
+    bool is_fan_func() const { return _text == "@func";}
+    
+    bool is_fan_funa() const { return _text == "@<";}
+    bool is_fan_await() const { return _text == "@await";}
+    
+    bool is_fan_markup_open() const { return _text == "@(";}
+    
+    bool is_double_quote() const { return _text == "\"";}
+    bool is_single_quote() const { return _text == "'";}
+    bool is_backtick() const { return _text == "`";}
+    
+    bool is_eol() const { return _text == "\n";}
+    
+    bool is_semicolon() const { return _text == ";";}
+    bool is_colon() const { return _text == ":";}
+    
+private:
+    std::weak_ptr<token_t> _prev;
+    
+    std::string _text;
+    size_t _line;
+    size_t _pos;
+    
+    token _next;
 };
 
 class tokenizer
@@ -116,9 +267,8 @@ public:
         return false;
     }
     
-    static sp_token tokenize(const std::string& text)
+    static token tokenize(const std::string& text)
     {
-        //std::vector<std::string> tokens;
         token root = std::make_shared<token_t>(nullptr, "", 0, 0, nullptr);
         token t = root;
         
@@ -142,12 +292,10 @@ public:
                     is_token = true;
                     if(tmp_text.size() > 0)
                         t = t->add_next(tmp_text, tl, ti);
-                        //tokens.emplace_back(tmp_text);
                     tmp_text = "";
-                    ti = i
+                    ti = i;
                     tl = l;
                     t = t->add_next(tok, lb, ib);
-                    //tokens.emplace_back(tok);
                     break;
                 }
                 ++tp;
@@ -159,24 +307,15 @@ public:
         
         if(tmp_text.size() > 0)
             t = t->add_next(tmp_text, tl, ti);
-            //tokens.emplace_back(tmp_text);
-        
-        // token root = std::make_shared<token>(nullptr, "", nullptr);
-        // token t = root;
-        // for(auto s : tokens){
-        //     token new_tok = std::make_shared<token>(t, s, nullptr);
-        //     t->next = new_tok;
-        //     t = new_tok;
-        // }
         
         return root;
     }
     
     static bool is_token(
-        const std::string& std::string token,
+        const std::string& token,
         const std::string& text,
         size_t& i,
-        size_t& lnsize_t& l
+        size_t& l
         )
     {
         size_t start_i = i;
@@ -204,7 +343,7 @@ public:
     static const char* s_tokens[];
 };
 
-constexpr char* tokenizer::s_tokens[] = {
+const char* tokenizer::s_tokens[] = {
     " ",
     "//",
     "/*",
@@ -250,21 +389,20 @@ constexpr char* tokenizer::s_tokens[] = {
     
     "@(",
     
-    "\"",
-    "'",
+    "\"", "'", "`",
     "\n",
     ";",
     ":",
     nullptr
 };
 
-inline std::string token::norm_text()
+inline std::string token_t::norm_text()
 {
-    if(tokenizer::find_token(this->text))
-        return this->text;
-    return trim_copy(this->text);
+    if(tokenizer::find_token(this->_text))
+        return this->_text;
+    return md::trim_copy(this->_text);
 }
 
 
-}}//::evmvc::fanjet
+}}}//::evmvc::fanjet::ast
 #endif //_libevmvc_fanjet_tokenizer_h
