@@ -2,7 +2,7 @@
     "name": "fanjet",
     "displayName": "Fanjet syntax highlighting",
     "description": "",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "publisher": "libevmvc",
     "engines": {
         "vscode": "^1.32.3"
@@ -11,7 +11,7 @@
         "Programming Languages"
     ],
     "keywords": [
-        "c++", "c"
+        "c++", "c", "markup"
     ],
     "contributes": {
         "languages": [

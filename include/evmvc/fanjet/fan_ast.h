@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_common_h
-#define _libevmvc_fanjet_common_h
+#ifndef _libevmvc_fanjet_ast_h
+#define _libevmvc_fanjet_ast_h
 
 #include "../stable_headers.h"
 
@@ -60,7 +60,7 @@ enum class sibling_pos
 };
 
 class ast_node_t
-    : public std::enable_shared_from_this<ast_tree_t>
+    : public std::enable_shared_from_this<ast_node_t>
 {
 public:
     ast_node_t(
@@ -82,13 +82,8 @@ public:
     
     virtual ast_node_type type() const { return ast_node_type::literal;}
     
-    bool is_root() const { return type() == ast_node_type::root; }
-    ast_node root() const
-    {
-        if(auto r = _root.lock())
-            return r;
-        return this->shared_from_this();
-    }
+    bool is_root() const { return type() == ast_node_type::root;}
+    ast_node root() const { return _root.lock();}
     ast_node parent() const { return _parent.lock();}
     ast_node prev() const { return _prev.lock();}
     ast_node next() const { return _next.lock();}
@@ -112,8 +107,12 @@ public:
                     to_string(this->type())
                 );
             
-            node sib = prev();
-            node->_root = this->_root;
+            ast_node sib = prev();
+            node->_prev = sib;
+            if(sib)
+                sib->_next = node;
+            node->_next = this->shared_from_this();
+            this->_prev = node;
             
         }else if(pos == sibling_pos::next){
             if(!this->next_sibling_allowed())
@@ -122,8 +121,16 @@ public:
                     to_string(this->type())
                 );
             
-            
+            ast_node sib = next();
+            node->_next = sib;
+            if(sib)
+                sib->_prev = node;
+            node->_prev = this->shared_from_this();
+            this->_next = node;
         }
+        
+        node->_root = this->_root;
+        node->_parent = this->_parent;
     }
     
 private:
@@ -141,12 +148,11 @@ private:
 };
 
 
-
 class ast_tree_t
     : public ast_node_t
 {
 public:
-    ast_node_t()
+    ast_tree_t()
         : ast_node_t(nullptr, nullptr)
     {
     }
@@ -160,5 +166,8 @@ private:
     
 };
 
+
+
+
 }}//::evmvc::fanjet
-#endif //_libevmvc_fanjet_common_h
+#endif //_libevmvc_fanjet_ast_h

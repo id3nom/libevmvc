@@ -46,8 +46,15 @@ public:
     
     
 private:
+    static void parse_literal(token t, ast_node n)
+    {
+        
+    }
     
-    
+    static void parse_code(token t, ast_node n)
+    {
+        
+    }
     
 };
 

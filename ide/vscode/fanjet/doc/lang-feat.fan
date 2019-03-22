@@ -45,12 +45,12 @@
 *@
 @{
     //it must be execute with the async token '<@' see below for more info.
-    <@ v1::execute();
+    @await v1::execute();
     //
-    <@ v2::execute();
+    @await v2::execute();
 }
 
-@> //raw cpp code that wont be interpreted <@
+@{ std::string s("raw cpp code"); }
 
 @{ // cpp code block
     auto a = 10;
@@ -64,7 +64,7 @@
     this->write_encode("but b is not");
 }
 
-@<md>{ <!-- switch language parser 'md' parser is the markdown default parser -->
+@(md){ <!-- switch language parser 'md' parser is the markdown default parser -->
     
 } end of language parser section
 
@@ -83,7 +83,7 @@ public:
     void do_something()
     {
         // ...
-        <div>some html text</div>
+        @(htm){<div>some html text</div>}
     }
     // do_something will be redefined as:
     // void view_name::do_something()
@@ -94,12 +94,12 @@ public:
 }
 
 Async features
-@> and <@ keyword in code block
-@> is used to declare an async function
-<@ is used to call an async function
+@<T>; and @await; keyword in code block
+@<T>; is used to declare an async function
+@await; is used to call an async function
 
-@fini{
-    @> int32_t get_int_val()
+@funi{
+    @<int32_t> get_int_val()
     {
         return 3;
     }
@@ -118,7 +118,7 @@ Async features
         auto r <@ get_int_val();
         auto v <@ get_double_val();
         
-        @<htm>{ switch to html inside cpp code block }
+        @(html){ switch to html inside cpp code block }
         
     }catch(const auto& e){
         <div>Error: @:err.what(); </div>
