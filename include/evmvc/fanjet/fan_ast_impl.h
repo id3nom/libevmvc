@@ -24,8 +24,6 @@ SOFTWARE.
 
 #include "fan_ast.h"
 
-#define EVMVC_AST_MARKDOWN_ESCAPE "``"
-
 
 namespace evmvc { namespace fanjet { namespace ast {
 
@@ -39,12 +37,18 @@ inline ast::token root_node_t::parse(ast::token t)
     return l->parse(t);
 }
 
+inline void process_fan_key(ast::token& t)
+{
+    
+}
+
 inline ast::token literal_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
-        
-        
-        
+        if(t->is_fan_key()){
+            
+        }
         t = t->next();
     }
     return t;

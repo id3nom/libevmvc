@@ -393,21 +393,23 @@ inline root_node parse(ast::token t)
     return r;
 }
 
+#define EVMVC_FANJET_NODE_FRIENDS friend class node_t; \
+    friend class root_node_t; \
+    friend class directive_node_t; \
+    friend class literal_node_t; \
+    friend class comment_node_t; \
+    friend class output_node_t; \
+    friend class clode_block_node_t; \
+    friend class code_control_node_t; \
+    friend class code_err_node_t; \
+    friend class code_fun_node_t; \
+    friend class code_async_node_t; \
+    
 
 class expr_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     expr_node_t(
         node parent = nullptr,
@@ -430,17 +432,7 @@ private:
 class directive_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     directive_node_t(
         ast::section_type dir_type,
@@ -464,17 +456,7 @@ private:
 class literal_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     literal_node_t(
         ast::section_type t,
@@ -498,17 +480,7 @@ private:
 class comment_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     comment_node_t(
         ast::section_type t,
@@ -532,17 +504,7 @@ private:
 class output_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     output_node_t(
         ast::section_type t,
@@ -566,17 +528,7 @@ private:
 class clode_block_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     clode_block_node_t(
         node parent = nullptr,
@@ -599,17 +551,7 @@ private:
 class code_control_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     code_control_node_t(
         ast::section_type t,
@@ -633,17 +575,7 @@ private:
 class code_err_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_fun_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     code_err_node_t(
         ast::section_type t,
@@ -667,17 +599,7 @@ private:
 class code_fun_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_async_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     code_fun_node_t(
         ast::section_type t,
@@ -701,17 +623,7 @@ private:
 class code_async_node_t
     : public node_t
 {
-    friend class node_t;
-    friend class root_node_t;
-    friend class expr_node_t;
-    friend class directive_node_t;
-    friend class literal_node_t;
-    friend class comment_node_t;
-    friend class output_node_t;
-    friend class clode_block_node_t;
-    friend class code_control_node_t;
-    friend class code_err_node_t;
-    friend class code_fun_node_t;
+    EVMVC_FANJET_NODE_FRIENDS
 protected:
     code_async_node_t(
         ast::section_type t,
