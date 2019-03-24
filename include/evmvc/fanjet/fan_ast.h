@@ -37,8 +37,13 @@ class node_t;
 typedef std::shared_ptr<node_t> node;
 class root_node_t;
 typedef std::shared_ptr<root_node_t> root_node;
+class token_node_t;
+typedef std::shared_ptr<token_node_t> token_node;
 class expr_node_t;
 typedef std::shared_ptr<expr_node_t> expr_node;
+class string_node_t;
+typedef std::shared_ptr<string_node_t> string_node;
+
 class directive_node_t;
 typedef std::shared_ptr<directive_node_t> directive_node;
 class literal_node_t;
@@ -47,8 +52,8 @@ class comment_node_t;
 typedef std::shared_ptr<comment_node_t> comment_node;
 class output_node_t;
 typedef std::shared_ptr<output_node_t> output_node;
-class clode_block_node_t;
-typedef std::shared_ptr<clode_block_node_t> clode_block_node;
+class code_block_node_t;
+typedef std::shared_ptr<code_block_node_t> code_block_node;
 class code_control_node_t;
 typedef std::shared_ptr<code_control_node_t> code_control_node;
 class code_err_node_t;
@@ -62,7 +67,9 @@ enum class node_type
 {
     invalid         = INT_MIN,
     root            = INT_MIN -1,
-    expr            = INT_MIN -2,
+    token           = INT_MIN -2,
+    expr            = INT_MIN -3,
+    string          = INT_MIN -4,
     
     directive       =
         (int)(
@@ -125,8 +132,13 @@ inline md::string_view to_string(node_type t)
             return "invalid";
         case node_type::root:
             return "root";
+        case node_type::token:
+            return "token";
         case node_type::expr:
             return "expr";
+        case node_type::string:
+            return "string";
+
         case node_type::directive:
             return "directive";
         case node_type::literal:
@@ -158,6 +170,9 @@ enum class sibling_pos
 class node_t
     : public std::enable_shared_from_this<node_t>
 {
+    friend bool open_scope(ast::token& t, ast::node_t* n);
+    friend void close_scope(ast::token& t, ast::node_t* pn);
+    
 protected:
     node_t(
         ast::section_type sec_type,
@@ -342,10 +357,14 @@ public:
     }
     
 protected:
+    
+    void add_sibling_token(sibling_pos pos, ast::token t);
+    void add_token(ast::token t);
+    
     /**
      * parse the token list and should return unprocessed (snipped) token list
      */
-    virtual ast::token parse(ast::token t) = 0;
+    virtual void parse(ast::token t) = 0;
     
 private:
     ast::section_type _sec_type;
@@ -381,7 +400,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -404,7 +423,28 @@ inline root_node parse(ast::token t)
     friend class code_err_node_t; \
     friend class code_fun_node_t; \
     friend class code_async_node_t; \
+    friend bool open_scope(ast::token& t, ast::node_t* n); \
+    friend void close_scope(ast::token& t, ast::node_t* pn); \
     
+
+class token_node_t
+    : public node_t
+{
+protected:
+    token_node_t(
+        ast::token t
+        )
+        : node_t(ast::section_type::token , nullptr, nullptr, nullptr)
+    {
+    }
+protected:
+    ast::token parse(ast::token t)
+    {
+        throw MD_ERR("Can't parse a token node!");
+        //this->_token = t;
+    }
+};
+
 
 class expr_node_t
     : public node_t
@@ -423,11 +463,40 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
 };
+
+class string_node_t
+    : public node_t
+{
+    EVMVC_FANJET_NODE_FRIENDS
+protected:
+    string_node_t(
+        std::string enclosing_char,
+        node parent = nullptr,
+        node prev = nullptr,
+        node next = nullptr)
+        : node_t(ast::section_type::string , parent, prev, next),
+        _enclosing_char(enclosing_char)
+    {
+    }
+
+public:
+    std::string enclosing_char() const
+    {
+        return _enclosing_char;
+    }
+    
+protected:
+    void parse(ast::token t);
+
+private:
+    std::string _enclosing_char;
+};
+
 
 class directive_node_t
     : public node_t
@@ -447,7 +516,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -471,7 +540,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -495,7 +564,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -519,18 +588,18 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
 };
 
-class clode_block_node_t
+class code_block_node_t
     : public node_t
 {
     EVMVC_FANJET_NODE_FRIENDS
 protected:
-    clode_block_node_t(
+    code_block_node_t(
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
@@ -542,7 +611,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -566,7 +635,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -590,7 +659,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -614,7 +683,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     
@@ -638,7 +707,7 @@ public:
     
     
 protected:
-    ast::token parse(ast::token t);
+    void parse(ast::token t);
 
 private:
     

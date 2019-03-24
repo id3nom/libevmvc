@@ -48,7 +48,19 @@ public:
     {
     }
     
+    bool is_root() const { return _prev.expired();}
+    token root() const
+    {
+        token r = this->_prev.lock();
+        if(!r)
+            return nullptr;
+        while(!r->is_root())
+            r = r->prev();
+        return r;
+    }
+    
     token prev() const { return _prev.lock();}
+    
     const std::string& text() const { return _text;}
     size_t line() const { return _line;}
     size_t pos() const { return _pos;}
@@ -98,9 +110,11 @@ public:
      * detach the current token from the token list.
      * after that call, _prev node is nullptr.
      */
-    void snip()
+    token snip()
     {
+        token r = root();
         _prev.reset();
+        return r;
     }
     
     
@@ -128,13 +142,41 @@ public:
     {
         return
             is_fan_escape() ||
-            is_fan_code_block() ||
             is_fan_comment() ||
-            is_fan_directive() ||
             is_fan_region() ||
+            is_fan_directive() ||
             is_fan_output() ||
+            is_fan_code_block() ||
             is_fan_code() ||
             
+            
+            is_fan_markup_open();
+    }
+    
+    bool is_fan_start_key() const
+    {
+        return
+            is_fan_line_comment() ||
+            is_fan_blk_comment_open() ||
+            is_fan_region_open() ||
+            is_fan_directive() ||
+            is_fan_output() ||
+            
+            is_fan_code_block() ||
+
+            is_fan_if() ||
+            is_fan_switch() ||
+            is_fan_while() ||
+            is_fan_for() ||
+            is_fan_do() ||
+
+            is_fan_try() ||
+
+            is_fan_funi() ||
+            is_fan_func() ||
+
+            is_fan_funa() ||
+            is_fan_await() ||
             
             is_fan_markup_open();
     }
@@ -194,13 +236,24 @@ public:
             is_fan_while() ||
             is_fan_for() ||
             is_fan_do() ||
-            is_fan_code_try() ||
+            is_fan_try() ||
             is_fan_funi() ||
             is_fan_func() ||
             is_fan_funa() ||
             
             is_fan_await();
     }
+    
+    bool is_fan_control() const
+    {
+        return
+            is_fan_if() ||
+            is_fan_switch() ||
+            is_fan_while() ||
+            is_fan_for() ||
+            is_fan_do();
+    }
+    
     
     bool is_fan_if() const { return _text == "@if";}
     bool is_cpp_else() const { return _text == "else";}
@@ -213,7 +266,7 @@ public:
     bool is_fan_do() const { return _text == "@do";}
     bool is_cpp_while() const { return _text == "while";}
     
-    bool is_fan_code_try() const { return _text == "@try";}
+    bool is_fan_try() const { return _text == "@try";}
     bool is_cpp_catch() const { return _text == "catch";}
     bool is_cpp_try() const { return _text == "try";}
     

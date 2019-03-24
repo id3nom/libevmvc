@@ -35,7 +35,9 @@ enum class section_type
 {
     invalid             = INT_MIN,
     root                = INT_MIN -1,
-    expr                = INT_MIN -2,
+    token               = INT_MIN -2,
+    expr                = INT_MIN -3,
+    string              = INT_MIN -4,
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
