@@ -411,10 +411,31 @@ inline void code_control_node_t::parse(ast::token t)
 
 inline void code_err_node_t::parse(ast::token t)
 {
+    while(t){
+        //  try
+        //      {
+        //      }
+        //      catch
+        //      (expr)
+        //      {
+        //      }
+        
+        if(open_scope(t, this))
+            return;
+        
+        if(t->is_curly_brace_close()){
+            close_scope(t, this);
+            return;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 inline void code_fun_node_t::parse(ast::token t)
 {
+    
 }
 
 inline void code_async_node_t::parse(ast::token t)
