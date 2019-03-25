@@ -27,17 +27,15 @@ SOFTWARE.
 
 #include "../stable_headers.h"
 
-namespace evmvc { namespace fanjet {
-
-namespace ast {
+namespace evmvc { namespace fanjet { namespace ast {
 enum class section_type
     : int
 {
     invalid             = INT_MIN,
-    root                = INT_MIN -1,
-    token               = INT_MIN -2,
-    expr                = INT_MIN -3,
-    string              = INT_MIN -4,
+    root                = INT_MIN +1,
+    token               = INT_MIN +2,
+    expr                = INT_MIN +3,
+    string              = INT_MIN +4,
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
@@ -83,7 +81,99 @@ enum class section_type
     sub_section         = (1 << 29),    // 
 };
 MD_ENUM_FLAGS(section_type)
-}//::evmvc::fanjet::ast
 
-}}//::evmvc::fanjet
+inline md::string_view to_string(section_type t)
+{
+    switch(t){
+        case section_type::invalid:
+            return "invalid";
+        case section_type::root:
+            return "root";
+        case section_type::token:
+            return "token";
+        case section_type::expr:
+            return "expr";
+        case section_type::string:
+            return "string";
+
+        case section_type::dir_ns:
+            return "dir_ns";
+        case section_type::dir_name:
+            return "dir_name";
+        case section_type::dir_layout:
+            return "dir_layout";
+        case section_type::dir_header:
+            return "dir_header";
+        case section_type::dir_inherits:
+            return "dir_inherits";
+
+        case section_type::literal:
+            return "literal";
+
+        case section_type::comment_line:
+            return "comment_line";
+        case section_type::comment_block:
+            return "comment_block";
+        case section_type::region_start:
+            return "region_start";
+        case section_type::region_end:
+            return "region_end";
+
+        case section_type::output_raw:
+            return "output_raw";
+        case section_type::output_enc:
+            return "output_enc";
+
+        case section_type::code_block:
+            return "code_block";
+
+        case section_type::code_if:
+            return "code_if";
+        case section_type::code_elif:
+            return "code_elif";
+        case section_type::code_else:
+            return "code_else";
+        case section_type::code_switch:
+            return "code_switch";
+
+        case section_type::code_while:
+            return "code_while";
+        case section_type::code_for:
+            return "code_for";
+        case section_type::code_do:
+            return "code_do";
+        case section_type::code_dowhile:
+            return "code_dowhile";
+
+        case section_type::code_try:
+            return "code_try";
+        case section_type::code_trycatch:
+            return "code_trycatch";
+
+        case section_type::code_funi:
+            return "code_funi";
+        case section_type::code_func:
+            return "code_func";
+
+        case section_type::code_funa:
+            return "code_funa";
+        case section_type::code_await:
+            return "code_await";
+
+        case section_type::markup_html:
+            return "markup_html";
+        case section_type::markup_markdown:
+            return "markup_markdown";
+
+        case section_type::sub_section:
+            return "sub_section";
+            
+        
+        default:
+            return "UNKNOWN";
+    }
+}
+
+}}}//::evmvc::fanjet::ast
+
 #endif //_libevmvc_fanjet_common_h

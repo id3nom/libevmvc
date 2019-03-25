@@ -94,12 +94,12 @@ public://public:
 //}
 //
 private: void __exec_1(async_cb cb){ this->write_html("Async features"//Async features
-"@> and <@ keyword in code block"//@> and <@ keyword in code block
-"@> is used to declare an async function"//@> is used to declare an async function
-"<@ is used to call an async function");//<@ is used to call an async function
+"@<T>; and @await; keyword in code block"//@<T>; and @await; keyword in code block
+"@<T>; is used to declare an async function"//@<T>; is used to declare an async function
+"@await; is used to call an async function");//@await; is used to call an async function
 //
 this->__exec_2(cb);} private://@fini{
-    void get_int_val(async_value<int32_t> cb)//    @> int32_t get_int_val()
+    void get_int_val(async_value<int32_t> cb, bool test = false)//    @<int32_t> get_int_val(bool test)
     {try{//    {
         cb(nullptr, 3);return;//        return 3;
     }catch(const std::exception& err){cb(err)}}//    }
@@ -115,13 +115,13 @@ this->__exec_2(cb);} private://@fini{
 //
 //@{
 private: void __err_handler_0(const auto& e){this->write_html("<div>Error: ");this->write_encode(e.what());this->write_html("</div>");}//    try{
-        private: void __sub_exec_0(async_cb cb){get_int_val([cb](const cb_error& err, auto r){if(err){cb(err);return;}//        auto r <@ get_int_val();
-        get_double_val([cb, r](const cb_error& err, auto v){if(err){cb(err);return;}//        auto v <@ get_double_val();
+        private: void __sub_exec_0(async_cb cb){get_int_val([cb](const cb_error& err, auto r){if(err){cb(err);return;}//        @await auto r = get_int_val();
+        get_double_val([cb, r](const cb_error& err, auto v){if(err){cb(err);return;}//        @await auto r = get_int_val();
 //        
-        this->write_html(" switch to html inside cpp code block ");//        @<htm>{ switch to html inside cpp code block }
+        this->write_html(" switch to html inside cpp code block ");//        @(htm){ switch to html inside cpp code block }
 //        
     cb(nullptr);});});}//    }catch(const auto& e){
-    private: void __exec_3(async_cb cb){this->__sub_exec_0([cb](const auto& e){if(e){this->__err_handler_0(e);return;}this->__exec_4(cb);};}//        <div>Error: @:err.what(); </div>
+    private: void __exec_3(async_cb cb){this->__sub_exec_0([cb](const auto& e){if(e){this->__err_handler_0(e);return;}this->__exec_4(cb);};}//        @(html){<div>Error: @:err.what(); </div>}
 //    }
 //}
 //

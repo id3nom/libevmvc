@@ -22,8 +22,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_h
-#define _libevmvc_fanjet_h
+#ifndef _libevmvc_fanjet_ast_h
+#define _libevmvc_fanjet_ast_h
 
 #include "../stable_headers.h"
 #include "fan_common.h"
@@ -66,10 +66,10 @@ typedef std::shared_ptr<code_async_node_t> code_async_node;
 enum class node_type
 {
     invalid         = INT_MIN,
-    root            = INT_MIN -1,
-    token           = INT_MIN -2,
-    expr            = INT_MIN -3,
-    string          = INT_MIN -4,
+    root            = INT_MIN +1,
+    token           = INT_MIN +2,
+    expr            = INT_MIN +3,
+    string          = INT_MIN +4,
     
     directive       =
         (int)(
@@ -148,15 +148,18 @@ inline md::string_view to_string(node_type t)
         case node_type::output:
             return "output";
         case node_type::code_block:
-            return "code_block";
+            return "code block";
         case node_type::code_control:
-            return "code_control";
+            return "control";
         case node_type::code_err:
-            return "code_err";
+            return "error";
         case node_type::code_fun:
-            return "code_fun";
+            return "function";
         case node_type::code_async:
-            return "code_async";
+            return "async";
+            
+        default:
+            return "UNKNOWN";
     }
 }
 
@@ -170,6 +173,9 @@ enum class sibling_pos
 class node_t
     : public std::enable_shared_from_this<node_t>
 {
+    friend class code_control_node_t;
+    friend class code_async_node_t;
+    
     friend bool open_scope(ast::token& t, ast::node_t* n);
     friend void close_scope(ast::token& t, ast::node_t* pn);
     
@@ -356,6 +362,32 @@ public:
         this->_next.reset();
     }
     
+    std::string debug_token_section_text() const
+    {
+        std::string text;
+        text += fmt::format(
+            "### start section - "
+            "node type: '{}', sec type: '{}', line: '{}' ###\n",
+            to_string(this->node_type()),
+            to_string(this->sec_type()),
+            _token ? md::num_to_str(this->line()) : "-"
+        );
+        text += md::replace_substring_copy(token_text(), "\n", "\n  ");
+        for(auto n : _childs)
+            text += md::replace_substring_copy(
+                n->debug_token_section_text(), "\n", "\n  "
+            );
+        text += fmt::format(
+            "\n### end section - "
+            "node type: '{}', sec type: '{}', line: '{}' ###\n",
+            to_string(this->node_type()),
+            to_string(this->sec_type()),
+            _token ? md::num_to_str(this->line()) : "-"
+        );
+        return text;
+    }
+    
+    
 protected:
     
     void add_sibling_token(sibling_pos pos, ast::token t);
@@ -374,9 +406,8 @@ private:
     std::weak_ptr<node_t> _parent;
     
     std::weak_ptr<node_t> _prev;
-    std::weak_ptr<node_t> _next;
-    
     ast::token _token;
+    std::weak_ptr<node_t> _next;
     
     std::vector<node> _childs;
 };
@@ -385,9 +416,8 @@ root_node parse(ast::token t);
 class root_node_t
     : public node_t
 {
-private:
-    friend root_node parse(ast::token t);
-    
+    friend root_node ast::parse(ast::token t);
+
     root_node_t()
         : node_t(ast::section_type::root, nullptr, nullptr)
     {
@@ -407,33 +437,25 @@ private:
 };
 inline root_node parse(ast::token t)
 {
-    root_node r = std::make_shared<root_node_t>();
+    root_node r = root_node(new root_node_t());
     r->parse(t);
     return r;
 }
 
-#define EVMVC_FANJET_NODE_FRIENDS friend class node_t; \
+#define EVMVC_FANJET_NODE_FRIENDS \
+    friend class node_t; \
     friend class root_node_t; \
-    friend class directive_node_t; \
-    friend class literal_node_t; \
-    friend class comment_node_t; \
-    friend class output_node_t; \
-    friend class clode_block_node_t; \
-    friend class code_control_node_t; \
-    friend class code_err_node_t; \
-    friend class code_fun_node_t; \
-    friend class code_async_node_t; \
+    friend class code_block_node_t; \
     friend bool open_scope(ast::token& t, ast::node_t* n); \
     friend void close_scope(ast::token& t, ast::node_t* pn); \
     
-
 class token_node_t
     : public node_t
 {
+    friend class node_t;
+    
 protected:
-    token_node_t(
-        ast::token t
-        )
+    token_node_t()
         : node_t(ast::section_type::token , nullptr, nullptr, nullptr)
     {
     }
@@ -450,6 +472,7 @@ class expr_node_t
     : public node_t
 {
     EVMVC_FANJET_NODE_FRIENDS
+    
 protected:
     expr_node_t(
         node parent = nullptr,
@@ -597,7 +620,11 @@ private:
 class code_block_node_t
     : public node_t
 {
-    EVMVC_FANJET_NODE_FRIENDS
+    friend class node_t;
+    friend class root_node_t;
+    friend bool open_scope(ast::token& t, ast::node_t* n);
+    friend void close_scope(ast::token& t, ast::node_t* pn);
+    
 protected:
     code_block_node_t(
         node parent = nullptr,
@@ -627,7 +654,11 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::node_type::code_control, t, parent, prev, next)
+        : node_t(ast::node_type::code_control, t, parent, prev, next),
+        _need_expr(t != ast::section_type::code_do),
+        _need_code(true),
+        _need_semicol(t == ast::section_type::code_do),
+        _done(false)
     {
     }
 
@@ -638,7 +669,10 @@ protected:
     void parse(ast::token t);
 
 private:
-    
+    bool _need_expr;
+    bool _need_code;
+    bool _need_semicol;
+    bool _done;
 };
 
 class code_err_node_t
@@ -651,7 +685,10 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::node_type::code_err, t, parent, prev, next)
+        : node_t(ast::node_type::code_err, t, parent, prev, next),
+        _need_expr(false),
+        _need_code(true),
+        _done(false)
     {
     }
 
@@ -662,7 +699,9 @@ protected:
     void parse(ast::token t);
 
 private:
-    
+    bool _need_expr;
+    bool _need_code;
+    bool _done;
 };
 
 class code_fun_node_t
@@ -675,7 +714,8 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::node_type::code_fun, t, parent, prev, next)
+        : node_t(ast::node_type::code_fun, t, parent, prev, next),
+        _done(false)
     {
     }
 
@@ -686,7 +726,7 @@ protected:
     void parse(ast::token t);
 
 private:
-    
+    bool _done;
 };
 
 class code_async_node_t
@@ -699,7 +739,12 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::node_type::code_async, t, parent, prev, next)
+        : node_t(ast::node_type::code_async, t, parent, prev, next),
+        _need_expr(true),
+        _need_code(false),
+        _need_semicol(t == ast::section_type::code_await),
+        _done(false),
+        _async_type("")
     {
     }
 
@@ -710,10 +755,15 @@ protected:
     void parse(ast::token t);
 
 private:
+    bool _need_expr;
+    bool _need_code;
+    bool _need_semicol;
+    bool _done;
     
+    std::string _async_type;
 };
 
 }}}//::evmvc::fanjet::ast
 #include "fan_ast_impl.h"
 
-#endif //_libevmvc_fanjet_h
+#endif //_libevmvc_fanjet_ast_h

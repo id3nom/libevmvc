@@ -49,12 +49,19 @@ public:
     
     @<std::vector<std::string>> async_function3(long i);
     
-    
+    @<void> async_function4()
+    {
+        if(a)
+            return;
+        else if(b){
+            return;
+        }
+    }
 }
 
 @func{
     
-    std::vector<int> void test()
+    std::vector<int> test()
     {
     }
     

@@ -62,7 +62,7 @@ public:
     token prev() const { return _prev.lock();}
     
     const std::string& text() const { return _text;}
-    const std::string& trim_text() const { return md::trim_copy(_text);}
+    std::string trim_text() const { return md::trim_copy(_text);}
     size_t line() const { return _line;}
     size_t pos() const { return _pos;}
     token next() const { return _next;}
@@ -95,13 +95,27 @@ public:
         );
     }
     
+    std::string dump() const
+    {
+        std::string s;
+        token r = root();
+        if(!r)
+            r = this->next();
+        while(r){
+            s += r->_text + (r->_next ? ", " : "");
+            r = r->next();
+        }
+        return s;
+    }
+    
     token add_next(const std::string& text, size_t line, size_t pos)
     {
         this->_next = std::make_shared<token_t>(
             this->shared_from_this(),
             text,
             line,
-            pos
+            pos,
+            nullptr
         );
         
         return this->_next;
@@ -339,9 +353,9 @@ public:
             
             size_t ib = i;
             size_t lb = l;
-            const char* tp = s_tokens[0];
-            while(tp){
-                std::string tok(tp);
+            const char** tp = s_tokens;
+            while(*tp){
+                std::string tok(*tp);
                 if(tokenizer::is_token(tok, text, i, l)){
                     is_token = true;
                     if(tmp_text.size() > 0)
@@ -362,6 +376,7 @@ public:
         if(tmp_text.size() > 0)
             t = t->add_next(tmp_text, tl, ti);
         
+        std::cout << root->dump() << std::endl;
         return root;
     }
     

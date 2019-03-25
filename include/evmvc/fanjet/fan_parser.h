@@ -42,7 +42,7 @@ public:
         ast::token root_token = ast::tokenizer::tokenize(text);
         ast::root_node r = ast::parse(root_token);
         
-        return nullptr;
+        return r;
     }
     
     

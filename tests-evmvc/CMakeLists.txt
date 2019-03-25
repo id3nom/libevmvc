@@ -17,6 +17,7 @@ include_directories("${PROJECT_BINARY_DIR}"
 set(test_sources
     main.cpp
     routing/router_tests.cpp
+    jetfan/jetfan_tests.cpp
 )
 add_executable(libevmvc_tests ${test_sources})
 

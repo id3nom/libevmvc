@@ -26,6 +26,8 @@ SOFTWARE.
 #define _libevmvc_fanjet_h
 
 #include "fan_common.h"
-
+#include "fan_tokenizer.h"
+#include "fan_ast.h"
+#include "fan_parser.h"
 
 #endif //_libevmvc_fanjet_h

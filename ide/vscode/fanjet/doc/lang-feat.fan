@@ -99,7 +99,7 @@ Async features
 @await; is used to call an async function
 
 @funi{
-    @<int32_t> get_int_val()
+    @<int32_t> get_int_val(bool test = false)
     {
         return 3;
     }
@@ -115,13 +115,13 @@ Async features
 
 @{
     try{
-        auto r <@ get_int_val();
-        auto v <@ get_double_val();
+        @await auto r = get_int_val();
+        @await auto v = get_double_val();
         
         @(html){ switch to html inside cpp code block }
         
     }catch(const auto& e){
-        <div>Error: @:err.what(); </div>
+        @(html){<div>Error: @:err.what(); </div>}
     }
 }
 
