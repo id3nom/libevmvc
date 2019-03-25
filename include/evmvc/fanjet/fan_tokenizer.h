@@ -62,6 +62,7 @@ public:
     token prev() const { return _prev.lock();}
     
     const std::string& text() const { return _text;}
+    const std::string& trim_text() const { return md::trim_copy(_text);}
     size_t line() const { return _line;}
     size_t pos() const { return _pos;}
     token next() const { return _next;}

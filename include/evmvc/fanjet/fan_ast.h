@@ -438,7 +438,7 @@ protected:
     {
     }
 protected:
-    ast::token parse(ast::token t)
+    void parse(ast::token t)
     {
         throw MD_ERR("Can't parse a token node!");
         //this->_token = t;

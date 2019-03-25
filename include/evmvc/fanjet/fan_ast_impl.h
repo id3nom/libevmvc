@@ -241,6 +241,7 @@ inline void string_node_t::parse(ast::token t)
             
         }
         
+        // only verify open_scope if w'ere in a literal section
         if(this->parent() && this->parent()->node_type() == node_type::literal)
             if(open_scope(t, this))
                 return;
@@ -252,23 +253,160 @@ inline void string_node_t::parse(ast::token t)
 
 inline void directive_node_t::parse(ast::token t)
 {
+    while(t){
+        switch(this->sec_type()){
+            case ast::section_type::dir_ns:
+            case ast::section_type::dir_name:
+            case ast::section_type::dir_layout:
+                if(t->is_eol()){
+                    close_scope(t, this);
+                    return;
+                }
+                break;
+            
+            case ast::section_type::dir_header:
+            case ast::section_type::dir_inherits:
+                if(t->is_semicolon()){
+                    close_scope(t, this);
+                    return;
+                }
+                if(open_scope(t, this))
+                    return;
+                
+                break;
+            default:
+                break;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 
 inline void comment_node_t::parse(ast::token t)
 {
+    while(t){
+        switch(this->sec_type()){
+            case ast::section_type::comment_line:
+            case ast::section_type::region_start:
+            case ast::section_type::region_end:
+                if(t->is_eol()){
+                    close_scope(t, this);
+                    return;
+                }
+                break;
+            
+            case ast::section_type::comment_block:
+                if(t->is_fan_blk_comment_close()){
+                    close_scope(t, this);
+                    return;
+                }
+                break;
+            default:
+                break;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 inline void output_node_t::parse(ast::token t)
 {
+    while(t){
+        if(t->is_semicolon()){
+            close_scope(t, this);
+            return;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 inline void code_block_node_t::parse(ast::token t)
 {
+    while(t){
+        if(open_scope(t, this))
+            return;
+        
+        if(t->is_curly_brace_close()){
+            close_scope(t, this);
+            return;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 inline void code_control_node_t::parse(ast::token t)
 {
+    while(t){
+        switch(this->sec_type()){
+            case ast::section_type::code_if:
+                //  if
+                //      (expr)
+                //      {
+                //      }
+                //      else
+                //      if
+                //      (expr)
+                //      {
+                //      }
+                //      else
+                //      {
+                //      }
+                
+                break;
+            
+            case ast::section_type::code_switch:
+                //  switch
+                //      (expr)
+                //      {
+                //      }
+                
+                break;
+            
+            case ast::section_type::code_while:
+                //  while
+                //      (expr)
+                //      {
+                //      }
+                
+                break;
+            
+            case ast::section_type::code_for:
+                //  for
+                //      (expr)
+                //      {
+                //      }
+                
+                break;
+            
+            case ast::section_type::code_do:
+                //  do
+                //  {
+                //  }
+                //  while
+                //  (expr)
+                //  ;
+                
+                break;
+        }
+        
+        if(open_scope(t, this))
+            return;
+        
+        if(t->is_curly_brace_close()){
+            close_scope(t, this);
+            return;
+        }
+        
+        if(t)
+            t = t->next();
+    }
 }
 
 inline void code_err_node_t::parse(ast::token t)
