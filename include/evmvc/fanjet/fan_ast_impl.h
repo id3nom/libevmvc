@@ -159,9 +159,9 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             md::trim(l);
             if(l != "html" && l != "htm" && l != "markdown" && l != "md")
                 throw MD_ERR(
-                    "invalid literal language of '{}', line: '{}'\n"
+                    "invalid literal language of '{}', line: '{}', col: '{}'\n"
                     "available language are 'html, htm, markdown and md!'",
-                    l, t->line()
+                    l, t->line(), t->col()
                 );
             n = literal_node(new literal_node_t(
                 l == "html" || l == "htm" ?
@@ -247,8 +247,10 @@ inline void literal_node_t::parse(ast::token t)
             
             if(!t->next())
                 throw MD_ERR(
-                    "Missing closing brace for node: '{}', line: '{}'",
-                    to_string(this->node_type()), t->root()->line()
+                    "Missing closing brace for node: '{}', "
+                    "line: '{}', col: '{}'",
+                    to_string(this->node_type()), 
+                    t->root()->line(), t->root()->col()
                 );
         }
         
@@ -496,8 +498,9 @@ inline void code_block_node_t::parse(ast::token t)
                     an->_need_code = true;
                 }else
                     throw MD_ERR(
-                        "Open curly brace or semicolon required, line: '{}'",
-                        t->line()
+                        "Open curly brace or semicolon "
+                        "required, line: '{}', col '{}'",
+                        t->line(), t->col()
                     );
             }
             
@@ -529,8 +532,8 @@ inline void code_control_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Expression required, line: '{}'",
-                    t->line()
+                    "Expression required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
             
@@ -541,8 +544,8 @@ inline void code_control_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Open curly brace is required, line: '{}'",
-                    t->line()
+                    "Open curly brace is required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
             
@@ -561,8 +564,8 @@ inline void code_control_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Semicolon is required, line: '{}'",
-                    t->line()
+                    "Semicolon is required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
         }
@@ -588,8 +591,8 @@ inline void code_err_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Expression required, line: '{}'",
-                    t->line()
+                    "Expression required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
             
@@ -600,8 +603,8 @@ inline void code_err_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Open curly brace is required, line: '{}'",
-                    t->line()
+                    "Open curly brace is required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
         }

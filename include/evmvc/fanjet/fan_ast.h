@@ -196,7 +196,7 @@ protected:
         node parent,
         node prev,
         node next = nullptr)
-        : _id(nid()),
+        : 
         _sec_type(sec_type),
         _node_type(ast::node_type::invalid),
         _root(parent ? parent->root() : nullptr),
@@ -250,7 +250,7 @@ protected:
         node parent,
         node prev,
         node next = nullptr)
-        : _id(nid()),
+        : 
         _sec_type(sec_type),
         _node_type(n_type),
         _root(parent ? parent->root() : nullptr),
@@ -272,11 +272,17 @@ protected:
 public:
     size_t id() const
     {
-        
+        if(is_root())
+            return 1;
+        auto p = this->parent();
+        for(size_t i = 0; i < p->_childs.size(); ++i)
+            if(p->_childs[i].get() == this)
+                return i +1;
+        return 0;
     }
     std::string path() const
     {
-        std::string ps = md::num_to_str(_id, false);
+        std::string ps = md::num_to_str(this->id(), false);
         node p = this->parent();
         while(p){
             ps = md::num_to_str(p->id(), false) + "." + ps;
@@ -483,8 +489,6 @@ protected:
     virtual void parse(ast::token t) = 0;
     
 private:
-    size_t _id;
-    
     ast::section_type _sec_type;
     ast::node_type _node_type;
     
