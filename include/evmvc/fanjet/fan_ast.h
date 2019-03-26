@@ -168,6 +168,17 @@ enum class sibling_pos
     prev,
     next
 };
+inline md::string_view to_string(sibling_pos p)
+{
+    switch(p){
+        case sibling_pos::prev:
+            return "prev";
+        case sibling_pos::next:
+            return "next";
+        default:
+            return "UNKNOWN";
+    }
+}
 
 
 class node_t
@@ -188,18 +199,22 @@ protected:
         : 
         _sec_type(sec_type),
         _node_type(ast::node_type::invalid),
-        _root(parent->root()),
+        _root(parent ? parent->root() : nullptr),
         _parent(parent),
         _prev(prev),
         _token(nullptr),
         _next(next)
     {
-        if((int)node_type::invalid & (int)sec_type)
+        if((int)node_type::invalid == (int)sec_type)
             _node_type = node_type::invalid;
-        else if((int)node_type::root & (int)sec_type)
+        else if((int)node_type::root == (int)sec_type)
             _node_type = node_type::root;
-        else if((int)node_type::expr & (int)sec_type)
+        else if((int)node_type::token == (int)sec_type)
+            _node_type = node_type::token;
+        else if((int)node_type::expr == (int)sec_type)
             _node_type = node_type::expr;
+        else if((int)node_type::string == (int)sec_type)
+            _node_type = node_type::string;
 
         else if((int)node_type::directive & (int)sec_type)
             _node_type = node_type::directive;
@@ -222,6 +237,11 @@ protected:
             _node_type = node_type::code_err;
         else
             _node_type = node_type::invalid;
+            
+        EVMVC_DEF_TRACE(
+            "creating node: '{}', sec: '{}'",
+            to_string(this->node_type()), to_string(this->sec_type())
+        );
     }
 
     node_t(
@@ -233,12 +253,17 @@ protected:
         : 
         _sec_type(sec_type),
         _node_type(n_type),
-        _root(parent->root()),
+        _root(parent ? parent->root() : nullptr),
         _parent(parent),
         _prev(prev),
         _token(nullptr),
         _next(next)
     {
+        EVMVC_DEF_TRACE(
+            "creating node: '{}', sec: '{}'",
+            to_string(this->node_type()), to_string(this->sec_type())
+        );
+        
         if(!((int)n_type && (int)sec_type))
             throw MD_ERR("section_type and node_type mismatch!");
     }
@@ -274,7 +299,7 @@ public:
         ast::token t = _token;
         while(t){
             text += t->text();
-            t = _token->next();
+            t = t->next();
         }
         
         return text;
@@ -290,6 +315,25 @@ public:
     
     void add_sibling(sibling_pos pos, node n)
     {
+        EVMVC_DEF_TRACE(
+            "node: '{}', sec: '{}', adding node sibling\n"
+            "  node: '{}', sec: '{}', pos: '{}'",
+            to_string(this->node_type()), to_string(this->sec_type()),
+            to_string(n->node_type()), to_string(n->sec_type()), to_string(pos)
+        );
+
+        // find cur pos
+        auto pos_it = this->parent()->_childs.end();
+        for(auto it = this->parent()->_childs.begin();
+            it != this->parent()->_childs.end(); ++it
+        )
+            if((*it).get() == this){
+                pos_it = it;
+                break;
+            }
+        if(pos_it == this->parent()->_childs.end())
+            throw MD_ERR("Invalid position");
+        
         if(pos == sibling_pos::prev){
             if(!this->prev_sibling_allowed())
                 throw MD_ERR(
@@ -317,23 +361,35 @@ public:
                 sib->_prev = n;
             n->_prev = this->shared_from_this();
             this->_next = n;
+            
+            ++pos_it;
         }
         
         n->_root = this->_root;
         n->_parent = this->_parent;
+        
+        this->parent()->_childs.emplace(pos_it, n);
     }
     
     void add_child(node n)
     {
+        EVMVC_DEF_TRACE(
+            "node: '{}', sec: '{}', adding node child\n"
+            "  node: '{}', sec: '{}'",
+            to_string(this->node_type()), to_string(this->sec_type()),
+            to_string(n->node_type()), to_string(n->sec_type())
+        );
+        
         n->remove();
         if(this->_childs.empty()){
-            n->_root = this->_root;
+            n->_root = this->_root.expired() ?
+                this->shared_from_this() : this->_root;
             n->_parent = this->shared_from_this();
             this->_childs.emplace_back(n);
             return;
         }
         
-        this->_childs[this->_childs.size()]->add_sibling(
+        this->_childs[this->_childs.size() -1]->add_sibling(
             sibling_pos::next, n
         );
     }
@@ -374,7 +430,7 @@ public:
         );
         text += md::replace_substring_copy(token_text(), "\n", "\n  ");
         for(auto n : _childs)
-            text += md::replace_substring_copy(
+            text += "  " + md::replace_substring_copy(
                 n->debug_token_section_text(), "\n", "\n  "
             );
         text += fmt::format(

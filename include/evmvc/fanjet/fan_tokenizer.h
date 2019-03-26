@@ -128,6 +128,10 @@ public:
     token snip()
     {
         token r = root();
+        
+        if(!_prev.expired())
+            _prev.lock()->_next.reset();
+        
         _prev.reset();
         return r;
     }
@@ -342,7 +346,7 @@ public:
         
         std::string tmp_text;
         
-        size_t l = 0;
+        size_t l = 1;
         
         size_t tl = 0;
         size_t ti = 0;
@@ -376,7 +380,12 @@ public:
         if(tmp_text.size() > 0)
             t = t->add_next(tmp_text, tl, ti);
         
-        std::cout << root->dump() << std::endl;
+        EVMVC_DEF_TRACE(
+            md::replace_substring_copy(
+                md::replace_substring_copy(root->dump(), "{", "{{"),
+                "}", "}}"
+            )
+        );
         return root;
     }
     
@@ -462,6 +471,7 @@ const char* tokenizer::s_tokens[] = {
     "\n",
     ";",
     ":",
+    "return",
     nullptr
 };
 

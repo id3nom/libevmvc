@@ -38,28 +38,45 @@ public:
 TEST_F(jetfan_test, ast_if)
 {
     try{
+        // std::string fan_str(
+        //     "@if(test_fn_a() && test_fn_b()){"
+        //     "    std::cout << \"a\""
+        //     "        << std::endl;"
+        //     "} else if(1 != false){"
+        //     "    auto i = test_fn_c();"
+        //     "    std::cout << \"b\""
+        //     "        << i"
+        //     "        << std::endl;"
+        //     "}else{"
+        //     "    std::cout << \"cde\""
+        //     "        << std::endl;"
+        //     "}"
+        // );
         std::string fan_str(
-            "@if(test_fn_a() && test_fn_b()){"
-            "    std::cout << \"a\""
-            "        << std::endl;"
-            "} else if(1 != false){"
-            "    auto i = test_fn_c();"
-            "    std::cout << \"b\""
-            "        << i"
-            "        << std::endl;"
-            "}else{"
-            "    std::cout << \"cde\""
-            "        << std::endl;"
+            "@if(true){\n"
+            "    return 1;\n"
+            "}else if(std::string(\"abc\") == \"abc\"){\n"
+            "    return -1;"
+            "}else{\n"
+            "    return 2;\n"
             "}"
         );
         
         fanjet::ast::root_node r = 
             fanjet::parser::parse(fan_str);
         
-        std::cout << r->debug_token_section_text() << std::endl;
+        md::log::info(
+            "debug ast output:\n{}",
+            r->debug_token_section_text()
+        );
+        
+        md::log::info(
+            "ast src output:\n{}",
+            r->token_section_text()
+        );
         
     }catch(const std::exception& err){
-        std::cout << "Error: " << err.what() << std::endl;
+        md::log::error(err.what());
         FAIL();
     }
 }

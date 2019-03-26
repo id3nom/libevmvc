@@ -54,7 +54,10 @@ inline void root_node_t::parse(ast::token t)
 
 inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
-    if(t->is_fan_start_key()){
+    if(t->is_fan_start_key() ||
+        t->is_double_quote() || t->is_single_quote() || t->is_backtick() ||
+        t->is_parenthesis_open() || t->is_curly_brace_open()
+    ){
         ast::node n = nullptr;
         if(t->is_fan_comment() || t->is_fan_region())
             n = comment_node(new comment_node_t(
@@ -64,7 +67,7 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::comment_block :
                     ast::section_type::region_start
             ));
-        if(t->is_fan_directive())
+        else if(t->is_fan_directive())
             n = directive_node(new directive_node_t(
                 t->is_fan_namespace() ?
                     ast::section_type::dir_ns :
@@ -76,15 +79,15 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::dir_header :
                     ast::section_type::dir_inherits
             ));
-        if(t->is_fan_output())
+        else if(t->is_fan_output())
             n = output_node(new output_node_t(
                 t->is_fan_output_raw() ?
                     ast::section_type::output_raw :
                     ast::section_type::output_enc
             ));
-        if(t->is_fan_code_block())
+        else if(t->is_fan_code_block())
             n = code_block_node(new code_block_node_t());
-        if(t->is_fan_control())
+        else if(t->is_fan_control())
             n = code_control_node(new code_control_node_t(
                 t->is_fan_if() ?
                     ast::section_type::code_if :
@@ -96,33 +99,33 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::code_for :
                     ast::section_type::code_do
             ));
-        if(t->is_fan_code_block())
+        else if(t->is_fan_code_block())
             n = code_err_node(new code_err_node_t(
                 ast::section_type::code_try
             ));
-        if(t->is_fan_funi() || t->is_fan_func())
+        else if(t->is_fan_funi() || t->is_fan_func())
             n = code_fun_node(new code_fun_node_t(
                 t->is_fan_funi() ?
                     ast::section_type::code_funi :
                     ast::section_type::code_func
             ));
-        if(t->is_fan_funa() || t->is_fan_await())
+        else if(t->is_fan_funa() || t->is_fan_await())
             n = code_async_node(new code_async_node_t(
                 t->is_fan_funa() ?
                     ast::section_type::code_funa :
                     ast::section_type::code_await
             ));
         
-        if(t->is_parenthesis_open())
+        else if(t->is_parenthesis_open())
             n = expr_node(new expr_node_t());
         
-        if(t->is_curly_brace_open() &&
-            n->node_type() == node_type::code_control
+        else if(t->is_curly_brace_open() &&
+            pn->node_type() == node_type::code_control
         ){
             n = code_block_node(new code_block_node_t());
         }
         
-        if(t->is_fan_markup_open()){
+        else if(t->is_fan_markup_open()){
             // find lang
             token tl = t->next();
             std::string l;
@@ -144,7 +147,9 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             ));
         }
         
-        if(t->is_double_quote() || t->is_single_quote() || t->is_backtick()){
+        else if(
+            t->is_double_quote() || t->is_single_quote() || t->is_backtick()
+        ){
             n = string_node(new string_node_t(
                 t->text()
             ));
@@ -156,6 +161,7 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             pn->add_child(n);
             if(t)
                 n->add_sibling_token(ast::sibling_pos::prev, t);
+            n->parse(nt->next());
             return true;
         }
     }
@@ -164,6 +170,9 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
 
 inline void close_scope(ast::token& t, ast::node_t* pn)
 {
+    if(!t)
+        return;
+    
     token nt = t->next();
     if(nt)
         t = nt->snip();
@@ -346,7 +355,7 @@ inline void code_block_node_t::parse(ast::token t)
                 if(cn->sec_type() == ast::section_type::code_if){
                     bool is_else = false;
                     bool is_if = false;
-                    ast::token it = t;
+                    ast::token it = t->next();
                     while(it){
                         if(!it->trim_text().empty() && !t->is_eol()){
                             if(it->is_cpp_else())
@@ -380,7 +389,7 @@ inline void code_block_node_t::parse(ast::token t)
                     );
                 
                 bool is_catch = false;
-                ast::token it = t;
+                ast::token it = t->next();
                 while(it){
                     if(!it->trim_text().empty() && !t->is_eol()){
                         if(it->is_cpp_catch()){
@@ -408,7 +417,7 @@ inline void code_block_node_t::parse(ast::token t)
                 
                 bool is_dec = false;
                 bool is_def = false;
-                ast::token it = t;
+                ast::token it = t->next();
                 while(it){
                     if(!it->trim_text().empty() && !t->is_eol()){
                         if(it->is_semicolon()){
