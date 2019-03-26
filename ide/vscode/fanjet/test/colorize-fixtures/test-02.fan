@@ -143,6 +143,8 @@ _test_
     tesing
     <br/>
     <table>
+    
+    bad tag
     <any></any>
     
 @(md){
