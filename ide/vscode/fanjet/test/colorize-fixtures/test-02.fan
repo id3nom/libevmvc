@@ -243,16 +243,15 @@ markdown text
     int i = abc;
 
 }catch(const std::exception& err){
-    throw err;
     for(auto i : list){
         try{
-            
+            throw i;
         }catch(int i){
-            
+            @(html){ <div> @:i; </div> }
         }
     }
+    throw err;
 }
 
 </body>
 </html>
-

@@ -61,9 +61,15 @@ inline void root_node_t::parse(ast::token t)
 inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
     if(t->is_fan_start_key() ||
+        
         t->is_double_quote() || t->is_single_quote() || t->is_backtick() ||
         t->is_parenthesis_open() || t->is_curly_brace_open() ||
-        t->is_cpp_try() || t->is_cpp_return()
+        
+        t->is_cpp_try() || t->is_cpp_return() ||
+
+        t->is_cpp_if() || t->is_cpp_switch() ||
+        t->is_cpp_for() || t->is_cpp_do() || t->is_cpp_while()
+        
     ){
         size_t end_hup = 1;
         ast::node n = nullptr;
@@ -124,6 +130,28 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                 t->is_fan_funa() ?
                     ast::section_type::code_funa :
                     ast::section_type::code_await
+            ));
+            
+        else if(pn->node_type() != node_type::literal &&
+            (
+                t->is_cpp_if() ||
+                t->is_cpp_switch() ||
+                t->is_cpp_for() ||
+                t->is_cpp_do() ||
+                (t->is_cpp_while() && 
+                    pn->node_type() != node_type::code_control)
+            )
+        )
+            n = code_control_node(new code_control_node_t(
+                t->is_cpp_if() ?
+                    ast::section_type::code_if :
+                t->is_cpp_switch() ?
+                    ast::section_type::code_switch :
+                t->is_cpp_while() ?
+                    ast::section_type::code_while :
+                t->is_cpp_for() ?
+                    ast::section_type::code_for :
+                    ast::section_type::code_do
             ));
         
         else if(t->is_parenthesis_open() &&
@@ -267,6 +295,44 @@ inline void expr_node_t::parse(ast::token t)
             return;
         
         if(this->_type == expr_type::parens && t->is_parenthesis_close()){
+            if(this->parent()->sec_type() == ast::section_type::code_funa){
+                auto an =
+                    std::static_pointer_cast<code_async_node_t>(
+                        this->parent()
+                    );
+                
+
+                bool is_dec = false;
+                bool is_def = false;
+                ast::token it = t->next();
+                while(it){
+                    if(!it->trim_text().empty() && !it->is_eol()){
+                        if(it->is_semicolon()){
+                            is_dec = true;
+                            break;
+                        }else if(it->is_curly_brace_open()){
+                            is_def = true;
+                            break;
+                        }else
+                            break;
+                    }
+                    it = it->next();
+                }
+                
+                if(is_dec){
+                    an->_need_semicol = true;
+                    an->_need_code = false;
+                }else if(is_def){
+                    an->_need_semicol = false;
+                    an->_need_code = true;
+                }else
+                    throw MD_ERR(
+                        "Open curly brace or semicolon "
+                        "required, line: '{}', col '{}'",
+                        t->line(), t->col()
+                    );
+            }
+            
             close_scope(t, this);
             return;
         }
@@ -415,7 +481,7 @@ inline void code_block_node_t::parse(ast::token t)
                     bool is_if = false;
                     ast::token it = t->next();
                     while(it){
-                        if(!it->trim_text().empty() && !t->is_eol()){
+                        if(!it->trim_text().empty() && !it->is_eol()){
                             if(it->is_cpp_else())
                                 is_else = true;
                             else if(is_else && it->is_cpp_if()){
@@ -449,7 +515,7 @@ inline void code_block_node_t::parse(ast::token t)
                 bool is_catch = false;
                 ast::token it = t->next();
                 while(it){
-                    if(!it->trim_text().empty() && !t->is_eol()){
+                    if(!it->trim_text().empty() && !it->is_eol()){
                         if(it->is_cpp_catch()){
                             is_catch = true;
                             break;
@@ -472,36 +538,7 @@ inline void code_block_node_t::parse(ast::token t)
                     std::static_pointer_cast<code_async_node_t>(
                         this->parent()
                     );
-                
-                bool is_dec = false;
-                bool is_def = false;
-                ast::token it = t->next();
-                while(it){
-                    if(!it->trim_text().empty() && !t->is_eol()){
-                        if(it->is_semicolon()){
-                            is_dec = true;
-                            break;
-                        }else if(it->is_curly_brace_open()){
-                            is_def = true;
-                            break;
-                        }else
-                            break;
-                    }
-                    it = it->next();
-                }
-                
-                if(is_dec){
-                    an->_need_semicol = true;
-                    an->_need_code = false;
-                }else if(is_def){
-                    an->_need_semicol = false;
-                    an->_need_code = true;
-                }else
-                    throw MD_ERR(
-                        "Open curly brace or semicolon "
-                        "required, line: '{}', col '{}'",
-                        t->line(), t->col()
-                    );
+                an->_done = true;
             }
             
             close_scope(t, this);
@@ -525,7 +562,12 @@ inline void code_control_node_t::parse(ast::token t)
             && !t->is_cpp_else() && !t->is_cpp_if() &&
             !t->is_cpp_while()
         ){
-            if(_need_expr){
+            if(_need_expr && 
+                (
+                    this->sec_type() != section_type::code_do ||
+                    (this->sec_type() == section_type::code_do && !_need_code)
+                )
+            ){
                 if(t->is_parenthesis_open()){
                     _need_expr = false;
                     open_scope(t, this);
@@ -537,7 +579,12 @@ inline void code_control_node_t::parse(ast::token t)
                 );
             }
             
-            if(_need_code){
+            if(_need_code &&
+                (
+                    this->sec_type() != section_type::code_do ||
+                    (this->sec_type() == section_type::code_do && _need_expr)
+                )
+            ){
                 if(t->is_curly_brace_open()){
                     _need_code = false;
                     open_scope(t, this);
@@ -628,8 +675,8 @@ inline void code_fun_node_t::parse(ast::token t)
                 return;
             }
             throw MD_ERR(
-                "Open curly brace is required, line: '{}'",
-                t->line()
+                "Open curly brace is required, line: '{}', col: '{}'",
+                t->line(), t->col()
             );
         }
         
@@ -653,7 +700,10 @@ inline void code_async_node_t::parse(ast::token t)
     //      ;
     
     int line = t->line();
-    int opened_tags = this->sec_type() == ast::section_type::code_funa ? 1 : 0;
+    int opened_tags = 
+        _need_expr &&
+        this->sec_type() == ast::section_type::code_funa ?
+            1 : 0;
     
     while(t){
         if(!t->trim_text().empty() && !t->is_eol()
@@ -671,8 +721,8 @@ inline void code_async_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Expression required, line: '{}'",
-                    t->line()
+                    "Expression required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }else if(_need_code){
                 if(t->is_curly_brace_open()){
@@ -681,13 +731,13 @@ inline void code_async_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Open curly brace is required, line: '{}'",
-                    t->line()
+                    "Open curly brace is required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }else if(_need_semicol){
                 if(t->is_semicolon()){
                     _need_semicol = false;
-                    
+                    _done = true;
                     ast::token nt = t->next();
                     if(nt)
                         t = nt->snip();
@@ -699,8 +749,8 @@ inline void code_async_node_t::parse(ast::token t)
                     return;
                 }
                 throw MD_ERR(
-                    "Semicolon is required, line: '{}'",
-                    t->line()
+                    "Semicolon is required, line: '{}', col: '{}'",
+                    t->line(), t->col()
                 );
             }
         }
@@ -709,6 +759,11 @@ inline void code_async_node_t::parse(ast::token t)
             _async_type += t->text();
         
         if(t) t = t->next();
+        
+        if(opened_tags == 0 && t && _need_expr && !t->is_parenthesis_open())
+            while(t && !t->is_parenthesis_open())
+                t = t->next();
+            
     }
     
     if(opened_tags != 0)

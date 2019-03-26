@@ -320,11 +320,31 @@ public:
         return _token->text(true);
     }
     
-    std::string token_section_text() const
+    std::string token_section_text(
+        bool line_number = false) const
     {
         std::string text = token_text();
         for(auto n : _childs)
             text += n->token_section_text();
+        
+        if(line_number){
+            std::vector<std::string> lines;
+            boost::algorithm::split(
+                lines, text, boost::is_any_of("\n")
+            );
+            std::string fmt_str = 
+                "{:>" + 
+                md::num_to_str(
+                    md::num_to_str(lines.size(), false).size(),
+                    false
+                ) + "} {}{}";
+            text = "";
+            for(size_t i = 0; i < lines.size(); ++i)
+                text += fmt::format(
+                    fmt_str.c_str(),
+                    i+1, lines[i], i < lines.size()-1 ? "\n" : ""
+                );
+        }
         return text;
     }
     
@@ -754,7 +774,7 @@ protected:
         node prev = nullptr,
         node next = nullptr)
         : node_t(ast::node_type::code_control, t, parent, prev, next),
-        _need_expr(t != ast::section_type::code_do),
+        _need_expr(true),
         _need_code(true),
         _need_semicol(t == ast::section_type::code_do),
         _done(false)
@@ -832,6 +852,8 @@ class code_async_node_t
     : public node_t
 {
     EVMVC_FANJET_NODE_FRIENDS
+    friend class expr_node_t;
+    
 protected:
     code_async_node_t(
         ast::section_type t,

@@ -336,6 +336,9 @@ public:
     
     bool is_cpp_return() const { return _text == "return";}
     bool is_cpp_throw() const { return _text == "throw";}
+    bool is_cpp_switch() const { return _text == "switch";}
+    bool is_cpp_for() const { return _text == "for";}
+    bool is_cpp_do() const { return _text == "do";}
     
 private:
     std::weak_ptr<token_t> _prev;
@@ -514,6 +517,11 @@ const char* tokenizer::s_tokens[] = {
     ":",
     "return",
     "throw",
+    
+    "switch",
+    "for",
+    "do",
+    
     nullptr
 };
 

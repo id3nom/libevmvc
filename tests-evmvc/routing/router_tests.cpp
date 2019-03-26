@@ -25,6 +25,9 @@ SOFTWARE.
 #include <gmock/gmock.h>
 #include "evmvc/evmvc.h"
 
+#include <sys/types.h>
+#include <sys/socket.h>
+
 namespace evmvc { namespace tests {
 
 
@@ -36,6 +39,7 @@ public:
 
 TEST_F(router_test, routes)
 {
+    event_base* ev_base = event_base_new();
     try{
         evmvc::app_options opts;
         opts.use_default_logger = false;
@@ -43,10 +47,10 @@ TEST_F(router_test, routes)
             opts.log_file_level = md::log::log_level::off;
         
         evmvc::sp_app srv = std::make_shared<evmvc::app>(
-            nullptr,
+            ev_base,
             std::move(opts)
         );
-
+        
         evmvc::sp_router r = 
             std::make_shared<evmvc::router>(srv);
         
@@ -148,17 +152,36 @@ TEST_F(router_test, routes)
         auto rr = r->resolve_url(evmvc::method::get, "/abc-c/123/asdflkj/asdf");
         if(!rr)
             FAIL();
+
+        auto wrk = std::make_shared<evmvc::http_worker>(
+            srv, srv->options(), srv->log()
+        );
         
+        auto csrv = std::make_shared<evmvc::child_server>(
+            wrk, evmvc::server_options("TESTS"), srv->log()
+        );
+        int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+        auto conn = std::make_shared<connection>(
+            srv->log(),
+            wrk,
+            csrv,
+            sock_fd,
+            evmvc::url_scheme::http,
+            "127.0.0.1",
+            80
+        );
+        conn->initialize();
+        auto hdrs = std::make_shared<header_map>();
         auto res = _internal::create_http_response(
-            std::weak_ptr<connection>(),
+            conn,
             http_version::http_11,
             url("http://localhost:80/abc-c/123/asdflkj/asdf"),
-            nullptr,
+            hdrs,
             rr
         );
         
         rr->execute(res,
-        [r, &rr, res,/* &res,*/ &rt_val](auto error){
+        [r, &conn, &hdrs, &rr, &rt_val](auto error){
             ASSERT_EQ(rt_val, "abc-c");
             
             rt_val.clear();
@@ -168,6 +191,14 @@ TEST_F(router_test, routes)
             rr = r->resolve_url(evmvc::method::get, "/abc-g/123/4/arg2/arg3");
             if(!rr)
                 FAIL();
+            
+            auto res = _internal::create_http_response(
+                conn,
+                http_version::http_11,
+                url("http://localhost:80/abc-c/123/asdflkj/asdf"),
+                hdrs,
+                rr
+            );
             rr->execute(res,
             [r, &rr, &rt_val](auto error){
                 
@@ -180,6 +211,7 @@ TEST_F(router_test, routes)
         std::cout << "Error: " << err.what() << std::endl;
         FAIL();
     }
+    event_base_free(ev_base);
 }
 
 }} //ns evevmvc::tests
