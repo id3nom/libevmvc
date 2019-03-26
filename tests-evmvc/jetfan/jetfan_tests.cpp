@@ -55,11 +55,17 @@ TEST_F(jetfan_test, ast_if)
         std::string fan_str(
             "@if(true){\n"
             "    return 1;\n"
-            "}else if(std::string(\"abc\") == \"abc\"){\n"
-            "    return -1;"
+            "}else if(std::string(\"abc\") == \"123\"){\n"
+            "    @( md )   { in markdown literal! }\n"
+            "    return -1;\n"
             "}else{\n"
-            "    return 2;\n"
-            "}"
+            "    try{\n"
+            "        return 2;\n"
+            "    }catch(const std::exception& err){\n"
+            "        throw err;\n"
+            "    }\n"
+            "}\n"
+            "try{ inside literal }catch( n/a ){ in literal... }\n"
         );
         
         fanjet::ast::root_node r = 
@@ -67,7 +73,7 @@ TEST_F(jetfan_test, ast_if)
         
         md::log::info(
             "debug ast output:\n{}",
-            r->debug_token_section_text()
+            r->dump()
         );
         
         md::log::info(

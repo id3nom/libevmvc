@@ -38,9 +38,10 @@ class token_t
 public:
     token_t(
         token pre,
-        const std::string& text, size_t line, size_t pos,
+        const std::string& text, size_t line, size_t col, size_t pos,
         token next)
-        : _prev(pre), _text(text), _line(line), _pos(pos), _next(next)
+        : _prev(pre), _text(text),
+        _line(line), _col(col), _pos(pos), _next(next)
     {
     }
     
@@ -61,9 +62,35 @@ public:
     
     token prev() const { return _prev.lock();}
     
-    const std::string& text() const { return _text;}
+    bool empty(bool list = false) const
+    {
+        if(!list || !_text.empty())
+            return _text.empty();
+        
+        token t = this->_next;
+        while(t){
+            if(!t->_text.empty())
+                return false;
+            t = t->_next;
+        }
+        return true;
+    }
+    std::string text(bool list = false) const
+    {
+        if(!list)
+            return _text;
+        
+        std::string lst(_text);
+        token t = this->_next;
+        while(t){
+            lst += t->_text;
+            t = t->_next;
+        }
+        return lst;
+    }
     std::string trim_text() const { return md::trim_copy(_text);}
     size_t line() const { return _line;}
+    size_t col() const { return _col;}
     size_t pos() const { return _pos;}
     token next() const { return _next;}
     
@@ -108,12 +135,13 @@ public:
         return s;
     }
     
-    token add_next(const std::string& text, size_t line, size_t pos)
+    token add_next(const std::string& text, size_t line, size_t col, size_t pos)
     {
         this->_next = std::make_shared<token_t>(
             this->shared_from_this(),
             text,
             line,
+            col,
             pos,
             nullptr
         );
@@ -306,11 +334,15 @@ public:
     bool is_semicolon() const { return _text == ";";}
     bool is_colon() const { return _text == ":";}
     
+    bool is_cpp_return() const { return _text == "return";}
+    bool is_cpp_throw() const { return _text == "throw";}
+    
 private:
     std::weak_ptr<token_t> _prev;
     
     std::string _text;
     size_t _line;
+    size_t _col;
     size_t _pos;
     
     token _next;
@@ -341,14 +373,16 @@ public:
     
     static token tokenize(const std::string& text)
     {
-        token root = std::make_shared<token_t>(nullptr, "", 0, 0, nullptr);
+        token root = std::make_shared<token_t>(nullptr, "", 0, 0, 0, nullptr);
         token t = root;
         
         std::string tmp_text;
         
         size_t l = 1;
+        size_t c = 1;
         
         size_t tl = 0;
+        size_t tc = 0;
         size_t ti = 0;
         
         for(size_t i = 0; i < text.size(); ++i){
@@ -357,28 +391,31 @@ public:
             
             size_t ib = i;
             size_t lb = l;
+            size_t cb = c;
             const char** tp = s_tokens;
             while(*tp){
                 std::string tok(*tp);
-                if(tokenizer::is_token(tok, text, i, l)){
+                if(tokenizer::is_token(tok, text, i, l, c)){
                     is_token = true;
                     if(tmp_text.size() > 0)
-                        t = t->add_next(tmp_text, tl, ti);
+                        t = t->add_next(tmp_text, tl, tc, ti);
                     tmp_text = "";
                     ti = i;
                     tl = l;
-                    t = t->add_next(tok, lb, ib);
+                    t = t->add_next(tok, lb, cb, ib);
                     break;
                 }
                 ++tp;
             }
             
-            if(!is_token)
+            if(!is_token){
                 tmp_text += cur_chr;
+                c += 1;
+            }
         }
         
         if(tmp_text.size() > 0)
-            t = t->add_next(tmp_text, tl, ti);
+            t = t->add_next(tmp_text, tl, tc, ti);
         
         EVMVC_DEF_TRACE(
             md::replace_substring_copy(
@@ -393,7 +430,8 @@ public:
         const std::string& token,
         const std::string& text,
         size_t& i,
-        size_t& l
+        size_t& l,
+        size_t& c
         )
     {
         size_t start_i = i;
@@ -409,8 +447,11 @@ public:
                 )
                     return false;
             }
-            if(token == "\n")
+            c += token.size();
+            if(token == "\n"){
                 l += 1;
+                c = 1;
+            }
             i += token.size() -1;
             return true;
         }
@@ -472,6 +513,7 @@ const char* tokenizer::s_tokens[] = {
     ";",
     ":",
     "return",
+    "throw",
     nullptr
 };
 

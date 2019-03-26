@@ -40,7 +40,6 @@ int main(int argc, char** argv)
     );
     _log->set_level(md::log::log_level::trace);
     md::log::default_logger() = _log;
-
     
     testing::InitGoogleMock(&argc, argv);
     int r = RUN_ALL_TESTS();

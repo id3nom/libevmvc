@@ -196,7 +196,7 @@ protected:
         node parent,
         node prev,
         node next = nullptr)
-        : 
+        : _id(nid()),
         _sec_type(sec_type),
         _node_type(ast::node_type::invalid),
         _root(parent ? parent->root() : nullptr),
@@ -250,7 +250,7 @@ protected:
         node parent,
         node prev,
         node next = nullptr)
-        : 
+        : _id(nid()),
         _sec_type(sec_type),
         _node_type(n_type),
         _root(parent ? parent->root() : nullptr),
@@ -270,6 +270,21 @@ protected:
 
 
 public:
+    size_t id() const
+    {
+        
+    }
+    std::string path() const
+    {
+        std::string ps = md::num_to_str(_id, false);
+        node p = this->parent();
+        while(p){
+            ps = md::num_to_str(p->id(), false) + "." + ps;
+            p = p->parent();
+        }
+        return ps;
+    }
+    
     ast::node_type node_type() const { return _node_type;}
     ast::section_type sec_type() const { return _sec_type;}
     bool is_root() const { return node_type() == node_type::root;}
@@ -289,20 +304,14 @@ public:
     node child(size_t idx) const { return _childs[idx];}
 
     size_t line() const { return _token ? _token->line() : 0;}
+    size_t col() const { return _token ? _token->col() : 0;}
     size_t pos() const { return  _token ? _token->pos() : 0;}
     std::string token_text() const
     {
         if(!_token)
             return "";
         
-        std::string text;
-        ast::token t = _token;
-        while(t){
-            text += t->text();
-            t = t->next();
-        }
-        
-        return text;
+        return _token->text(true);
     }
     
     std::string token_section_text() const
@@ -418,29 +427,48 @@ public:
         this->_next.reset();
     }
     
-    std::string debug_token_section_text() const
+    std::string dump() const
     {
         std::string text;
         text += fmt::format(
-            "### start section - "
-            "node type: '{}', sec type: '{}', line: '{}' ###\n",
+            "#start {} '{}' - type: '{}'{}\n",
+            path(),
             to_string(this->node_type()),
             to_string(this->sec_type()),
-            _token ? md::num_to_str(this->line()) : "-"
+            _token ?
+                fmt::format(
+                    ", line: '{}', col: '{}', pos: '{}'",
+                    this->line(), this->col(), this->pos()
+                ):
+                ""
         );
-        text += md::replace_substring_copy(token_text(), "\n", "\n  ");
-        for(auto n : _childs)
-            text += "  " + md::replace_substring_copy(
-                n->debug_token_section_text(), "\n", "\n  "
-            );
+        
+        std::string tt = md::replace_substring_copy(
+            token_text(),
+            "\n", "\n  "
+        );
+        if(!tt.empty()){
+            tt = "  " + tt;
+            if(tt[tt.size()-1] != '\n')
+                tt += "\n";
+        }
+        text += tt;
+        
+        for(auto n : _childs){
+            text += n->dump();
+        }
+        
         text += fmt::format(
-            "\n### end section - "
-            "node type: '{}', sec type: '{}', line: '{}' ###\n",
+            "#end {} '{}' - type: '{}'",
+            path(),
             to_string(this->node_type()),
-            to_string(this->sec_type()),
-            _token ? md::num_to_str(this->line()) : "-"
+            to_string(this->sec_type())
         );
-        return text;
+        
+        if(this->is_root())
+            return text + "\n";
+        
+        return "|-" + md::replace_substring_copy(text, "\n", "\n| ") + "\n";
     }
     
     
@@ -455,6 +483,8 @@ protected:
     virtual void parse(ast::token t) = 0;
     
 private:
+    size_t _id;
+    
     ast::section_type _sec_type;
     ast::node_type _node_type;
     
@@ -523,6 +553,11 @@ protected:
     }
 };
 
+enum class expr_type
+{
+    parens      = 1,
+    semicol     = 2
+};
 
 class expr_node_t
     : public node_t
@@ -531,12 +566,16 @@ class expr_node_t
     
 protected:
     expr_node_t(
+        expr_type type,
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::section_type::expr , parent, prev, next)
+        : node_t(ast::section_type::expr, parent, prev, next),
+        _type(type)
     {
     }
+    
+    expr_type type() const { return _type;}
 
 public:
     
@@ -545,7 +584,7 @@ protected:
     void parse(ast::token t);
 
 private:
-    
+    expr_type _type;
 };
 
 class string_node_t

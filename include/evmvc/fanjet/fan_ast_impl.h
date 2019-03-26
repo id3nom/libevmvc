@@ -29,6 +29,9 @@ namespace evmvc { namespace fanjet { namespace ast {
 
 inline void node_t::add_sibling_token(sibling_pos pos, ast::token t)
 {
+    if(!t || t->empty(true))
+        return;
+    
     auto tn = token_node(new ast::token_node_t());
     tn->_token = t;
     this->add_sibling(pos, tn);
@@ -36,6 +39,9 @@ inline void node_t::add_sibling_token(sibling_pos pos, ast::token t)
 
 inline void node_t::add_token(ast::token t)
 {
+    if(!t || t->empty(true))
+        return;
+    
     auto tn = token_node(new ast::token_node_t());
     tn->_token = t;
     this->add_child(tn);
@@ -56,8 +62,10 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
     if(t->is_fan_start_key() ||
         t->is_double_quote() || t->is_single_quote() || t->is_backtick() ||
-        t->is_parenthesis_open() || t->is_curly_brace_open()
+        t->is_parenthesis_open() || t->is_curly_brace_open() ||
+        t->is_cpp_try() || t->is_cpp_return()
     ){
+        size_t end_hup = 1;
         ast::node n = nullptr;
         if(t->is_fan_comment() || t->is_fan_region())
             n = comment_node(new comment_node_t(
@@ -99,7 +107,9 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::code_for :
                     ast::section_type::code_do
             ));
-        else if(t->is_fan_code_block())
+        else if(t->is_fan_try() || 
+            (t->is_cpp_try() && pn->node_type() != node_type::literal)
+        )
             n = code_err_node(new code_err_node_t(
                 ast::section_type::code_try
             ));
@@ -116,21 +126,36 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::code_await
             ));
         
-        else if(t->is_parenthesis_open())
-            n = expr_node(new expr_node_t());
+        else if(t->is_parenthesis_open() &&
+            pn->node_type() != node_type::literal
+        )
+            n = expr_node(new expr_node_t(
+                expr_type::parens
+            ));
+        else if(pn->node_type() != node_type::literal &&
+            (
+                t->is_cpp_return() ||
+                t->is_cpp_throw()
+            )
+        )
+            n = expr_node(new expr_node_t(
+                expr_type::semicol
+            ));
         
         else if(t->is_curly_brace_open() &&
-            pn->node_type() == node_type::code_control
-        ){
+            pn->node_type() != node_type::literal
+        )
             n = code_block_node(new code_block_node_t());
-        }
         
         else if(t->is_fan_markup_open()){
             // find lang
             token tl = t->next();
             std::string l;
-            while(tl && !tl->is_parenthesis_close())
+            while(tl && !tl->is_parenthesis_close()){
+                ++end_hup;
                 l += tl->text();
+                tl = tl->next();
+            }
             md::trim(l);
             if(l != "html" && l != "htm" && l != "markdown" && l != "md")
                 throw MD_ERR(
@@ -138,13 +163,18 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     "available language are 'html, htm, markdown and md!'",
                     l, t->line()
                 );
-            n = output_node(new output_node_t(
+            n = literal_node(new literal_node_t(
                 l == "html" || l == "htm" ?
                     ast::section_type::markup_html :
                 l == "markdown" || l == "md" ?
                     ast::section_type::markup_markdown :
                     ast::section_type::invalid
             ));
+            while(tl && !tl->is_curly_brace_open()){
+                ++end_hup;
+                tl = tl->next();
+            }
+            ++end_hup;
         }
         
         else if(
@@ -161,7 +191,18 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             pn->add_child(n);
             if(t)
                 n->add_sibling_token(ast::sibling_pos::prev, t);
-            n->parse(nt->next());
+            
+            // we don't want nt instance to be release
+            t = nt;
+            // hup
+            for(size_t i = 0; i < end_hup; ++i)
+                nt = nt->next();
+            
+            t = nt->snip();
+            if(t)
+                n->add_token(t);
+            
+            n->parse(nt);
             return true;
         }
     }
@@ -179,12 +220,21 @@ inline void close_scope(ast::token& t, ast::node_t* pn)
     else if(!t->is_root())
         t = t->root();
     
+    token lt = t;
+    while(lt && lt->next())
+        lt = lt->next();
+    if(lt)
+        t = lt->snip();
     pn->add_token(t);
+    if(lt)
+        pn->add_token(lt);
+    
     pn->parent()->parse(nt);
 }
 
 inline void literal_node_t::parse(ast::token t)
 {
+    ast::token tt = t;
     while(t){
         if(open_scope(t, this))
             return;
@@ -204,6 +254,8 @@ inline void literal_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+    
+    this->add_token(tt);
 }
 
 inline void expr_node_t::parse(ast::token t)
@@ -212,10 +264,15 @@ inline void expr_node_t::parse(ast::token t)
         if(open_scope(t, this))
             return;
         
-        if(t->is_parenthesis_close()){
+        if(this->_type == expr_type::parens && t->is_parenthesis_close()){
             close_scope(t, this);
             return;
         }
+        else if(this->_type == expr_type::semicol && t->is_semicolon()){
+            close_scope(t, this);
+            return;
+        }
+        
         if(t) t = t->next();
     }
 }
@@ -225,7 +282,7 @@ inline void string_node_t::parse(ast::token t)
     while(t){
         ast::token nt = t->next();
         
-        if(this->_enclosing_char == "\""){
+        if(this->_enclosing_char == "\"" && t->is_double_quote()){
             if(nt && nt->text() == "\""){
                 t = nt->next();
                 continue;
@@ -234,7 +291,7 @@ inline void string_node_t::parse(ast::token t)
             close_scope(t, this);
             return;
             
-        } else if(this->_enclosing_char == "'"){
+        } else if(this->_enclosing_char == "'" && t->is_single_quote()){
             if(nt && nt->text() == "'"){
                 t = nt->next();
                 continue;
@@ -243,7 +300,7 @@ inline void string_node_t::parse(ast::token t)
             close_scope(t, this);
             return;
         
-        } else if(this->_enclosing_char == "`"){
+        } else if(this->_enclosing_char == "`" && t->is_backtick()){
             if(nt && nt->text() == "`"){
                 t = nt->next();
                 continue;
@@ -259,8 +316,7 @@ inline void string_node_t::parse(ast::token t)
             if(open_scope(t, this))
                 return;
         
-        if(t)
-            t = t->next();
+        if(t) t = t->next();
     }
 }
 
