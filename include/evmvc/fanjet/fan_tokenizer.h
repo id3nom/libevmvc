@@ -343,12 +343,83 @@ public:
     
     bool is_semicolon() const { return _text == ";";}
     bool is_colon() const { return _text == ":";}
+    bool is_comma() const { return _text == ",";}
+    bool is_dot() const { return _text == ".";}
     
     bool is_cpp_return() const { return _text == "return";}
     bool is_cpp_throw() const { return _text == "throw";}
     bool is_cpp_switch() const { return _text == "switch";}
     bool is_cpp_for() const { return _text == "for";}
     bool is_cpp_do() const { return _text == "do";}
+    
+    bool is_cpp_op() const
+    {
+        return
+            is_comma() ||
+            is_dot() ||
+            _text == "::" ||
+            _text == "==" ||
+            _text == "!=" ||
+            _text == "!" ||
+            _text == "&&" ||
+            _text == "||" ||
+            _text == "=" ||
+            _text == "++" ||
+            _text == "--" ||
+            _text == "+" ||
+            _text == "-" ||
+            _text == "*" ||
+            _text == "/" ||
+            _text == "~" ||
+            _text == "&" ||
+            _text == "%" ||
+            _text == "|" ||
+            _text == "^"
+            ;
+    }
+    
+    bool is_scope_resolution() const { return _text == "::";}
+    // "==",
+    bool is_equal_to() const { return _text == "==";}
+    // "!=",
+    bool is_not_equal_to() const { return _text == "!=";}
+    // "!",
+    bool is_log_not() const { return _text == "!";}
+    // "&&",
+    bool is_log_and() const { return _text == "&&";}
+    // "||",
+    bool is_log_or() const { return _text == "||";}
+    // "=",
+    bool is_assign() const { return _text == "=";}
+    // "++",
+    bool is_increment() const { return _text == "++";}
+    // "--",
+    bool is_decrement() const { return _text == "--";}
+    // "+",
+    bool is_add() const { return _text == "+";}
+    bool is_plus() const { return _text == "+";}
+    // "-",
+    bool is_sub() const { return _text == "-";}
+    bool is_minus() const { return _text == "-";}
+    // "*",
+    bool is_deference() const { return _text == "*";}
+    bool is_star() const { return _text == "*";}
+    // "/",
+    bool is_div() const { return _text == "/";}
+    // "~",
+    bool is_bit_not() const { return _text == "~";}
+    // "&",
+    bool is_bit_and() const { return _text == "&";}
+    bool is_address_of() const { return _text == "&";}
+    bool is_amp() const { return _text == "&";}
+    // "%",
+    bool is_mod() const { return _text == "%";}
+    // "|",
+    bool is_bit_or() const { return _text == "|";}
+    bool is_pipe() const { return _text == "|";}
+    // "^",
+    bool is_bit_xor() const { return _text == "^";}
+    
     
 private:
     std::weak_ptr<token_t> _prev;
@@ -486,6 +557,8 @@ const char* tokenizer::s_tokens[] = {
     "{",
     "}",
     "</", "/>",
+    
+    "<=", ">=",
     "<", ">",
     
     "@@",
@@ -524,7 +597,30 @@ const char* tokenizer::s_tokens[] = {
     "\"", "'", "`",
     "\n",
     ";",
+    "::",
     ":",
+    ",",
+    ".",
+    
+    // cpp op
+    "==",
+    "!=",
+    "!",
+    "&&",
+    "||",
+    "=",
+    "++",
+    "--",
+    "+",
+    "-",
+    "*",
+    "/",
+    "~",
+    "&",
+    "%",
+    "|",
+    "^",
+    
     "return",
     "throw",
     

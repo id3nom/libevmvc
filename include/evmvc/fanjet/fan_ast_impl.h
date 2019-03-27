@@ -290,9 +290,18 @@ inline void literal_node_t::parse(ast::token t)
 
 inline void expr_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         if(open_scope(t, this))
             return;
+        
+        if(t->is_cpp_op() && !t->is_scope_resolution()){
+            this->add_token(t->snip());
+            st = t;
+            t = t->next();
+            this->add_token(t->snip());
+            st = t;
+        }
         
         if(this->_type == expr_type::parens && t->is_parenthesis_close()){
             if(this->parent()->sec_type() == ast::section_type::code_funa){
@@ -347,6 +356,7 @@ inline void expr_node_t::parse(ast::token t)
 
 inline void string_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         ast::token nt = t->next();
         
@@ -390,6 +400,7 @@ inline void string_node_t::parse(ast::token t)
 
 inline void directive_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         switch(this->sec_type()){
             case ast::section_type::dir_ns:
@@ -423,6 +434,7 @@ inline void directive_node_t::parse(ast::token t)
 
 inline void comment_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         switch(this->sec_type()){
             case ast::section_type::comment_line:
@@ -451,6 +463,7 @@ inline void comment_node_t::parse(ast::token t)
 
 inline void output_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         if(t->is_semicolon()){
             close_scope(t, this);
@@ -464,6 +477,7 @@ inline void output_node_t::parse(ast::token t)
 
 inline void code_block_node_t::parse(ast::token t)
 {
+    ast::token st = t;
     while(t){
         if(open_scope(t, this))
             return;
@@ -557,6 +571,7 @@ inline void code_control_node_t::parse(ast::token t)
         return;
     }
     
+    ast::token st = t;
     while(t){
         if(!t->trim_text().empty() && !t->is_eol()
             && !t->is_cpp_else() && !t->is_cpp_if() &&
@@ -628,6 +643,7 @@ inline void code_err_node_t::parse(ast::token t)
         return;
     }
     
+    ast::token st = t;
     while(t){
         if(!t->trim_text().empty() && !t->is_eol() && !t->is_cpp_catch()){
 
@@ -667,6 +683,7 @@ inline void code_fun_node_t::parse(ast::token t)
         return;
     }
     
+    ast::token st = t;
     while(t){
         if(!t->trim_text().empty() && !t->is_eol()){
             if(t->is_curly_brace_open()){
@@ -698,7 +715,7 @@ inline void code_async_node_t::parse(ast::token t)
     //  @await
     //      (expr)
     //      ;
-    
+    ast::token st = t;
     int line = t->line();
     int opened_tags = 
         _need_expr &&
@@ -760,10 +777,19 @@ inline void code_async_node_t::parse(ast::token t)
         
         if(t) t = t->next();
         
-        if(opened_tags == 0 && t && _need_expr && !t->is_parenthesis_open())
+        if(opened_tags == 0 && t && _need_expr && !t->is_parenthesis_open()){
+            auto pt = t->prev();
+            if(pt->is_gt()){
+                auto tt = pt->snip();
+                this->add_token(tt);
+                this->add_token(t->snip());
+            }
+            st = t;
             while(t && !t->is_parenthesis_open())
                 t = t->next();
-            
+            if(t)
+                this->add_token(t->snip());
+        }
     }
     
     if(opened_tags != 0)

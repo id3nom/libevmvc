@@ -24,7 +24,8 @@
 @funi{
 public:
     
-    void function_in_include_file(int i)
+    void function_in_include_file(int i,
+        std::stack<std::string> s)
     {
         if(test){
             
@@ -51,9 +52,9 @@ public:
     
     @<void> async_function4()
     {
-        if(a)
+        if(a){
             return;
-        else if(b){
+        }else if(b){
             return;
         }
     }
