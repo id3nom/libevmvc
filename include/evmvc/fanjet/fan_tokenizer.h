@@ -165,7 +165,17 @@ public:
     }
     
     
-    
+    bool is_whitespace() const
+    {
+        return
+            _text == " " ||
+            _text == "\t" ||
+            _text == "\n" ||
+            _text == "\v" ||
+            _text == "\f" ||
+            _text == "\r" ||
+            trim_text().empty();
+    }
     
     bool is_space() const { return _text == " ";}
 
