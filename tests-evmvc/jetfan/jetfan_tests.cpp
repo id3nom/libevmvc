@@ -35,40 +35,9 @@ public:
 };
 
 
-TEST_F(jetfan_test, ast_if)
+TEST_F(jetfan_test, ast_test)
 {
     try{
-        // std::string fan_str(
-        //     "@if(test_fn_a() && test_fn_b()){"
-        //     "    std::cout << \"a\""
-        //     "        << std::endl;"
-        //     "} else if(1 != false){"
-        //     "    auto i = test_fn_c();"
-        //     "    std::cout << \"b\""
-        //     "        << i"
-        //     "        << std::endl;"
-        //     "}else{"
-        //     "    std::cout << \"cde\""
-        //     "        << std::endl;"
-        //     "}"
-        // );
-        
-        // std::string fan_str(
-        //     "@if(true){\n"
-        //     "    return 1;\n"
-        //     "}else if(std::string(\"abc\") == \"123\"){\n"
-        //     "    @( md )   { in markdown literal! }\n"
-        //     "    return -1;\n"
-        //     "}else{\n"
-        //     "    try{\n"
-        //     "        return 2;\n"
-        //     "    }catch(const std::exception& err){\n"
-        //     "        throw err;\n"
-        //     "    }\n"
-        //     "}\n"
-        //     "try{ inside literal }catch( n/a ){ in literal... }\n"
-        // );
-
         std::string fan_str(
             "@namespace app_ns::ns2::ns4\n"
             "@name app_name\n"
@@ -343,6 +312,8 @@ TEST_F(jetfan_test, ast_if)
             r->token_section_text(true)
         );
         
+        ASSERT_EQ(fan_str, r->token_section_text());
+        
     }catch(const std::exception& err){
         md::log::error(err.what());
         FAIL();
@@ -353,7 +324,36 @@ TEST_F(jetfan_test, ast_if)
 TEST_F(jetfan_test, ast_parser)
 {
     try{
+        // std::string fan_str(
+        //     "@if(test_fn_a() && test_fn_b()){"
+        //     "    std::cout << \"a\""
+        //     "        << std::endl;"
+        //     "} else if(1 != false){"
+        //     "    auto i = test_fn_c();"
+        //     "    std::cout << \"b\""
+        //     "        << i"
+        //     "        << std::endl;"
+        //     "}else{"
+        //     "    std::cout << \"cde\""
+        //     "        << std::endl;"
+        //     "}"
+        // );
         
+        // std::string fan_str(
+        //     "@if(true){\n"
+        //     "    return 1;\n"
+        //     "}else if(std::string(\"abc\") == \"123\"){\n"
+        //     "    @( md )   { in markdown literal! }\n"
+        //     "    return -1;\n"
+        //     "}else{\n"
+        //     "    try{\n"
+        //     "        return 2;\n"
+        //     "    }catch(const std::exception& err){\n"
+        //     "        throw err;\n"
+        //     "    }\n"
+        //     "}\n"
+        //     "try{ inside literal }catch( n/a ){ in literal... }\n"
+        // );        
         
         
         

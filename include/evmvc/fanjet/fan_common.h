@@ -36,6 +36,7 @@ enum class section_type
     token               = INT_MIN +2,
     expr                = INT_MIN +3,
     string              = INT_MIN +4,
+    any                 = INT_MIN +5,
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
@@ -95,6 +96,8 @@ inline md::string_view to_string(section_type t)
             return "expr";
         case section_type::string:
             return "string";
+        case section_type::any:
+            return "any";
 
         case section_type::dir_ns:
             return "dir_ns";

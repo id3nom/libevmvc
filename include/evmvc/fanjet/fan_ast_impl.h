@@ -295,7 +295,9 @@ inline void expr_node_t::parse(ast::token t)
         if(open_scope(t, this))
             return;
         
-        if(t->is_cpp_op() && !t->is_scope_resolution()){
+        if((t->is_cpp_op() && !t->is_scope_resolution()) ||
+            (t->is_semicolon() && this->_type != expr_type::semicol)
+        ){
             this->add_token(t->snip());
             st = t;
             t = t->next();

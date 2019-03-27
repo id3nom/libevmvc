@@ -42,6 +42,14 @@ public:
         ast::token root_token = ast::tokenizer::tokenize(text);
         ast::root_node r = ast::parse(root_token);
         
+        auto ln = r->first_child();
+        if(!ln || ln->node_type() != ast::node_type::literal)
+            throw MD_ERR(
+                "Missing literal node!"
+            );
+        
+        auto nsn = ln->first_child();
+        
         return r;
     }
     

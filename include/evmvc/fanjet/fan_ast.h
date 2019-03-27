@@ -70,6 +70,7 @@ enum class node_type
     token           = INT_MIN +2,
     expr            = INT_MIN +3,
     string          = INT_MIN +4,
+    any             = INT_MIN +5,
     
     directive       =
         (int)(
@@ -138,6 +139,8 @@ inline md::string_view to_string(node_type t)
             return "expr";
         case node_type::string:
             return "string";
+        case node_type::any:
+            return "any";
 
         case node_type::directive:
             return "directive";
@@ -295,9 +298,6 @@ public:
     ast::section_type sec_type() const { return _sec_type;}
     bool is_root() const { return node_type() == node_type::root;}
     node root() const { return _root.lock();}
-    node parent() const { return _parent.lock();}
-    node prev() const { return _prev.lock();}
-    node next() const { return _next.lock();}
     
     virtual bool prev_sibling_allowed() const { return true;}
     virtual bool next_sibling_allowed() const { return true;}
@@ -308,7 +308,265 @@ public:
     std::vector<node>& childs() { return _childs;}
     size_t child_count() const { return _childs.size();}
     node child(size_t idx) const { return _childs[idx];}
+    
+    node parent(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _parent.lock();
+        
+        node n = _parent.lock();
+        while(n && n->_node_type != t)
+            n = n->_parent.lock();
+        return n;
+    }
+    node prev(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _prev.lock();
+        
+        auto n = _prev.lock();
+        while(n && n->_node_type != t)
+            n = n->prev();
+        return n;
+    }
+    node next(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _next.lock();
 
+        auto n = _next.lock();
+        while(n && n->_node_type != t)
+            n = n->next();
+        return n;
+    }
+    
+    bool is_first_sibling(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _prev.expired();
+        
+        if(this->_node_type != t)
+            return false;
+        if(_prev.expired())
+            return true;
+        node n = this->_prev.lock();
+        while(n){
+            if(n->_node_type == t)
+                return false;
+            n = n->prev();
+        }
+        return true;
+    }
+    node first_sibling(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any){
+            if(_prev.expired())
+                return this->_shared_from_this();
+        
+            node n = this->prev();
+            while(!n->_prev.expired())
+                n = n->prev();
+            return n;
+        }
+        
+        node tn = _node_type == t ? this->_shared_from_this() : nullptr;
+        node n = this->prev();
+        while(n && !n->_prev.expired()){
+            if(n->_node_type == t)
+                tn = n;
+            n = n->prev();
+        }
+        return tn;
+    }
+    bool is_last_sibling(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _next.expired();
+        
+        if(this->_node_type != t)
+            return false;
+        if(_next.expired())
+            return true;
+        node n = this->_next.lock();
+        while(n){
+            if(n->_node_type == t)
+                return false;
+            n = n->next();
+        }
+        return true;
+    }
+    node last_sibling(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any){
+            if(_next.expired())
+                return this->_shared_from_this();
+            
+            node n = this->next();
+            while(!n->_next.expired())
+                n = n->next();
+            return n;
+        }
+        
+        node tn = _node_type == t ? this->_shared_from_this() : nullptr;
+        node n = this->next();
+        while(n && !n->_next.expired()){
+            if(n->_node_type == t)
+                tn = n;
+            n = n->next();
+        }
+        return tn;
+    }
+    node first_child(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _childs.size() > 0 ? _childs[0] : nullptr;
+        
+        node n = _childs.size() > 0 ? _childs[0] : nullptr;
+        while(n && n->_node_type != t)
+            n = n->next();
+        return n;
+    }
+    node last_child(ast::node_type t = ast::node_type::any) const
+    {
+        if(t == ast::node_type::any)
+            return _childs.size() > 0 ? _childs[_childs.size() -1] : nullptr;
+        
+        node n = _childs.size() > 0 ? _childs[_childs.size() -1] : nullptr;
+        while(n && n->_node_type != t)
+            n = n->next();
+        return n;
+    }
+    
+    
+    node parent(section_type t) const
+    {
+        if(t == section_type::any)
+            return _parent.lock();
+        
+        node n = _parent.lock();
+        while(n && n->_sec_type != t)
+            n = n->_parent.lock();
+        return n;
+    }
+    node prev(section_type t) const
+    {
+        if(t == section_type::any)
+            return _prev.lock();
+        
+        auto n = _prev.lock();
+        while(n && n->_sec_type != t)
+            n = n->prev();
+        return n;
+    }
+    node next(section_type t) const
+    {
+        if(t == section_type::any)
+            return _next.lock();
+
+        auto n = _next.lock();
+        while(n && n->_sec_type != t)
+            n = n->next();
+        return n;
+    }
+    
+    bool is_first_sibling(section_type t) const
+    {
+        if(t == section_type::any)
+            return _prev.expired();
+        
+        if(this->_sec_type != t)
+            return false;
+        if(_prev.expired())
+            return true;
+        node n = this->_prev.lock();
+        while(n){
+            if(n->_sec_type == t)
+                return false;
+            n = n->prev();
+        }
+        return true;
+    }
+    node first_sibling(section_type t) const
+    {
+        if(t == section_type::any){
+            if(_prev.expired())
+                return this->_shared_from_this();
+        
+            node n = this->prev();
+            while(!n->_prev.expired())
+                n = n->prev();
+            return n;
+        }
+        
+        node tn = _sec_type == t ? this->_shared_from_this() : nullptr;
+        node n = this->prev();
+        while(n && !n->_prev.expired()){
+            if(n->_sec_type == t)
+                tn = n;
+            n = n->prev();
+        }
+        return tn;
+    }
+    bool is_last_sibling(section_type t) const
+    {
+        if(t == section_type::any)
+            return _next.expired();
+        
+        if(this->_sec_type != t)
+            return false;
+        if(_next.expired())
+            return true;
+        node n = this->_next.lock();
+        while(n){
+            if(n->_sec_type == t)
+                return false;
+            n = n->next();
+        }
+        return true;
+    }
+    node last_sibling(section_type t) const
+    {
+        if(t == section_type::any){
+            if(_next.expired())
+                return this->_shared_from_this();
+            
+            node n = this->next();
+            while(!n->_next.expired())
+                n = n->next();
+            return n;
+        }
+        
+        node tn = _sec_type == t ? this->_shared_from_this() : nullptr;
+        node n = this->next();
+        while(n && !n->_next.expired()){
+            if(n->_sec_type == t)
+                tn = n;
+            n = n->next();
+        }
+        return tn;
+    }
+    node first_child(section_type t) const
+    {
+        if(t == section_type::any)
+            return _childs.size() > 0 ? _childs[0] : nullptr;
+        
+        node n = _childs.size() > 0 ? _childs[0] : nullptr;
+        while(n && n->_sec_type != t)
+            n = n->next();
+        return n;
+    }
+    node last_child(section_type t) const
+    {
+        if(t == section_type::any)
+            return _childs.size() > 0 ? _childs[_childs.size() -1] : nullptr;
+        
+        node n = _childs.size() > 0 ? _childs[_childs.size() -1] : nullptr;
+        while(n && n->_sec_type != t)
+            n = n->next();
+        return n;
+    }
+
+    
     size_t line() const { return _token ? _token->line() : 0;}
     size_t col() const { return _token ? _token->col() : 0;}
     size_t pos() const { return  _token ? _token->pos() : 0;}
@@ -499,6 +757,17 @@ public:
     
     
 protected:
+    node _shared_from_this() const
+    {
+        if(is_root())
+            return nullptr;
+        
+        node p = this->parent();
+        for(size_t i = 0; i < p->_childs.size(); ++i)
+            if(p->_childs[i].get() == this)
+                return p->_childs[i];
+        return nullptr;
+    }
     
     void add_sibling_token(sibling_pos pos, ast::token t);
     void add_token(ast::token t);
