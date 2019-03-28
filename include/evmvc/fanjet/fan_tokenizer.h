@@ -334,6 +334,7 @@ public:
     bool is_fan_await() const { return _text == "@await";}
     
     bool is_fan_markup_open() const { return _text == "@(";}
+    bool is_fan_render_partial() const { return _text == "@>";}
     
     bool is_double_quote() const { return _text == "\"";}
     bool is_single_quote() const { return _text == "'";}
@@ -593,7 +594,7 @@ const char* tokenizer::s_tokens[] = {
     "@<", "@await",
     
     "@(",
-    
+    "@>",
     "\"", "'", "`",
     "\n",
     ";",

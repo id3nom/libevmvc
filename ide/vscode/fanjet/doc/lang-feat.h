@@ -1,3 +1,26 @@
+// @*
+// MIT License
+//
+// Copyright (c) 2019 Michel Dénommée
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in all
+// copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+// *@
 #ifndef _app_ns_lang_feat_h //@ns app_ns
 #define _app_ns_lang_feat_h //@name lang_feat
 //
@@ -7,9 +30,9 @@
 //*@
 //@** single line comment
 //
-#include "./lang-feat_inc.h"//@header
+#include "./lang-feat.inc.h"//@header
 //    // view header cpp code block
-//    #include <string>
+#include <string> //    #include <string>
 //    
 //;
 //
@@ -31,7 +54,7 @@
 //    function on it, you must have to define an alias first using the following
 //    syntax
 //*@
-namespace app_ns { class view_lang_feat : public view_base, //@inherits
+namespace app { namespace ns { class view_lang_feat : public view_base, //@inherits
 public view_1,//    public v1 = "path/to/view_1",
 protected view_2 {//    protected v2 = "~/path/to/view_2"
 //;
@@ -155,5 +178,5 @@ public:
             cb(err);
         }
     }
-};} //app_ns::class view_lang_feat
+};}} //app::ns::class view_lang_feat
 #endif //_app_ns_lang_feat_h

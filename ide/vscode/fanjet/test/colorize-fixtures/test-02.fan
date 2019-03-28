@@ -1,11 +1,35 @@
-@namespace app_ns::ns2::ns4
-@name app_name
+@*
+MIT License
 
-@* Fanjet code format.
-    multiline comment
-    @ns and @name are required and must be defined first
+Copyright (c) 2019 Michel Dénommée
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 *@
-@** single line comment
+@* Fanjet code format.
+    @ns, @name and @layout directive are all required
+    and must be defined first
+*@
+
+ @namespace app_ns::ns2::ns4
+
+@name app_name
+@layout path/to/layout_name
 
 @header
     #include <string>
@@ -13,13 +37,16 @@
     #include <vector>
 ;
 
-@layout path/to/layout_name
-
 @inherits
     public v1 = "path/to/view_1",
     protected v2 = "~/path/to/view_2"
 ;
 
+@*
+    multiline
+    comment
+*@
+@** single line comment
 
 @funi{
 public:

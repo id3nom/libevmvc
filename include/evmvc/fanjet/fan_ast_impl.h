@@ -81,7 +81,14 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::comment_block :
                     ast::section_type::region_start
             ));
-        else if(t->is_fan_directive())
+        else if(t->is_fan_directive()){
+            if(pn->sec_type() != section_type::literal)
+                throw MD_ERR(
+                    "Directive can only be defined at the first scope level."
+                    " line: '{}', col: '{}', pos: '{}'",
+                    t->line(), t->col(), t->pos()
+                );
+            
             n = directive_node(new directive_node_t(
                 t->is_fan_namespace() ?
                     ast::section_type::dir_ns :
@@ -93,6 +100,7 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                     ast::section_type::dir_header :
                     ast::section_type::dir_inherits
             ));
+        }
         else if(t->is_fan_output())
             n = output_node(new output_node_t(
                 t->is_fan_output_raw() ?

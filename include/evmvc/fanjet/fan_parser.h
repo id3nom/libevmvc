@@ -29,6 +29,7 @@ SOFTWARE.
 #include "fan_common.h"
 #include "fan_tokenizer.h"
 #include "fan_ast.h"
+#include "../app.h"
 
 namespace evmvc { namespace fanjet {
 
@@ -48,12 +49,91 @@ public:
                 "Missing literal node!"
             );
         
-        auto nsn = ln->first_child();
+        auto n = ln->first_child();
+        
+        bool ns_exists = false;
+        bool name_exists = false;
+        bool layout_exists = false;
+        bool error = false;
+        while(n){
+            if(
+                n->node_type() != ast::node_type::directive &&
+                n->node_type() != ast::node_type::comment
+            ){
+                if(n->node_type() == ast::node_type::token){
+                    if(md::trim_copy(n->token_section_text()).size() > 0){
+                        error = true;
+                        break;
+                    }
+                }else{
+                    error = true;
+                    break;
+                }
+            }
+            
+            else if(n->sec_type() == ast::section_type::dir_ns){
+                if(ns_exists)
+                    throw MD_ERR(
+                        "@namespace directive can only be specified once."
+                    );
+                ns_exists = true;
+            }
+            
+            else if(n->sec_type() == ast::section_type::dir_name){
+                if(name_exists)
+                    throw MD_ERR(
+                        "@name directive can only be specified once."
+                    );
+                
+                name_exists = true;
+            }
+            
+            else if(n->sec_type() == ast::section_type::dir_layout){
+                if(layout_exists)
+                    throw MD_ERR(
+                        "@layout directive can only be specified once."
+                    );
+                layout_exists = true;
+            }
+            
+            else
+                throw MD_ERR(
+                    "@ns, @name and @layout directive are all required "
+                    "and must be defined before any other directive\n"
+                    "Current directive: '{}'",
+                    ast::to_string(n->sec_type())
+                );
+            
+            if(ns_exists && name_exists && layout_exists)
+                break;
+            n = n->next();
+        }
+        
+        if(error || !ns_exists || !name_exists || !layout_exists)
+            throw MD_ERR(
+                "@ns, @name and @layout directive are all required "
+                "and must be defined before any other expression"
+            );
         
         return r;
     }
     
+    /**
+     * for more information see: Fanjet engine directory structure
+     */
+    static void generate(evmvc::sp_app a, bfs::path fan_filename)
+    {
+        
+    }
     
+    /**
+     * for more information see: Fanjet engine directory structure
+     */
+    static void generate(
+        evmvc::sp_app a, bfs::path view_src_dir, const std::string& fan_code)
+    {
+        
+    }
     
 private:
 
