@@ -5,6 +5,8 @@
         "L:*":{
             "patterns":[
 
+                {"include": "#fanjet-escape"},
+
                 {"include": "#fanjet-comments"},
                 {"include": "#fanjet-regions"},
 
@@ -12,6 +14,8 @@
                 {"include": "#fanjet-functions"},
                 {"include": "#fanjet-outputs"},
                 {"include": "#fanjet-controls"},
+                
+                {"include": "#fanjet-commands"},
 
                 {"include": "#fanjet-markup-html"},
                 {"include": "#fanjet-markup-markdown"},
@@ -23,7 +27,8 @@
     
     "patterns": [
         {"include": "text.html.basic"},
-        {"include": "#strings"},
+
+        {"include": "#fanjet-escape"},
 
         {"include": "#fanjet-directives"},
 
@@ -35,11 +40,19 @@
         {"include": "#fanjet-outputs"},
         {"include": "#fanjet-controls"},
         
-        {"include": "#fanjet-markup-markdown"},
-        {"include": "#fanjet-markup-html"}
+        {"include": "#fanjet-commands"},
         
+        {"include": "#fanjet-markup-markdown"},
+        {"include": "#fanjet-markup-html"},
+        
+        {"include": "#strings"}
     ],
     "repository": {
+        
+        "fanjet-escape":{
+            "name": "meta.escape.fan",
+            "match": "@@"
+        },
         
         "fanjet-comments": {
             "name": "meta.comments.fan",
@@ -308,31 +321,33 @@
         },
         "fanjet-outputs-raw": {
             "name": "meta.outputs.raw.fan",
-            "match": "(@::)(.*)(;)",
-            "captures":{
-                "1": { "name": "keyword.control.fan"},
-                "2": {
-                    "name": "meta.outputs.expr.fan",
-                    "patterns":[
-                        {"include": "source.cpp"}
-                    ]
-                },
-                "3": { "name": "ponctuation.definition.semicolon"}
-            }
+            "begin": "(@::)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": ";",
+            "endCaptures": {
+                "0": { "name": "ponctuation.definition.semicolon"}
+            },
+            "patterns": [
+                {"include": "cpp-type-name"},
+                {"include": "source.cpp"}
+            ]
         },
         "fanjet-outputs-encode": {
             "name": "meta.outputs.encode.fan",
-            "match": "(@:)(.*)(;)",
-            "captures":{
-                "1": { "name": "keyword.control.fan"},
-                "2": {
-                    "name": "meta.outputs.expr.fan",
-                    "patterns":[
-                        {"include": "source.cpp"}
-                    ]
-                },
-                "3": { "name": "ponctuation.definition.semicolon"}
-            }
+            "begin": "(@:)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": ";",
+            "endCaptures": {
+                "0": { "name": "ponctuation.definition.semicolon"}
+            },
+            "patterns": [
+                {"include": "source.cpp"},
+                {"include": "cpp-type-name"}
+            ]
         },
         
         "fanjet-controls": {
@@ -472,7 +487,109 @@
             }
         },
 
-        
+        "fanjet-commands": {
+            "name": "meta.commands.fan",
+            "patterns": [
+                {"include": "#fanjet-commands-body"},
+                {"include": "#fanjet-commands-partial"},
+                {"include": "#fanjet-commands-set"},
+                {"include": "#fanjet-commands-get"},
+                {"include": "#fanjet-commands-fmt"},
+                {"include": "#fanjet-commands-get-raw"},
+                {"include": "#fanjet-commands-fmt-raw"}
+            ]
+        },
+        "fanjet-commands-body":{
+            "name": "meta.commands.body",
+            "match": "@body",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            }
+        },
+        "fanjet-commands-partial": {
+            "name": "string.commands.partial",
+            "begin": "(@>)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"}
+            },
+            "end": ";",
+            "endCaptures": {
+                "0": { "name": "ponctuation.definition.semicolon"}
+            }
+        },
+        "fanjet-commands-set": {
+            "begin": "(@set)(\\()",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.parens.start"}
+            },
+            "end": "\\)",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.parens.end"}
+            },
+            "patterns":[
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-commands-get": {
+            "begin": "(@get)(\\()",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.parens.start"}
+            },
+            "end": "\\)",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.parens.end"}
+            },
+            "patterns":[
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-commands-fmt": {
+            "begin": "(@fmt)(\\()",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.parens.start"}
+            },
+            "end": "\\)",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.parens.end"}
+            },
+            "patterns":[
+                {"include": "source.cpp"},
+                {"include": "cpp-type-name"}
+            ]
+        },
+        "fanjet-commands-get-raw": {
+            "begin": "(@get-raw)(\\()",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.parens.start"}
+            },
+            "end": "\\)",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.parens.end"}
+            },
+            "patterns":[
+                {"include": "source.cpp"}
+            ]
+        },
+        "fanjet-commands-fmt-raw": {
+            "begin": "(@fmt-raw)(\\()",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.parens.start"}
+            },
+            "end": "\\)",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.parens.end"}
+            },
+            "patterns":[
+                {"include": "source.cpp"},
+                {"include": "cpp-type-name"}
+            ]
+        },
+
         
         "cpp-block":{
             "begin": "{",

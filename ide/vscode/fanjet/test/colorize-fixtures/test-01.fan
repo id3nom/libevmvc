@@ -38,7 +38,8 @@ private:
 }
 
 @func{
-    void test(const std::string& text_arg, const char* arg_b){
+    void test(const std::string& text_arg, const char* arg_b)
+    {
         int32_t t = 8;
         for(auto i = 0; i < 10; ++i){
             

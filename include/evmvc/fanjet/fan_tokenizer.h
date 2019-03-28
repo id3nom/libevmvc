@@ -594,7 +594,13 @@ const char* tokenizer::s_tokens[] = {
     "@<", "@await",
     
     "@(",
+    "@body",
     "@>",
+    "@set",
+    "@get",
+    "@fmt",
+    "@get-raw",
+    "@fmt-raw",
     "\"", "'", "`",
     "\n",
     ";",

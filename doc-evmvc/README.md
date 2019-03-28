@@ -74,7 +74,7 @@
 ### layouts directory
 
 Files in the layouts directory are template used to render enclosing html
-to render the body use the render body directive '@>>;', this will asynchrounously render the view
+to render the body use the render body directive '@body', this will asynchrounously render the view
 
 ### partials directory
 
@@ -109,22 +109,26 @@ until the view is found or the views 'root' directory is reached.
 | @layout       | \n        | layout used with that view, to use the default layout let the directive empty |
 | @header       | ;         | view header definition |
 | @inherits     | ;         | view inherits override settings |
-    
-    "@region",
-    "@endregion",
-    
-    "@::", "@:",
-    
-    "@if", "else", "if",
-    "@switch",
-    
-    "@while",
-    "@for",
-    "@do",
-    "@try", "catch", "try",
-    
-    "@funi", "@func",
-    "@<", "@await",
-    
-    "@(",
-    "@>",
+| @region       | \n        | foldable region start |
+| @endregion    | \n        | foldable region end |
+| @::           | ;         | write encoded output |
+| @:            | ;         | write non encoded output |
+| @if           |           | start a cpp 'if' code block |
+| @switch       |           | start a cpp 'switch' code block |
+| @while        |           | start a cpp 'while' code block |
+| @for          |           | start a cpp 'for' code block |
+| @do           |           | start a cpp 'do' code block |
+| @try          |           | start a cpp 'try' code block |
+| @funi         | }         | start a cpp class declaration code block |
+| @func         | }         | start a cpp class definition code block |
+| @<            | cpp-type> | create an async cpp function |
+| @await        |           | call an async cpp function |
+| @(lang){      | }         | start a markup block, lang can be 'htm' or 'md' |
+| @body         |           | render the view content in a layout |
+| @>            | ;         | render a partial view |
+| @set(n,v)     |           | set key value pair, key is 'n' and value is 'v' |
+| @get(n,d)     |           | write encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
+| @fmt(f,v...)  |           | write encoded format output, 'f' is the format string and 'v...' is arguments |
+| @get-raw(n,d) |           | write non encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
+| @fmt-raw(f,v...) |        | write non encoded format output, 'f' is the format string and 'v...' is arguments |
+
