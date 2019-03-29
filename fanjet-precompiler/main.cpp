@@ -37,19 +37,23 @@ int main(int argc, char** argv)
         po::value<std::string>()->required(),
         "set namespace for the specified views directory"
     )
-    ("views-src-dir",
+    ("include,i",
+        po::value<std::string>()->required(),
+        "views generated include filename"
+    )
+    ("src,s",
         po::value<std::string>()->required(),
         "views source directory to precompile"
     )
-    ("views-dest-dir",
+    ("dest,d",
         po::value<std::string>()->required(),
         "views precompiled destination directory"
     )
     ;
     
     po::positional_options_description p;
-    p.add("views-src-dir", 1);
-    p.add("views-dest-dir", 2);
+    p.add("src", 1);
+    p.add("dest", 2);
     
     po::variables_map vm;
     try{
@@ -71,8 +75,8 @@ int main(int argc, char** argv)
         
         std::cout
             << "processing, "
-            << "src-dir: '" << vm["views-src-dir"].as<std::string>() << "', "
-            << "dest-dir: '" << vm["views-dest-dir"].as<std::string>() << "'"
+            << "src: '" << vm["views-src-dir"].as<std::string>() << "', "
+            << "dest: '" << vm["views-dest-dir"].as<std::string>() << "'"
             << std::endl;
         
         return 0;
