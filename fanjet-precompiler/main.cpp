@@ -64,11 +64,11 @@ int main(int argc, char** argv)
             .run(),
             vm
         );
-    
+        
         po::notify(vm);
         if(vm.count("help")){
             std::cout 
-                << "Usage: fanjet [options] views-src-dir views-dest-dir\n"
+                << "Usage: fanjet [options] src-path dest-path\n"
                 << desc << std::endl;
             return -1;
         }
