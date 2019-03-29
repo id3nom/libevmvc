@@ -123,6 +123,25 @@ public:
      */
     static void generate(evmvc::sp_app a, bfs::path fan_filename)
     {
+        bfs::path views_path = fan_filename.parent_path();
+        while(views_path.empty() || views_path.filename() != "views")
+            views_path = views_path.parent_path();
+        
+        if(views_path.empty())
+            throw MD_ERR(
+                "All fanjet views must be under a "
+                "'views' directory structure, filename: '{}'",
+                fan_filename.string()
+            );
+        
+        
+        
+        bfs::ifstream fin(fan_filename);
+        std::ostringstream ostrm;
+        ostrm << fin.rdbuf();
+        std::string fan_src = ostrm.str();
+        fin.close();
+        
         
     }
     
@@ -130,7 +149,10 @@ public:
      * for more information see: Fanjet engine directory structure
      */
     static void generate(
-        evmvc::sp_app a, bfs::path view_src_dir, const std::string& fan_code)
+        evmvc::sp_app a,
+        bfs::path dest_path,
+        bfs::path view_rel_path,
+        const std::string& fan_src)
     {
         
     }

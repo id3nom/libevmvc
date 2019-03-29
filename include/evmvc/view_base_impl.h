@@ -22,13 +22,32 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_h
-#define _libevmvc_fanjet_h
+#include "stable_headers.h"
+#include "view_base.h"
+#include "view_engine.h"
 
-#include "fan_common.h"
-#include "fan_tokenizer.h"
-#include "fan_ast.h"
-#include "fan_parser.h"
-#include "fan_view_engine.h"
+namespace evmvc {
 
-#endif //_libevmvc_fanjet_h
+inline void view_base::write_enc(md::string_view data)
+{
+    
+}
+
+inline void view_base::write_raw(md::string_view data)
+{
+    
+}
+
+inline void render_partial(md::string_view path)
+{
+    
+}
+
+inline void render_view(md::string_view path)
+{
+    
+}
+
+
+
+};

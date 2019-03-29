@@ -22,13 +22,43 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_h
-#define _libevmvc_fanjet_h
+#ifndef _libevmvc_fanjet_view_base_h
+#define _libevmvc_fanjet_view_base_h
 
-#include "fan_common.h"
-#include "fan_tokenizer.h"
-#include "fan_ast.h"
-#include "fan_parser.h"
-#include "fan_view_engine.h"
+#include "../stable_headers.h"
+#include "../response.h"
+#include "../view_base.h"
 
-#endif //_libevmvc_fanjet_h
+namespace evmvc { namespace fanjet {
+
+class view_base
+    : public evmvc::view_base
+{
+    friend class app;
+public:
+    
+    view_base(
+        sp_view_engine engine,
+        const evmvc::sp_response& _res)
+        : evmvc::view_base(engine, _res)
+    {
+    }
+    
+    
+    
+    // void render(
+    //     std::shared_ptr<view_base> self,
+    //     md::callback::async_cb cb)
+    // {
+    //      
+    // }
+    
+    
+    
+protected:
+    
+    
+};
+
+}};//evmvc::fanjet
+#endif //_libevmvc_fanjet_view_base_h

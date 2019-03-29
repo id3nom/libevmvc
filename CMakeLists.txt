@@ -14,6 +14,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
 set(WORKING_DIRECTORY ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})
 
 option(EVMVC_BUILD_TESTS "Build tests" OFF)
+option(EVMVC_BUILD_FANJET "Build fanjet precompiler tool" ON)
 option(EVMVC_BUILD_EXAMPLES "Build examples" OFF)
 option(EVMVC_BUILD_DOC "Create and install the HTML based API documentation (requires Doxygen)" OFF)
 
@@ -147,8 +148,17 @@ if(EVMVC_BUILD_TESTS)
     enable_testing()
 endif()
 
+# fanjet
+if(EVMVC_BUILD_FANJET)
+    subdirs(fanjet-precompiler)
+endif()
+
 # examples
 if(EVMVC_BUILD_EXAMPLES)
+    # fanjet tool is required with examples
+    if(NOT EVMVC_BUILD_FANJET)
+        subdirs(fanjet-precompiler)
+    endif()
     subdirs(examples-evmvc)
 endif()
 

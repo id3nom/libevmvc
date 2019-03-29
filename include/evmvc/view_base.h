@@ -22,13 +22,52 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef _libevmvc_fanjet_h
-#define _libevmvc_fanjet_h
+#ifndef _libevmvc_view_base_h
+#define _libevmvc_view_base_h
 
-#include "fan_common.h"
-#include "fan_tokenizer.h"
-#include "fan_ast.h"
-#include "fan_parser.h"
-#include "fan_view_engine.h"
+#include "stable_headers.h"
+#include "response.h"
 
-#endif //_libevmvc_fanjet_h
+namespace evmvc {
+
+class view_engine;
+typedef std::shared_ptr<view_engine> sp_view_engine;
+
+class view_base
+    : public std::enable_shared_from_this<view_base>
+{
+public:
+    view_base(
+        sp_view_engine engine,
+        const evmvc::sp_response& _res)
+        : _engine(engine),
+        res(_res),
+        req(_res->req())
+    {
+    }
+    
+    sp_view_engine engine() const { return _engine;}
+    
+    virtual bfs::path path() const = 0;
+    virtual std::string name() const = 0;
+    
+    virtual void render(
+        std::shared_ptr<view_base> self,
+        md::callback::async_cb cb
+    ) = 0;
+    
+    void write_enc(md::string_view data);
+    void write_raw(md::string_view data);
+    void render_partial(md::string_view path);
+    void render_view(md::string_view path);
+    
+private:
+    sp_view_engine _engine;
+    
+protected:
+    evmvc::sp_response res;
+    evmvc::sp_request req;
+};
+
+};
+#endif //_libevmvc_view_base_h
