@@ -33,6 +33,18 @@ SOFTWARE.
 
 namespace evmvc { namespace fanjet {
 
+class document_t
+{
+public:
+    std::string h_filename;
+    std::string h_src;
+    std::string i_filename;
+    std::string i_src;
+    std::string c_filename;
+    std::string c_src;
+};
+typedef std::shared_ptr<document_t> document;
+
 class parser
 {
     parser() = delete;
@@ -118,43 +130,47 @@ public:
         return r;
     }
     
-    /**
-     * for more information see: Fanjet engine directory structure
-     */
-    static void generate(evmvc::sp_app a, bfs::path fan_filename)
-    {
-        bfs::path views_path = fan_filename.parent_path();
-        while(views_path.empty() || views_path.filename() != "views")
-            views_path = views_path.parent_path();
-        
-        if(views_path.empty())
-            throw MD_ERR(
-                "All fanjet views must be under a "
-                "'views' directory structure, filename: '{}'",
-                fan_filename.string()
-            );
-        
-        
-        
-        bfs::ifstream fin(fan_filename);
-        std::ostringstream ostrm;
-        ostrm << fin.rdbuf();
-        std::string fan_src = ostrm.str();
-        fin.close();
-        
-        
-    }
+    // /**
+    //  * for more information see: Fanjet engine directory structure
+    //  */
+    // static void generate(evmvc::sp_app a, bfs::path fan_filename)
+    // {
+    //     bfs::path views_path = fan_filename.parent_path();
+    //     while(views_path.empty() || views_path.filename() != "views")
+    //         views_path = views_path.parent_path();
+    //     
+    //     if(views_path.empty())
+    //         throw MD_ERR(
+    //             "All fanjet views must be under a "
+    //             "'views' directory structure, filename: '{}'",
+    //             fan_filename.string()
+    //         );
+    //     
+    //     
+    //     
+    //     bfs::ifstream fin(fan_filename);
+    //     std::ostringstream ostrm;
+    //     ostrm << fin.rdbuf();
+    //     std::string fan_src = ostrm.str();
+    //     fin.close();
+    //     
+    //     
+    // }
     
     /**
      * for more information see: Fanjet engine directory structure
      */
-    static void generate(
-        evmvc::sp_app a,
-        bfs::path dest_path,
-        bfs::path view_rel_path,
+    static document generate(
+        const std::string& ns,
+        const std::string& view_path,
         const std::string& fan_src)
     {
+        document doc = std::make_shared<document_t>(
+            
+        );
         
+        
+        return doc;
     }
     
 private:

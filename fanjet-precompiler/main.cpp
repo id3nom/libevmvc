@@ -25,7 +25,26 @@ SOFTWARE.
 #include <string>
 #include <iostream>
 #include <boost/program_options.hpp>
+#include <evmvc/fanjet/fanjet.h>
+
 namespace po = boost::program_options;
+namespace bfs = boost::filesystem;
+
+void march_dir(
+    std::vector<evmvc::fanjet::document>& docs,
+    const bfs::path& root,
+    const std::string& ns,
+    const bfs::path& src,
+    const bfs::path& dest
+);
+
+void process_fanjet_file(
+    std::vector<evmvc::fanjet::document>& docs,
+    const bfs::path& root,
+    const std::string& ns,
+    const bfs::path& src,
+    const bfs::path& dest
+);
 
 int main(int argc, char** argv)
 {
@@ -75,9 +94,20 @@ int main(int argc, char** argv)
         
         std::cout
             << "processing, "
-            << "src: '" << vm["views-src-dir"].as<std::string>() << "', "
-            << "dest: '" << vm["views-dest-dir"].as<std::string>() << "'"
+            << "ns: '" << vm["namespace"].as<std::string>() << "', "
+            << "src: '" << vm["src"].as<std::string>() << "', "
+            << "dest: '" << vm["dest"].as<std::string>() << "'"
             << std::endl;
+        
+        std::vector<evmvc::fanjet::document> docs;
+        march_dir(
+            docs,
+            vm["src"].as<std::string>(),
+            vm["namespace"].as<std::string>(),
+            vm["src"].as<std::string>(),
+            vm["dest"].as<std::string>()
+        );
+        
         
         return 0;
     }catch(const std::exception& err){
@@ -93,4 +123,77 @@ int main(int argc, char** argv)
             << desc << std::endl;
         return -1;
     }
+}
+
+
+void march_dir(
+    std::vector<evmvc::fanjet::document>& docs,
+    const bfs::path& root,
+    const std::string& ns,
+    const bfs::path& src,
+    const bfs::path& dest)
+{
+    if(!bfs::exists(dest)){
+        bfs::create_directories(dest);
+    }
+    
+    for(bfs::directory_entry& x : bfs::directory_iterator(src)){
+        switch(x.status().type()){
+            case bfs::file_type::directory_file:
+                march_dir(
+                    docs,
+                    root,
+                    ns,
+                    x.path(),
+                    dest / *x.path().rbegin()
+                );
+                break;
+                
+            case bfs::file_type::regular_file:
+                process_fanjet_file(
+                    docs,
+                    root,
+                    ns,
+                    x.path(),
+                    dest / x.path().filename()
+                );
+                break;
+                
+            default:
+                throw MD_ERR(
+                    "Only directory and regular file are supported!"
+                );
+        }
+    }
+}
+
+void process_fanjet_file(
+    std::vector<evmvc::fanjet::document>& docs,
+    const bfs::path& root,
+    const std::string& ns,
+    const bfs::path& src,
+    const bfs::path& dest)
+{
+    bfs::ifstream fin(src);
+    std::ostringstream ostrm;
+    ostrm << fin.rdbuf();
+    std::string fan_src = ostrm.str();
+    fin.close();
+    
+    std::string view_path = 
+        src.parent_path().string().substr(
+            root.size()
+        );
+    view_path += 
+        src.filename().string().substr(
+            src.extension().string().size()
+        );
+    
+    evmvc::fanjet::document doc = 
+        evmvc::fanjet::parser::generate(
+            ns,
+            view_path,
+            fan_src
+        );
+    
 }
