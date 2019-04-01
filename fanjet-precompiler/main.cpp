@@ -50,8 +50,15 @@ int main(int argc, char** argv)
 {
     po::options_description desc("fanjet");
     
+    std::string verbosity_values;
+    
     desc.add_options()
     ("help,h", "produce help message")
+    ("verbosity,v",
+        po::value(&verbosity_values)->implicit_value(""),
+        "verbosity level, "
+        "v: info, vv: debug, vvv: trace"
+    )
     ("namespace,n",
         po::value<std::string>()->required(),
         "set namespace for the specified views directory"
@@ -92,12 +99,51 @@ int main(int argc, char** argv)
             return -1;
         }
         
-        std::cout
-            << "processing, "
-            << "ns: '" << vm["namespace"].as<std::string>() << "', "
-            << "src: '" << vm["src"].as<std::string>() << "', "
-            << "dest: '" << vm["dest"].as<std::string>() << "'"
-            << std::endl;
+        if(std::any_of(
+            begin(verbosity_values), end(verbosity_values), [](auto&c) {
+                return c != 'v';
+            }
+        ))
+            throw std::runtime_error("Invalid verbosity level");
+        // log level override
+        int log_val = -1;
+        int vvs = verbosity_values.size();
+        if(vm.count("verbosity"))
+            vvs += 2;
+        if(vvs > 4)
+            vvs = 4;
+        if(vvs > 0)
+            log_val = 
+                (int)md::log::log_level::error + vvs;
+        if(log_val == -1)
+            log_val = (int)md::log::log_level::warning;
+        
+        std::vector<md::log::sinks::sp_logger_sink> sinks;
+        auto out_sink = std::make_shared<md::log::sinks::console_sink>(true);
+        out_sink->set_level((md::log::log_level)log_val);
+        sinks.emplace_back(out_sink);
+        
+        auto _log = std::make_shared<md::log::logger>(
+        "/", sinks.begin(), sinks.end()
+        );
+        _log->set_level((md::log::log_level)log_val);
+        md::log::default_logger() = _log;
+        
+        if(md::log::default_logger()->should_log(md::log::log_level::warning)){
+            std::cout
+                << "fanjet 0.1.0 Copyright (c) 2019 Michel Dénommée\n"
+                << std::endl;
+        }
+        md::log::info(
+            "processing\n  ns: '{}'\n  src: '{}'\n  dest: '{}'",
+            vm["namespace"].as<std::string>(),
+            vm["src"].as<std::string>(),
+            vm["dest"].as<std::string>()
+        );
+        
+        bfs::path dest = vm["dest"].as<std::string>();
+        if(!bfs::exists(dest))
+            bfs::create_directories(dest);
         
         std::vector<evmvc::fanjet::document> docs;
         march_dir(
@@ -108,19 +154,22 @@ int main(int argc, char** argv)
             vm["dest"].as<std::string>()
         );
         
-        
         return 0;
     }catch(const std::exception& err){
         if(vm.count("help")){
             std::cout 
-                << "Usage: fanjet [options] views-src-dir views-dest-dir\n"
+                << "Usage: fanjet [options] src-path dest-path\n"
                 << desc << std::endl;
             return -1;
         }
         
-        std::cout << err.what() << "\n\n"
-            << "Usage: fanjet [options] views-src-dir views-dest-dir\n"
-            << desc << std::endl;
+        std::stringstream ss;
+        ss << desc;
+        
+        md::log::error(
+            "{}\n\nUsage: fanjet [options] src-path dest-path\n{}",
+            err.what(), ss.str()
+        );
         return -1;
     }
 }
@@ -133,10 +182,6 @@ void march_dir(
     const bfs::path& src,
     const bfs::path& dest)
 {
-    if(!bfs::exists(dest)){
-        bfs::create_directories(dest);
-    }
-    
     for(bfs::directory_entry& x : bfs::directory_iterator(src)){
         switch(x.status().type()){
             case bfs::file_type::directory_file:
@@ -174,26 +219,34 @@ void process_fanjet_file(
     const bfs::path& src,
     const bfs::path& dest)
 {
-    bfs::ifstream fin(src);
-    std::ostringstream ostrm;
-    ostrm << fin.rdbuf();
-    std::string fan_src = ostrm.str();
-    fin.close();
-    
-    std::string view_path = 
-        src.parent_path().string().substr(
-            root.size()
+    try{
+        bfs::ifstream fin(src);
+        std::ostringstream ostrm;
+        ostrm << fin.rdbuf();
+        std::string fan_src = ostrm.str();
+        fin.close();
+        
+        std::string view_path = 
+            src.parent_path().string().substr(
+                root.size()
+            );
+        view_path += 
+            src.filename().string().substr(
+                src.extension().string().size()
+            );
+        
+        evmvc::fanjet::document doc = 
+            evmvc::fanjet::parser::generate(
+                ns,
+                view_path,
+                fan_src
+            );
+    }catch(const std::exception& error){
+        std::string err_msg = fmt::format(
+            "{}\nsrc: {}",
+            error.what(), src.string()
         );
-    view_path += 
-        src.filename().string().substr(
-            src.extension().string().size()
-        );
-    
-    evmvc::fanjet::document doc = 
-        evmvc::fanjet::parser::generate(
-            ns,
-            view_path,
-            fan_src
-        );
-    
+        
+        throw MD_ERR(err_msg);
+    }
 }

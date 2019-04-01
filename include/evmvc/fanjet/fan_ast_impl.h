@@ -214,7 +214,8 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
         }
         
         else if(
-            t->is_double_quote() || t->is_single_quote() || t->is_backtick()
+            pn->node_type() != node_type::literal &&
+            (t->is_double_quote() || t->is_single_quote() || t->is_backtick())
         ){
             n = string_node(new string_node_t(
                 t->text()

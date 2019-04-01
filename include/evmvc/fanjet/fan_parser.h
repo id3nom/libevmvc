@@ -55,6 +55,11 @@ public:
         ast::token root_token = ast::tokenizer::tokenize(text);
         ast::root_node r = ast::parse(root_token);
         
+        md::log::trace(
+            "debug ast output:\n{}",
+            r->dump()
+        );
+        
         auto ln = r->first_child();
         if(!ln || ln->node_type() != ast::node_type::literal)
             throw MD_ERR(
@@ -130,33 +135,6 @@ public:
         return r;
     }
     
-    // /**
-    //  * for more information see: Fanjet engine directory structure
-    //  */
-    // static void generate(evmvc::sp_app a, bfs::path fan_filename)
-    // {
-    //     bfs::path views_path = fan_filename.parent_path();
-    //     while(views_path.empty() || views_path.filename() != "views")
-    //         views_path = views_path.parent_path();
-    //     
-    //     if(views_path.empty())
-    //         throw MD_ERR(
-    //             "All fanjet views must be under a "
-    //             "'views' directory structure, filename: '{}'",
-    //             fan_filename.string()
-    //         );
-    //     
-    //     
-    //     
-    //     bfs::ifstream fin(fan_filename);
-    //     std::ostringstream ostrm;
-    //     ostrm << fin.rdbuf();
-    //     std::string fan_src = ostrm.str();
-    //     fin.close();
-    //     
-    //     
-    // }
-    
     /**
      * for more information see: Fanjet engine directory structure
      */
@@ -169,6 +147,7 @@ public:
             
         );
         
+        ast::root_node rn = parse(fan_src);
         
         return doc;
     }

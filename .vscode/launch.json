@@ -62,7 +62,33 @@
                     "ignoreFailures": true
                 }
             ]
-        }
+        },
+        
+        {
+            "name": "(gdb) Launch fanjet-precompiler",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/bin/fanjet",
+            "args": [
+                "-vvv",
+                "-n", "examples",
+                "-i", "examples_views.h",
+                "-s", "${workspaceFolder}/examples-evmvc/views/",
+                "-d", "${workspaceFolder}/build/bin/examples-views/"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}/build/bin/",
+            "environment": [],
+            "externalConsole": true,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        },
         
     ],
 	"compounds": [
