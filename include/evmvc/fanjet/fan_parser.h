@@ -33,9 +33,26 @@ SOFTWARE.
 
 namespace evmvc { namespace fanjet {
 
+enum class doc_type
+{
+    layout = 0,
+    partial = 1,
+    helper = 2,
+    body = 3
+};
+
 class document_t
 {
 public:
+    doc_type type;
+    
+    std::string ns;
+    std::string path;
+    std::string name;
+    std::string abs_path;
+    
+    std::string layout;
+    
     std::string h_filename;
     std::string h_src;
     std::string i_filename;
@@ -60,78 +77,6 @@ public:
             r->dump()
         );
         
-        auto ln = r->first_child();
-        if(!ln || ln->node_type() != ast::node_type::literal)
-            throw MD_ERR(
-                "Missing literal node!"
-            );
-        
-        auto n = ln->first_child();
-        
-        bool ns_exists = false;
-        bool name_exists = false;
-        bool layout_exists = false;
-        bool error = false;
-        while(n){
-            if(
-                n->node_type() != ast::node_type::directive &&
-                n->node_type() != ast::node_type::comment
-            ){
-                if(n->node_type() == ast::node_type::token){
-                    if(md::trim_copy(n->token_section_text()).size() > 0){
-                        error = true;
-                        break;
-                    }
-                }else{
-                    error = true;
-                    break;
-                }
-            }
-            
-            else if(n->sec_type() == ast::section_type::dir_ns){
-                if(ns_exists)
-                    throw MD_ERR(
-                        "@namespace directive can only be specified once."
-                    );
-                ns_exists = true;
-            }
-            
-            else if(n->sec_type() == ast::section_type::dir_name){
-                if(name_exists)
-                    throw MD_ERR(
-                        "@name directive can only be specified once."
-                    );
-                
-                name_exists = true;
-            }
-            
-            else if(n->sec_type() == ast::section_type::dir_layout){
-                if(layout_exists)
-                    throw MD_ERR(
-                        "@layout directive can only be specified once."
-                    );
-                layout_exists = true;
-            }
-            
-            else
-                throw MD_ERR(
-                    "@ns, @name and @layout directive are all required "
-                    "and must be defined before any other directive\n"
-                    "Current directive: '{}'",
-                    ast::to_string(n->sec_type())
-                );
-            
-            if(ns_exists && name_exists && layout_exists)
-                break;
-            n = n->next();
-        }
-        
-        if(error || !ns_exists || !name_exists || !layout_exists)
-            throw MD_ERR(
-                "@ns, @name and @layout directive are all required "
-                "and must be defined before any other expression"
-            );
-        
         return r;
     }
     
@@ -144,10 +89,101 @@ public:
         const std::string& fan_src)
     {
         document doc = std::make_shared<document_t>(
-            
         );
         
         ast::root_node rn = parse(fan_src);
+        
+        auto ln = rn->first_child();
+        if(!ln || ln->node_type() != ast::node_type::literal)
+            throw MD_ERR(
+                "Missing literal node!"
+            );
+        
+        auto n = ln->first_child();
+        
+        bool ns_exists = false;
+        bool name_exists = false;
+        bool layout_exists = false;
+        
+        while(n){
+            if(n->sec_type() == ast::section_type::dir_ns){
+                if(ns_exists)
+                    throw MD_ERR(
+                        "@namespace directive can only be specified once.\n"
+                        "line: {}, col: {}",
+                        n->line(), n->col()
+                    );
+                ns_exists = true;
+                doc->ns = md::trim_copy(n->child(1)->token_section_text());
+            }
+            
+            else if(n->sec_type() == ast::section_type::dir_name){
+                if(name_exists)
+                    throw MD_ERR(
+                        "@name directive can only be specified once.\n"
+                        "line: {}, col: {}",
+                        n->line(), n->col()
+                    );
+                
+                name_exists = true;
+                doc->name = md::trim_copy(n->child(1)->token_section_text());
+            }
+            
+            else if(n->sec_type() == ast::section_type::dir_layout){
+                if(layout_exists)
+                    throw MD_ERR(
+                        "@layout directive can only be specified once.\n"
+                        "line: {}, col: {}",
+                        n->line(), n->col()
+                    );
+                layout_exists = true;
+                doc->layout = md::trim_copy(n->child(1)->token_section_text());
+            }
+            
+            else if(
+                (!ns_exists || !name_exists) &&
+                n->node_type() != ast::node_type::directive &&
+                n->node_type() != ast::node_type::comment){
+                
+                size_t toksize = 1;
+                if(n->node_type() == ast::node_type::token)
+                    toksize = md::trim_copy(n->token_section_text()).size();
+                
+                if(toksize > 0)
+                    throw MD_ERR(
+                        "@ns and @name directive are required "
+                        "and must be defined before any other directive\n"
+                        "Current directive: '{}', line: {}, col: {}",
+                        ast::to_string(n->sec_type()), n->line(), n->col()
+                    );
+            }
+            
+            n = n->next();
+        }
+        
+        if(doc->ns.empty())
+            doc->ns = ns;
+        if(doc->path.empty())
+            doc->path = view_path.substr(0, view_path.rfind("/") +1);
+        
+        if(doc->name.empty())
+            doc->name = view_path.substr(view_path.rfind("/") +1);
+        
+        doc->abs_path = doc->ns + "::" + doc->path + doc->name;
+        
+        doc->type = doc_type::body;
+        if(boost::starts_with(doc->path, "layouts/") ||
+            boost::contains(doc->path, "/layouts/")
+        )
+            doc->type = doc_type::layout;
+        else if(boost::starts_with(doc->path, "partials/") ||
+            boost::contains(doc->path, "/partials/")
+        )
+            doc->type = doc_type::partial;
+        else if(boost::starts_with(doc->path, "helpers/") ||
+            boost::contains(doc->path, "/helpers/")
+        )
+            doc->type = doc_type::helper;
         
         return doc;
     }

@@ -230,9 +230,11 @@ void process_fanjet_file(
             src.parent_path().string().substr(
                 root.size()
             );
+        if(*(view_path.crend()) != '/')
+            view_path += "/";
         view_path += 
             src.filename().string().substr(
-                src.extension().string().size()
+                0, src.filename().size() - src.extension().string().size()
             );
         
         evmvc::fanjet::document doc = 

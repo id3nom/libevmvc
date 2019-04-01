@@ -807,7 +807,6 @@ public:
     bool prev_sibling_allowed() const { return false;}
     bool next_sibling_allowed() const { return false;}
     
-    
 protected:
     void parse(ast::token t);
 
@@ -919,7 +918,7 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(node_type::expr, dir_type, parent, prev, next)
+        : node_t(node_type::directive, dir_type, parent, prev, next)
     {
     }
 

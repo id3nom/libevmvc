@@ -258,12 +258,13 @@ public:
         return
             is_fan_name() ||
             is_fan_namespace() ||
+            is_fan_layout() ||
             is_fan_header() ||
             is_fan_inherits();
     }
     bool is_fan_namespace() const
     {
-        return _text == "@namespace" || _text == "ns";
+        return _text == "@namespace" || _text == "@ns";
     }
     bool is_fan_name() const { return _text == "@name";}
     bool is_fan_layout() const { return _text == "@layout";}
