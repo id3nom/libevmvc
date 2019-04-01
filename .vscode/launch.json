@@ -70,7 +70,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/fanjet",
             "args": [
-                "-vvv",
+                "-vv",
                 "-n", "examples",
                 "-i", "examples_views.h",
                 "-s", "${workspaceFolder}/examples-evmvc/views/",
@@ -90,14 +90,6 @@
             ]
         },
         
-    ],
-	"compounds": [
-		{
-			"name": "main+worker",
-			"configurations": [
-				"(gdb) Launch web_server", "(gdb) Attach web_server"
-			]
-		}
-	]
+    ]
     
 }

@@ -195,6 +195,34 @@ public:
     bool is_lt() const { return _text == "<";}
     bool is_gt() const { return _text == ">";}
     
+    bool is_fan_keyword() const
+    {
+        return
+            is_fan_body();
+    }
+    
+    bool is_fan_body() const { return _text == "@body";}
+    
+    bool is_fan_fn() const
+    {
+        return
+            is_fan_render() ||
+            
+            is_fan_set() ||
+            
+            is_fan_get() ||
+            is_fan_fmt() ||
+            is_fan_get_raw() ||
+            is_fan_fmt_raw();
+    }
+    
+    bool is_fan_render() const { return _text == "@>";}
+    bool is_fan_set() const { return _text == "@set";}
+    bool is_fan_get() const { return _text == "@get";}
+    bool is_fan_fmt() const { return _text == "@fmt";}
+    bool is_fan_get_raw() const { return _text == "@get-raw";}
+    bool is_fan_fmt_raw() const { return _text == "@fmt-raw";}
+    
     bool is_fan_key() const
     {
         return
@@ -335,7 +363,6 @@ public:
     bool is_fan_await() const { return _text == "@await";}
     
     bool is_fan_markup_open() const { return _text == "@(";}
-    bool is_fan_render_partial() const { return _text == "@>";}
     
     bool is_double_quote() const { return _text == "\"";}
     bool is_single_quote() const { return _text == "'";}
@@ -503,7 +530,7 @@ public:
         if(tmp_text.size() > 0)
             t = t->add_next(tmp_text, tl, tc, ti);
         
-        EVMVC_DEF_TRACE(
+        EVMVC_DEF_DBG(
             md::replace_substring_copy(
                 md::replace_substring_copy(root->dump(), "{", "{{"),
                 "}", "}}"

@@ -38,6 +38,14 @@ enum class section_type
     string              = INT_MIN +4,
     any                 = INT_MIN +5,
     
+    body                = INT_MIN +6,
+    render              = INT_MIN +7,
+    set                 = INT_MIN +8,
+    get                 = INT_MIN +9,
+    fmt                 = INT_MIN +10,
+    get_raw             = INT_MIN +11,
+    fmt_raw             = INT_MIN +12,
+    
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
     dir_layout          = (1 << 2),     // @layout ...
@@ -98,6 +106,21 @@ inline md::string_view to_string(section_type t)
             return "string";
         case section_type::any:
             return "any";
+            
+        case section_type::body:
+            return "body";
+        case section_type::render:
+            return "render";
+        case section_type::set:
+            return "set";
+        case section_type::get:
+            return "get";
+        case section_type::fmt:
+            return "fmt";
+        case section_type::get_raw:
+            return "get-raw";
+        case section_type::fmt_raw:
+            return "fmt-raw";
 
         case section_type::dir_ns:
             return "dir_ns";

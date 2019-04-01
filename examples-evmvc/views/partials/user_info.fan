@@ -24,6 +24,15 @@ SOFTWARE.
 @ns     
 @name   user_info
 
+@header{
+    int j = 0;
+}<br/>
+
+@{
+    int i = 1;
+    @(htm){<div>@(html){<br/>}</div>}
+}<br/>
+
 <div>
     username: @get("username", "abc")<br/>
     fullname: @get("fullname", "def 123")<br/>

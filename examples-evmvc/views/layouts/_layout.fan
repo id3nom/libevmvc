@@ -36,15 +36,15 @@ SOFTWARE.
 </head>
 <body>
     
-    @>header;
+    @>header;<br/>
     
-    @set("username", req->params("rplante"))
-    @set("fullname", req->params("robert plante"))
+    @set("username", req->params("rplante"))<div>
+    @set("fullname", req->params("robert plante"))</div>
     
-    @>web_server::user_info;
+    @>web_server::user_info;<br/>
     
-    @body
-    @>footer;
+    @body<br/>
+    @>footer;<br/>
     
 </body>
 </html>

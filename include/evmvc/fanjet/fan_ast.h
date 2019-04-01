@@ -63,6 +63,11 @@ typedef std::shared_ptr<code_fun_node_t> code_fun_node;
 class code_async_node_t;
 typedef std::shared_ptr<code_async_node_t> code_async_node;
 
+class fan_key_node_t;
+typedef std::shared_ptr<fan_key_node_t> fan_key_node;
+class fan_fn_node_t;
+typedef std::shared_ptr<fan_fn_node_t> fan_fn_node;
+
 enum class node_type
 {
     invalid         = INT_MIN,
@@ -71,6 +76,14 @@ enum class node_type
     expr            = INT_MIN +3,
     string          = INT_MIN +4,
     any             = INT_MIN +5,
+    
+    body            = INT_MIN +6,
+    render          = INT_MIN +7,
+    set             = INT_MIN +8,
+    get             = INT_MIN +9,
+    fmt             = INT_MIN +10,
+    get_raw         = INT_MIN +11,
+    fmt_raw         = INT_MIN +12,
     
     directive       =
         (int)(
@@ -142,6 +155,21 @@ inline md::string_view to_string(node_type t)
         case node_type::any:
             return "any";
 
+        case node_type::body:
+            return "body";
+        case node_type::render:
+            return "render";
+        case node_type::set:
+            return "set";
+        case node_type::get:
+            return "get";
+        case node_type::fmt:
+            return "fmt";
+        case node_type::get_raw:
+            return "get-raw";
+        case node_type::fmt_raw:
+            return "fmt-raw";
+
         case node_type::directive:
             return "directive";
         case node_type::literal:
@@ -191,7 +219,7 @@ class node_t
     friend class code_async_node_t;
     
     friend bool open_scope(ast::token& t, ast::node_t* n);
-    friend void close_scope(ast::token& t, ast::node_t* pn);
+    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff);
     
 protected:
     node_t(
@@ -206,7 +234,8 @@ protected:
         _parent(parent),
         _prev(prev),
         _token(nullptr),
-        _next(next)
+        _next(next),
+        _dbg_line(0), _dbg_col(0)
     {
         if((int)node_type::invalid == (int)sec_type)
             _node_type = node_type::invalid;
@@ -260,7 +289,8 @@ protected:
         _parent(parent),
         _prev(prev),
         _token(nullptr),
-        _next(next)
+        _next(next),
+        _dbg_line(0), _dbg_col(0)
     {
         EVMVC_DEF_TRACE(
             "creating node: '{}', sec: '{}'",
@@ -567,9 +597,30 @@ public:
     }
 
     
-    size_t line() const { return _token ? _token->line() : 0;}
-    size_t col() const { return _token ? _token->col() : 0;}
-    size_t pos() const { return  _token ? _token->pos() : 0;}
+    size_t line() const 
+    {
+        return _token ?
+            _token->line() :
+            _prev.expired() ?
+                _parent.expired() ? 0 : _parent.lock()->line() :
+                _prev.lock()->line();
+    }
+    size_t col() const
+    {
+        return _token ?
+            _token->col() :
+            _prev.expired() ?
+                _parent.expired() ? 0 : _parent.lock()->col() :
+                _prev.lock()->col();
+    }
+    size_t pos() const
+    {
+        return _token ?
+            _token->pos() :
+            _prev.expired() ?
+                _parent.expired() ? 0 : _parent.lock()->pos() :
+                _prev.lock()->pos();
+    }
     std::string token_text() const
     {
         if(!_token)
@@ -789,6 +840,9 @@ private:
     std::weak_ptr<node_t> _next;
     
     std::vector<node> _childs;
+protected:
+    size_t _dbg_line;
+    size_t _dbg_col;
 };
 
 root_node parse(ast::token t);
@@ -825,7 +879,7 @@ inline root_node parse(ast::token t)
     friend class root_node_t; \
     friend class code_block_node_t; \
     friend bool open_scope(ast::token& t, ast::node_t* n); \
-    friend void close_scope(ast::token& t, ast::node_t* pn); \
+    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
     
 class token_node_t
     : public node_t
@@ -918,7 +972,8 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(node_type::directive, dir_type, parent, prev, next)
+        : node_t(node_type::directive, dir_type, parent, prev, next),
+        _done(false)
     {
     }
 
@@ -929,6 +984,7 @@ protected:
     void parse(ast::token t);
 
 private:
+    bool _done;
     
 };
 
@@ -1010,7 +1066,7 @@ class code_block_node_t
     friend class node_t;
     friend class root_node_t;
     friend bool open_scope(ast::token& t, ast::node_t* n);
-    friend void close_scope(ast::token& t, ast::node_t* pn);
+    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff);
     
 protected:
     code_block_node_t(
@@ -1151,6 +1207,55 @@ private:
     
     std::string _async_type;
 };
+
+class fan_key_node_t
+    : public node_t
+{
+    EVMVC_FANJET_NODE_FRIENDS
+protected:
+    fan_key_node_t(
+        ast::section_type t,
+        node parent = nullptr,
+        node prev = nullptr,
+        node next = nullptr)
+        : node_t((ast::node_type)t, t, parent, prev, next)
+    {
+    }
+
+public:
+    
+    
+protected:
+    void parse(ast::token t);
+
+private:
+};
+
+class fan_fn_node_t
+    : public node_t
+{
+    EVMVC_FANJET_NODE_FRIENDS
+protected:
+    fan_fn_node_t(
+        ast::section_type t,
+        node parent = nullptr,
+        node prev = nullptr,
+        node next = nullptr)
+        : node_t((ast::node_type)t, t, parent, prev, next),
+        _done(false)
+    {
+    }
+    
+public:
+    
+    
+protected:
+    void parse(ast::token t);
+
+private:
+    bool _done;
+};
+
 
 }}}//::evmvc::fanjet::ast
 #include "fan_ast_impl.h"

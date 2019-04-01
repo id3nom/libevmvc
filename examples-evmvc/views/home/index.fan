@@ -45,3 +45,7 @@ In index.fan page <br/>
 <a href="/clear_interval/">/clear_interval/:[name]</a><br/>
 
 
+@header{
+    int j;
+    
+}

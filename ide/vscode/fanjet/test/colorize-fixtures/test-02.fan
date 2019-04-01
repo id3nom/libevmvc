@@ -29,18 +29,22 @@ SOFTWARE.
  @namespace app_ns::ns2::ns4
 
 @name app_name
+
 @layout path/to/layout_name
 
-@header
+@header{
     #include <string>
     #include <iostream> 
     #include <vector>
-;
+    
+    int j = 0;
+    
+}
 
-@inherits
+@inherits{
     public v1 = "path/to/view_1",
     protected v2 = "~/path/to/view_2"
-;
+}
 
 @*
     multiline

@@ -25,6 +25,10 @@ SOFTWARE.
 @name   test03
 @layout _layout
 
+@header{
+    
+}
+
 @set("title", "test03 - test")
 @set("hr", "<hr/>")
 
@@ -51,7 +55,7 @@ SOFTWARE.
         (long)23
     )
     @::(long)22 ;
-    <a href="@::index_val;"> hyperlink text @:long;  </a>
+    <a href="@::index_val;"> hyperlink text @:(long)23;  </a>
     @:(long)23;
     @get-raw("hr", "<br/>")
     

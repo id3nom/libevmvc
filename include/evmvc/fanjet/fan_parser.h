@@ -72,7 +72,7 @@ public:
         ast::token root_token = ast::tokenizer::tokenize(text);
         ast::root_node r = ast::parse(root_token);
         
-        md::log::trace(
+        md::log::debug(
             "debug ast output:\n{}",
             r->dump()
         );
@@ -161,15 +161,30 @@ public:
             n = n->next();
         }
         
+        
         if(doc->ns.empty())
             doc->ns = ns;
+
         if(doc->path.empty())
             doc->path = view_path.substr(0, view_path.rfind("/") +1);
         
         if(doc->name.empty())
             doc->name = view_path.substr(view_path.rfind("/") +1);
+
+        std::string err;
+        if(!validate_vname(err, doc->ns, false, ":"))
+            throw MD_ERR("Invalid namespace value '{}'\n{}", doc->ns, err);
+        if(!validate_vname(err, doc->path, false, "/"))
+            throw MD_ERR("Invalid path value '{}'\n{}", doc->path, err);
+        if(!validate_vname(err, doc->name, false, ""))
+            throw MD_ERR("Invalid name value '{}'\n{}", doc->name, err);
         
         doc->abs_path = doc->ns + "::" + doc->path + doc->name;
+        
+        std::string nvname = norm_vname(doc->abs_path, "-");
+        doc->h_filename = nvname + ".h";
+        doc->i_filename = nvname + "-inc.h";
+        doc->c_filename = nvname + ".cpp";
         
         doc->type = doc_type::body;
         if(boost::starts_with(doc->path, "layouts/") ||
@@ -189,7 +204,109 @@ public:
     }
     
 private:
-
+    
+    static std::string norm_vname(
+        const std::string& vname,
+        const std::string& replacing_val = "-",
+        const std::string allowed_user_chars = ""
+    )
+    {
+        std::string nvname;
+        
+        for(size_t i = 0; i < vname.size(); ++i){
+            char c = vname[i];
+            if(i == 0){
+                if(
+                    !(c >= 'A' && c <= 'Z') &&
+                    !(c >= 'a' && c <= 'z') &&
+                    c != '_'
+                ){
+                    nvname += replacing_val;
+                    continue;
+                }
+                nvname += c;
+                continue;
+            }
+            
+            if(
+                !(c >= 'A' && c <= 'Z') &&
+                !(c >= 'a' && c <= 'z') &&
+                !(c >= '0' && c <= '9') &&
+                c != '_'
+            ){
+                if(!allowed_user_chars.empty()){
+                    bool is_valid = false;
+                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                        if(c == allowed_user_chars[j]){
+                            is_valid = true;
+                            break;
+                        }
+                    if(is_valid){
+                        nvname += c;
+                        continue;
+                    }
+                }
+                
+                nvname += replacing_val;
+                continue;
+            }
+            
+            nvname += c;
+        }
+        
+        return nvname;
+    }
+    
+    static bool validate_vname(
+        std::string& err,
+        const std::string& vname,
+        bool accept_empty = false,
+        const std::string allowed_user_chars = "")
+    {
+        if(vname.size() == 0)
+            return accept_empty;
+        
+        for(size_t i = 0; i < vname.size(); ++i){
+            char c = vname[i];
+            if(i == 0){
+                if(
+                    !(c >= 'A' && c <= 'Z') &&
+                    !(c >= 'a' && c <= 'z') &&
+                    c != '_'
+                ){
+                    err =
+                        "Variable must always start with one of 'AZ_az'";
+                    return false;
+                }
+                continue;
+            }
+            
+            if(
+                !(c >= 'A' && c <= 'Z') &&
+                !(c >= 'a' && c <= 'z') &&
+                !(c >= '0' && c <= '9') &&
+                c != '_'
+            ){
+                if(!allowed_user_chars.empty()){
+                    bool is_valid = false;
+                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                        if(c == allowed_user_chars[j]){
+                            is_valid = true;
+                            break;
+                        }
+                    if(is_valid)
+                        continue;
+                }
+                
+                err =
+                    "Variable must only contains the following chars: "
+                    "'AZ_az09" + allowed_user_chars;
+                return false;
+            }
+        }
+        
+        return true;
+    }
 };
 
 }}//::evmvc::fanjet

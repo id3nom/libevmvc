@@ -61,6 +61,9 @@ inline void root_node_t::parse(ast::token t)
 inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
     if(t->is_fan_start_key() ||
+
+        t->is_fan_keyword() ||
+        t->is_fan_fn() ||
         
         t->is_double_quote() || t->is_single_quote() || t->is_backtick() ||
         t->is_parenthesis_open() || t->is_curly_brace_open() ||
@@ -197,7 +200,12 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                 throw MD_ERR(
                     "invalid literal language of '{}', line: '{}', col: '{}'\n"
                     "available language are 'html, htm, markdown and md!'",
-                    l, t->line(), t->col()
+                    md::replace_substring_copy(
+                        md::replace_substring_copy(
+                            l, "{", "{{"
+                        ), "}", "}}"
+                    ),
+                    t->line(), t->col()
                 );
             n = literal_node(new literal_node_t(
                 l == "html" || l == "htm" ?
@@ -211,6 +219,33 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
                 tl = tl->next();
             }
             ++end_hup;
+        }
+        
+        else if(t->is_fan_keyword()){
+            n = fan_key_node(new fan_key_node_t(
+                t->is_fan_body() ?
+                    ast::section_type::body :
+                    ast::section_type::invalid
+            ));
+            
+        }
+        else if(t->is_fan_fn()){
+            n = fan_fn_node(new fan_fn_node_t(
+                t->is_fan_render() ?
+                    ast::section_type::render :
+                t->is_fan_set() ?
+                    ast::section_type::set :
+                t->is_fan_get() ?
+                    ast::section_type::get :
+                t->is_fan_fmt() ?
+                    ast::section_type::fmt :
+                t->is_fan_get_raw() ?
+                    ast::section_type::get_raw :
+                t->is_fan_fmt_raw() ?
+                    ast::section_type::fmt_raw :
+                
+                    ast::section_type::invalid
+            ));
         }
         
         else if(
@@ -232,8 +267,15 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             // we don't want nt instance to be release
             t = nt;
             // hup
-            for(size_t i = 0; i < end_hup; ++i)
+            for(size_t i = 0; i < end_hup; ++i){
                 nt = nt->next();
+                if(!nt){
+                    throw MD_ERR(
+                        "Are you missing an open scope? line: '{}', col: '{}'",
+                        t->line(), t->col()
+                    );
+                }
+            }
             
             t = nt->snip();
             if(t)
@@ -246,8 +288,13 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
     return false;
 }
 
-inline void close_scope(ast::token& t, ast::node_t* pn)
+inline void close_scope(ast::token& t, ast::node_t* pn, bool ff = true)
 {
+    if(!ff){
+        pn->parent()->parse(t);
+        return;
+    }
+    
     if(!t)
         return;
     
@@ -294,11 +341,24 @@ inline void literal_node_t::parse(ast::token t)
         if(t) t = t->next();
     }
     
+    if(this->sec_type() != section_type::literal)
+        throw MD_ERR(
+            "Scope is not closed, are you missing {}? "
+            "line: '{}', col: '{}'",
+            "a closing parenthesis, a closing brace or semicolon",
+            tt->line(), tt->col()
+        );
+    
     this->add_token(tt);
 }
 
 inline void expr_node_t::parse(ast::token t)
 {
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
     ast::token st = t;
     while(t){
         if(open_scope(t, this))
@@ -363,10 +423,22 @@ inline void expr_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+    
+    throw MD_ERR(
+        "Scope is not closed, are you missing {}? "
+        "line: '{}', col: '{}'",
+        "a closing parenthesis, a closing brace or semicolon",
+        _dbg_line, _dbg_col
+    );
 }
 
 inline void string_node_t::parse(ast::token t)
 {
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
     ast::token st = t;
     while(t){
         ast::token nt = t->next();
@@ -407,10 +479,27 @@ inline void string_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+
+    throw MD_ERR(
+        "String is not closed, are you missing a '\"', ''' or '`'? "
+        "line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
+    
 }
 
 inline void directive_node_t::parse(ast::token t)
 {
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
+    if(_done){
+        close_scope(t, this, false);
+        return;
+    }
+    
     ast::token st = t;
     while(t){
         switch(this->sec_type()){
@@ -418,6 +507,7 @@ inline void directive_node_t::parse(ast::token t)
             case ast::section_type::dir_name:
             case ast::section_type::dir_layout:
                 if(t->is_eol()){
+                    _done = true;
                     close_scope(t, this);
                     return;
                 }
@@ -425,14 +515,19 @@ inline void directive_node_t::parse(ast::token t)
             
             case ast::section_type::dir_header:
             case ast::section_type::dir_inherits:
-                if(t->is_semicolon()){
-                    close_scope(t, this);
-                    return;
+                if(!t->is_whitespace()){
+                    if(t->is_curly_brace_open()){
+                        _done = true;
+                        open_scope(t, this);
+                        return;
+                    }
+                    throw MD_ERR(
+                        "Open curly brace is required, line: '{}', col: '{}'",
+                        t->line(), t->col()
+                    );
                 }
-                if(open_scope(t, this))
-                    return;
-                
                 break;
+                
             default:
                 break;
         }
@@ -440,6 +535,13 @@ inline void directive_node_t::parse(ast::token t)
         if(t)
             t = t->next();
     }
+
+    throw MD_ERR(
+        "Directive is not closed, are you missing {}? "
+        "line: '{}', col: '{}'",
+        "a closing brace",
+        _dbg_line, _dbg_col
+    );
 }
 
 
@@ -470,10 +572,16 @@ inline void comment_node_t::parse(ast::token t)
         if(t)
             t = t->next();
     }
+    close_scope(t, this);
 }
 
 inline void output_node_t::parse(ast::token t)
 {
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
     ast::token st = t;
     while(t){
         if(t->is_semicolon()){
@@ -484,10 +592,19 @@ inline void output_node_t::parse(ast::token t)
         if(t)
             t = t->next();
     }
+    throw MD_ERR(
+        "Output is not closed, are you missing a ';'? "
+        "line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
 }
 
 inline void code_block_node_t::parse(ast::token t)
 {
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
     ast::token st = t;
     while(t){
         if(open_scope(t, this))
@@ -573,6 +690,12 @@ inline void code_block_node_t::parse(ast::token t)
         if(t)
             t = t->next();
     }
+    
+    throw MD_ERR(
+        "Code block is not closed, are you missing {}? "
+        "line: '{}', col: '{}'",
+        "a closing brace", _dbg_line, _dbg_col
+    );
 }
 
 inline void code_control_node_t::parse(ast::token t)
@@ -580,6 +703,11 @@ inline void code_control_node_t::parse(ast::token t)
     if(_done){
         close_scope(t, this);
         return;
+    }
+
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
     }
     
     ast::token st = t;
@@ -645,6 +773,12 @@ inline void code_control_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+    
+    throw MD_ERR(
+        "Incomplete control statement, "
+        "line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
 }
 
 inline void code_err_node_t::parse(ast::token t)
@@ -652,6 +786,11 @@ inline void code_err_node_t::parse(ast::token t)
     if(_done){
         close_scope(t, this);
         return;
+    }
+    
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
     }
     
     ast::token st = t;
@@ -685,6 +824,12 @@ inline void code_err_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+    
+    throw MD_ERR(
+        "Incomplete try catch statement, are you missing the catch statement? "
+        "line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
 }
 
 inline void code_fun_node_t::parse(ast::token t)
@@ -692,6 +837,11 @@ inline void code_fun_node_t::parse(ast::token t)
     if(_done){
         close_scope(t, this);
         return;
+    }
+
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
     }
     
     ast::token st = t;
@@ -710,6 +860,11 @@ inline void code_fun_node_t::parse(ast::token t)
         
         if(t) t = t->next();
     }
+    
+    throw MD_ERR(
+        "Open curly brace is required, line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
 }
 
 inline void code_async_node_t::parse(ast::token t)
@@ -717,6 +872,11 @@ inline void code_async_node_t::parse(ast::token t)
     if(_done){
         close_scope(t, this);
         return;
+    }
+    
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
     }
     
     //  @<
@@ -811,5 +971,66 @@ inline void code_async_node_t::parse(ast::token t)
 }
 
 
+inline void fan_key_node_t::parse(ast::token t)
+{
+    close_scope(t, this, false);
+}
+
+inline void fan_fn_node_t::parse(ast::token t)
+{
+    if(_done){
+        close_scope(t, this, false);
+        return;
+    }
+    
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
+    ast::token st = t;
+    while(t){
+        switch(this->sec_type()){
+            case ast::section_type::render:
+                if(t->is_semicolon()){
+                    _done = true;
+                    close_scope(t, this);
+                    return;
+                }
+                break;
+            
+            case ast::section_type::set:
+            case ast::section_type::get:
+            case ast::section_type::fmt:
+            case ast::section_type::get_raw:
+            case ast::section_type::fmt_raw:
+                if(!t->is_whitespace()){
+                    if(t->is_parenthesis_open()){
+                        _done = true;
+                        open_scope(t, this);
+                        return;
+                    }
+                    throw MD_ERR(
+                        "Open parenthesis is required, line: '{}', col: '{}'",
+                        t->line(), t->col()
+                    );
+                }
+                break;
+                
+            default:
+                break;
+        }
+        
+        if(t)
+            t = t->next();
+    }
+    
+    throw MD_ERR(
+        "Incomplete function, are you missing a '('? "
+        "line: '{}', col: '{}'",
+        _dbg_line, _dbg_col
+    );
+    
+}
 
 }}}//::evmvc::fanjet::ast

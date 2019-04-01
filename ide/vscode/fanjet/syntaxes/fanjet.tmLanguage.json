@@ -174,65 +174,56 @@
                 }
             },
             "patterns": [
-                {
-                    "include": "#cpp-namespace-identifier"
-                }
-            ],
-            "end": "$"
-        },
-        "fanjet-name-directive": {
-            "name": "meta.directive.layout.fan",
-            "begin": "(@name)\\s+",
-            "captures": {
-                "0": {"name": "keyword.control.fan"}
-            },
-            "patterns": [
                 {"include": "#cpp-type-name"}
             ],
             "end": "$"
         },
-        "fanjet-header-directive": {
-            "name": "meta.directive.header.fan",
-            "begin": "(@header)\\s+",
+        "fanjet-name-directive": {
+            "name": "string.directive.name.fan",
+            "begin": "(@name)\\s+",
             "captures": {
                 "0": {"name": "keyword.control.fan"}
             },
-            "patterns": [
-                {
-                    "include": "source.cpp"
-                }
-            ],
-            "end": ";"
-        },
-        "fanjet-inherits-directive": {
-            "name": "meta.directive.inherits.fan",
-            "begin": "(@inherits)\\s+",
-            "captures": {
-                "0": {
-                    "name": "keyword.control.fan"
-                }
-            },
-            "patterns": [
-                {
-                    "include": "#cpp-type-name"
-                }
-            ],
-            "end": ";"
+            "end": "$"
         },
         "fanjet-layout-directive": {
-            "name": "meta.directive.layout.fan",
+            "name": "string.directive.layout.fan",
             "begin": "(@layout)\\s+",
             "captures": {
                 "0": {
                     "name": "keyword.control.fan"
                 }
             },
-            "patterns": [
-                {
-                    "include": "#cpp-type-name"
-                }
-            ],
             "end": "$"
+        },
+        "fanjet-header-directive": {
+            "name": "meta.directive.header.fan",
+            "begin": "(@header)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns": [{"include": "source.cpp"}]
+        },
+        "fanjet-inherits-directive": {
+            "name": "meta.directive.inherits.fan",
+            "begin": "(@inherits)(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns": [
+                {"include": "source.cpp"},
+                {"include": "#cpp-type-name"}
+            ]
         },
         
         
