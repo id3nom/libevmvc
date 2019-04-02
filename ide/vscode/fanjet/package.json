@@ -2,7 +2,7 @@
     "name": "fanjet",
     "displayName": "Fanjet syntax highlighting",
     "description": "",
-    "version": "0.1.3",
+    "version": "0.1.4",
     "publisher": "libevmvc",
     "engines": {
         "vscode": "^1.32.3"

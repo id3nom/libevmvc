@@ -160,9 +160,10 @@
             "patterns": [
                 {"include": "#fanjet-namespace-directive"},
                 {"include": "#fanjet-name-directive"},
+                {"include": "#fanjet-layout-directive"},
+                {"include": "#fanjet-include-directive"},
                 {"include": "#fanjet-header-directive"},
-                {"include": "#fanjet-inherits-directive"},
-                {"include": "#fanjet-layout-directive"}
+                {"include": "#fanjet-inherits-directive"}
             ]
         },
         "fanjet-namespace-directive": {
@@ -189,6 +190,16 @@
         "fanjet-layout-directive": {
             "name": "string.directive.layout.fan",
             "begin": "(@layout)\\s+",
+            "captures": {
+                "0": {
+                    "name": "keyword.control.fan"
+                }
+            },
+            "end": "$"
+        },
+        "fanjet-include-directive": {
+            "name": "string.directive.include.fan",
+            "begin": "(@include)\\s+",
             "captures": {
                 "0": {
                     "name": "keyword.control.fan"
@@ -482,6 +493,7 @@
             "name": "meta.commands.fan",
             "patterns": [
                 {"include": "#fanjet-commands-body"},
+                {"include": "#fanjet-commands-src"},
                 {"include": "#fanjet-commands-partial"},
                 {"include": "#fanjet-commands-set"},
                 {"include": "#fanjet-commands-get"},
@@ -493,6 +505,13 @@
         "fanjet-commands-body":{
             "name": "meta.commands.body",
             "match": "@body",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            }
+        },
+        "fanjet-commands-src":{
+            "name": "meta.commands.body",
+            "match": "@src",
             "captures": {
                 "0": {"name": "keyword.control.fan"}
             }

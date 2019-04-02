@@ -27,6 +27,113 @@ SOFTWARE.
 
 #include "../stable_headers.h"
 
+namespace evmvc { namespace fanjet {
+    
+    inline std::string norm_vname(
+        const std::string& vname,
+        const std::string& replacing_val = "-",
+        const std::string allowed_user_chars = "")
+    {
+        std::string nvname;
+        
+        for(size_t i = 0; i < vname.size(); ++i){
+            char c = vname[i];
+            if(i == 0){
+                if(
+                    !(c >= 'A' && c <= 'Z') &&
+                    !(c >= 'a' && c <= 'z') &&
+                    c != '_'
+                ){
+                    nvname += replacing_val;
+                    continue;
+                }
+                nvname += c;
+                continue;
+            }
+            
+            if(
+                !(c >= 'A' && c <= 'Z') &&
+                !(c >= 'a' && c <= 'z') &&
+                !(c >= '0' && c <= '9') &&
+                c != '_'
+            ){
+                if(!allowed_user_chars.empty()){
+                    bool is_valid = false;
+                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                        if(c == allowed_user_chars[j]){
+                            is_valid = true;
+                            break;
+                        }
+                    if(is_valid){
+                        nvname += c;
+                        continue;
+                    }
+                }
+                
+                nvname += replacing_val;
+                continue;
+            }
+            
+            nvname += c;
+        }
+        
+        return nvname;
+    }
+    
+    inline bool validate_vname(
+        std::string& err,
+        const std::string& vname,
+        bool accept_empty = false,
+        const std::string allowed_user_chars = "")
+    {
+        if(vname.size() == 0)
+            return accept_empty;
+        
+        for(size_t i = 0; i < vname.size(); ++i){
+            char c = vname[i];
+            if(i == 0){
+                if(
+                    !(c >= 'A' && c <= 'Z') &&
+                    !(c >= 'a' && c <= 'z') &&
+                    c != '_'
+                ){
+                    err =
+                        "Variable must always start with one of 'AZ_az'";
+                    return false;
+                }
+                continue;
+            }
+            
+            if(
+                !(c >= 'A' && c <= 'Z') &&
+                !(c >= 'a' && c <= 'z') &&
+                !(c >= '0' && c <= '9') &&
+                c != '_'
+            ){
+                if(!allowed_user_chars.empty()){
+                    bool is_valid = false;
+                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                        if(c == allowed_user_chars[j]){
+                            is_valid = true;
+                            break;
+                        }
+                    if(is_valid)
+                        continue;
+                }
+                
+                err =
+                    "Variable must only contains the following chars: "
+                    "'AZ_az09" + allowed_user_chars;
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    
+}}//::evmvc::fanjet
+
 namespace evmvc { namespace fanjet { namespace ast {
 enum class section_type
     : int

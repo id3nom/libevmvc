@@ -1026,7 +1026,7 @@ protected:
 
 public:
     
-    void parse_inherits_items(std::vector<inherits_item>& items)
+    void get_inherits_items(std::vector<inherits_item>& items)
     {
         std::string txt = n->text(1, -1);
         
@@ -1078,18 +1078,37 @@ public:
                 w1 != "public" && w1 != "protected" && w1 != "private"
             )
                 throw MD_ERR(
-                    "Invalid access modifier! for inherit declaration!\n"
-                    "line: '{}', col: '{}'",
-                    _dbg_line, _dbg_col
+                    "Invalid access modifier in inherit directive!\n"
+                    "modifier: '{}, 'line: '{}', col: '{}'",
+                    w3, _dbg_line, _dbg_col
                 );
-            
-            if(w3.empty()){
-                if(w1 == "public" || w1 == "protected" || w1 == "private"){
-                    
+
+            if(w2.empty()){
+                if(w1 != "public" && w1 != "protected" && w1 != "private"){
+                    if(w3.empty())
+                        w3 = w1;
+                    w2 = "";
+                    w1 = "private";
+                }else{
+                    if(w3.empty())
+                        throw MD_ERR(
+                            "Invalid inherit directive!\n"
+                            "'line: '{}', col: '{}'",
+                            _dbg_line, _dbg_col
+                        );
                 }
-                w3 = w2;
                 
+            }else if(w3.empty()){
+                if(w1 == "public" || w1 == "protected" || w1 == "private"){
+                    w3 = w2;
+                    w2 = "";
+                }else{
+                    w3 = w2;
+                    w2 = w1;
+                    w1 = "private";
+                }
             }
+            
             auto i = std::make_shared<inherits_item_t>();
             i->access = 
                 w1 == "public" ?
@@ -1099,16 +1118,10 @@ public:
                 w1 == "private" ?
                     inherits_access_type::pri :
                     inherits_access_type::pri;
+            i->alias = w2;
+            i->path = w3;
             
-            if(w3.empty() && w2.empty()){
-                i->alias = "";
-                i->path = w1;
-            }
-            if(w3.empty() && !w2.empty()){
-                i->alias = "";
-                i->path = w2;
-            }
-            
+            items.emplace_back(i);
         }
     }
     

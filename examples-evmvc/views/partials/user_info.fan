@@ -22,17 +22,26 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 *@
 @ns     
-@name   user_info
+@name   user_info @** comment ....
 @** @layout _layout
 @** @layout _layout
+@include "@src/../common.h" @** include something special....
 
 @header{
-    int j = 0;
+    
+    class abc
+    {
+    public:
+        char a;
+        char b;
+        char c;
+    };
+    
 }<br/>
 
 @{
     int i = 1;
-    @(htm){<div>@(html){<br/>}</div>}
+    @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
 }<br/>
 
 <div>
@@ -40,4 +49,7 @@ SOFTWARE.
     fullname: @get("fullname", "def 123")<br/>
 </div>
 
+@header{
+}
 
+<br/>
