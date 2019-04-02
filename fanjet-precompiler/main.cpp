@@ -34,15 +34,21 @@ void march_dir(
     std::vector<evmvc::fanjet::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src,
-    const bfs::path& dest
+    const bfs::path& src/*,
+    const bfs::path& dest*/
 );
 
 void process_fanjet_file(
     std::vector<evmvc::fanjet::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src,
+    const bfs::path& src/*,
+    const bfs::path& dest*/
+);
+
+void save_docs(
+    const std::string& include_src,
+    const std::vector<evmvc::fanjet::document>& docs,
     const bfs::path& dest
 );
 
@@ -57,23 +63,26 @@ int main(int argc, char** argv)
     ("verbosity,v",
         po::value(&verbosity_values)->implicit_value(""),
         "verbosity level, "
-        "v: info, vv: debug, vvv: trace"
+        "v: info, vv: debug, vvv: trace."
+    )
+    ("debug",
+        "generate non optimized debug output."
     )
     ("namespace,n",
         po::value<std::string>()->required(),
-        "set namespace for the specified views directory"
+        "set namespace for the specified views directory."
     )
     ("include,i",
         po::value<std::string>()->required(),
-        "views generated include filename"
+        "views generated include filename."
     )
     ("src,s",
         po::value<std::string>()->required(),
-        "views source directory to precompile"
+        "views source directory to precompile."
     )
     ("dest,d",
         po::value<std::string>()->required(),
-        "views precompiled destination directory"
+        "views precompiled destination directory."
     )
     ;
     
@@ -145,14 +154,26 @@ int main(int argc, char** argv)
         if(!bfs::exists(dest))
             bfs::create_directories(dest);
         
+        bool dbg = vm.count("debug") > 0;
+        
         std::vector<evmvc::fanjet::document> docs;
         march_dir(
+            dbg,
             docs,
             vm["src"].as<std::string>(),
             vm["namespace"].as<std::string>(),
-            vm["src"].as<std::string>(),
-            vm["dest"].as<std::string>()
+            vm["src"].as<std::string>()/*,
+            vm["dest"].as<std::string>()*/
         );
+        
+        std::string include_src;
+        evmvc::fanjet::parser::generate_code(include_src, docs, dbg);
+        
+        save_docs(
+            include_src,
+            docs,
+            vm["dest"].as<std::string>()
+            );
         
         return 0;
     }catch(const std::exception& err){
@@ -176,31 +197,34 @@ int main(int argc, char** argv)
 
 
 void march_dir(
+    bool dbg,
     std::vector<evmvc::fanjet::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src,
-    const bfs::path& dest)
+    const bfs::path& src/*,
+    const bfs::path& dest*/)
 {
     for(bfs::directory_entry& x : bfs::directory_iterator(src)){
         switch(x.status().type()){
             case bfs::file_type::directory_file:
                 march_dir(
+                    dbg,
                     docs,
                     root,
                     ns,
-                    x.path(),
-                    dest / *x.path().rbegin()
+                    x.path()/*,
+                    dest / *x.path().rbegin()*/
                 );
                 break;
                 
             case bfs::file_type::regular_file:
                 process_fanjet_file(
+                    dbg,
                     docs,
                     root,
                     ns,
-                    x.path(),
-                    dest / x.path().filename()
+                    x.path()/*,
+                    dest / x.path().filename()*/
                 );
                 break;
                 
@@ -213,11 +237,12 @@ void march_dir(
 }
 
 void process_fanjet_file(
+    bool dbg,
     std::vector<evmvc::fanjet::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src,
-    const bfs::path& dest)
+    const bfs::path& src/*,
+    const bfs::path& dest*/)
 {
     try{
         bfs::ifstream fin(src);
@@ -238,10 +263,11 @@ void process_fanjet_file(
             );
         
         evmvc::fanjet::document doc = 
-            evmvc::fanjet::parser::generate(
+            evmvc::fanjet::parser::generate_doc(
                 ns,
                 view_path,
-                fan_src
+                fan_src,
+                dbg
             );
     }catch(const std::exception& error){
         std::string err_msg = fmt::format(
@@ -251,4 +277,16 @@ void process_fanjet_file(
         
         throw MD_ERR(err_msg);
     }
+}
+
+void save_docs(
+    const std::string& include_src,
+    const std::vector<evmvc::fanjet::document>& docs,
+    const bfs::path& dest)
+{
+    if(!bfs::exists(dest))
+        bfs::create_directories(dest);
+    
+    
+    
 }

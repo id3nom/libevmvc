@@ -33,6 +33,8 @@ SOFTWARE.
 
 namespace evmvc { namespace fanjet {
 
+class parser;
+
 enum class doc_type
 {
     layout = 0,
@@ -43,7 +45,14 @@ enum class doc_type
 
 class document_t
 {
+    friend class parser;
+    document_t()
+    {
+    }
+    
 public:
+    ast::root_node rn;
+    
     doc_type type;
     
     std::string ns;
@@ -83,17 +92,18 @@ public:
     /**
      * for more information see: Fanjet engine directory structure
      */
-    static document generate(
+    static document generate_doc(
         const std::string& ns,
         const std::string& view_path,
-        const std::string& fan_src)
+        const std::string& fan_src,
+        bool dbg)
     {
         document doc = std::make_shared<document_t>(
         );
         
-        ast::root_node rn = parse(fan_src);
+        doc->rn = parse(fan_src);
         
-        auto ln = rn->first_child();
+        auto ln = doc->rn->first_child();
         if(!ln || ln->node_type() != ast::node_type::literal)
             throw MD_ERR(
                 "Missing literal node!"
@@ -161,7 +171,6 @@ public:
             n = n->next();
         }
         
-        
         if(doc->ns.empty())
             doc->ns = ns;
 
@@ -202,8 +211,36 @@ public:
         
         return doc;
     }
+
+    static void generate_code(
+        std::string& include_src,
+        std::vector<document>& docs,
+        bool dbg)
+    {
+        // first get hands on literal node
+        
+    }
     
 private:
+    
+    static void parse_inherits_directive(
+        document doc
+    )
+    {
+        auto n = doc->rn->first_child()->first_child();
+        while(n){
+            if(n->sec_type() == ast::section_type::dir_inherits){
+                //= md::trim_copy(n->child(1)->token_section_text());
+                
+                
+                
+            }
+            
+            n = n->next();
+        }
+        
+        
+    }
     
     static std::string norm_vname(
         const std::string& vname,

@@ -23,6 +23,8 @@ SOFTWARE.
 *@
 @ns     
 @name   user_info
+@** @layout _layout
+@** @layout _layout
 
 @header{
     int j = 0;

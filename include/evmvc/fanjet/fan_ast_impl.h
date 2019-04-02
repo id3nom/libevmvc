@@ -495,6 +495,13 @@ inline void directive_node_t::parse(ast::token t)
         _dbg_col = t->col();
     }
     
+    if(!this->parent() || this->parent()->sec_type() != section_type::literal)
+        throw MD_ERR(
+            "Directive can only be defined at top level scope!\n"
+            "line: {}, col: {}",
+            _dbg_line, _dbg_col
+        );
+    
     if(_done){
         close_scope(t, this, false);
         return;

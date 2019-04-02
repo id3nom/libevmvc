@@ -629,6 +629,36 @@ public:
         return _token->text(true);
     }
     
+    std::string text(ssize_t s, ssize_t e = SSIZE_MAX)
+    {
+        if(s > e)
+            throw MD_ERR(
+                "'s' must be grater or equal to 'e', s: '{}', e: '{}'",
+                s, e
+            );
+        
+        if(s < 0)
+            s = (ssize_t)_childs.size() + s;
+        
+        if(e == SSIZE_MAX)
+            e = (ssize_t)_childs.size() -1;
+        
+        if(e < 0)
+            e = (ssize_t)_childs.size() - 1 + e;
+        
+        if(s < 0 || e > _childs.size() -1)
+            throw MD_ERR(
+                "Out of bound, s: '{}', e: '{}', childs: '{}'",
+                s, e, _childs.size()
+            );
+        
+        std::string txt;
+        for(ssize_t i = s; i <= e; ++i)
+            txt += _childs[i]->_token->text(true);
+        
+        return txt;
+    }
+    
     std::string token_section_text(
         bool line_number = false) const
     {
@@ -961,6 +991,23 @@ private:
     std::string _enclosing_char;
 };
 
+enum class inherits_access_type
+{
+    // public
+    pub     = 0,
+    // protected
+    pro     = 1,
+    // private
+    pri     = 2,
+};
+class inherits_item_t
+{
+public:
+    inherits_access_type access;
+    std::string alias;
+    std::string path;
+};
+typedef std::shared_ptr<inherits_item_t> inherits_item;
 
 class directive_node_t
     : public node_t
@@ -979,6 +1026,91 @@ protected:
 
 public:
     
+    void parse_inherits_items(std::vector<inherits_item>& items)
+    {
+        std::string txt = n->text(1, -1);
+        
+        std::vector<std::string> vals;
+        boost::split(
+            vals, txt, boost::is_any_of(",")
+        );
+        
+        for(auto v : vals){
+            md::trim(v);
+            std::string w1;
+            std::string w2;
+            std::string w3;
+            
+            std::string tmp;
+            for(auto c : v){
+                if(w1.empty()){
+                    if(::isspace(c) || c == "="){
+                        w1 = tmp;
+                        tmp = "";
+                        continue;
+                    }
+                    tmp += c;
+                    continue;
+                }
+                if(w2.empty()){
+                    if(::isspace(c) || c == "="){
+                        w2 = tmp;
+                        tmp = "";
+                        continue;
+                    }
+                    tmp += c;
+                    continue;
+                }
+                
+                tmp += c;
+            }
+            if(w1.empty())
+                w1 = tmp;
+            else if(w2.empty())
+                w2 = tmp;
+            else
+                w3 = tmp;
+            
+            md::trim(w1);
+            md::trim(w2);
+            md::trim(w3);
+            if(!w3.empty() &&
+                w1 != "public" && w1 != "protected" && w1 != "private"
+            )
+                throw MD_ERR(
+                    "Invalid access modifier! for inherit declaration!\n"
+                    "line: '{}', col: '{}'",
+                    _dbg_line, _dbg_col
+                );
+            
+            if(w3.empty()){
+                if(w1 == "public" || w1 == "protected" || w1 == "private"){
+                    
+                }
+                w3 = w2;
+                
+            }
+            auto i = std::make_shared<inherits_item_t>();
+            i->access = 
+                w1 == "public" ?
+                    inherits_access_type::pub :
+                w1 == "protected" ?
+                    inherits_access_type::pro :
+                w1 == "private" ?
+                    inherits_access_type::pri :
+                    inherits_access_type::pri;
+            
+            if(w3.empty() && w2.empty()){
+                i->alias = "";
+                i->path = w1;
+            }
+            if(w3.empty() && !w2.empty()){
+                i->alias = "";
+                i->path = w2;
+            }
+            
+        }
+    }
     
 protected:
     void parse(ast::token t);
