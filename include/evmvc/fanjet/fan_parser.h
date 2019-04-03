@@ -234,87 +234,63 @@ public:
                     inc->gen_header_code(dbg, docs, doc)
                 );
             
-            std::string inherit_val("    : public ::evmvc::fanjet::view_base");
             for(auto ii : doc->inherits_items){
                 auto id = ast::find(docs, doc, ii->path);
                 ii->nscls_name = id->nscls_name;
-                
-                inherit_val += fmt::format(
-                    ",\n{} {}",
-                    ii->access == ast::inherits_access_type::pub ?
-                        "    public" :
-                    ii->access == ast::inherits_access_type::pro ?
-                        "    protected" :
-                    ii->access == ast::inherits_access_type::pri ?
-                        "    private" :
-                        "    private",
-                    ii->nscls_name
-                );
-                if(!inherit_val.empty())
-                    inherit_val += "\n";
                 
                 includes += fmt::format(
                     "#include \"{0}\"\n",
                     id->i_filename
                 );
             }
-            inherit_val += "\n";
             
-            std::vector<std::string> vals;
+            // std::vector<std::string> ns_vals;
+            // std::string ns_open, ns_close;
+            // boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
+            // for(auto ns_v : ns_vals){
+            //     ns_open += "namespace " + ns_v + "{ ";
+            //     ns_close += "}";
+            // }
+            // if(dbg)
+            //     ns_close += " // " + ns_open;
             
-            std::string ns_open, ns_close;
-            boost::split(vals, doc->ns, boost::is_any_of(":"));
-            for(auto v : vals){
-                ns_open += "namespace " + v + "{ ";
-                ns_close += "}";
-            }
-            if(dbg)
-                ns_close += " // " + ns_open;
-            
-            /*
-                std::string ns;
-                std::string path;
-                std::string name;
-                std::string abs_path;
-                
-                std::string layout;
-            */
-            
-            std::string cls_def;
-            cls_def += fmt::format(
-                "\n"
-                "{0}\n"
-                "class {1}\n"
-                "{2}"
-                "{{\n"
-                "public:\n"
-                "    {1}(\n"
-                "        sp_view_engine engine,\n"
-                "        const evmvc::sp_response& _res)\n"
-                "        : ::evmvc::fanjet::view_base(engine, _res)\n"
-                "    {{\n"
-                "    }}\n"
-                "\n"
-                "    md::string_view ns() const {{ return \"{3}\";}}\n"
-                "    md::string_view path() const {{ return \"{4}\";}}\n"
-                "    md::string_view name() const {{ return \"{5}\";}}\n"
-                "    md::string_view abs_path() const {{ return \"{6}\";}}\n"
-                "\n"
-                "    void render(std::shared_ptr<view_base> self,\n"
-                "        md::callback::async_cb cb,\n"
-                "    );\n"
-                "\n"
-                "}};\n"
-                "{7}\n",
-                ns_open,
-                doc->cls_name,
-                inherit_val,
-                doc->ns,
-                doc->path,
-                doc->name,
-                doc->abs_path,
-                ns_close
-            );
+            // std::string cls_def;
+            // cls_def += fmt::format(
+            //     "\n"
+            //     "{0}\n"
+            //     "class {1}\n"
+            //     "{2}"
+            //     "{{\n"
+            //     "public:\n"
+            //     "    {1}(\n"
+            //     "        sp_view_engine engine,\n"
+            //     "        const evmvc::sp_response& _res)\n"
+            //     "        : ::evmvc::fanjet::view_base(engine, _res)\n"
+            //     "    {{\n"
+            //     "    }}\n"
+            //     "\n"
+            //     "    md::string_view ns() const {{ return \"{3}\";}}\n"
+            //     "    md::string_view path() const {{ return \"{4}\";}}\n"
+            //     "    md::string_view name() const {{ return \"{5}\";}}\n"
+            //     "    md::string_view abs_path() const {{ return \"{6}\";}}\n"
+            //     "    md::string_view layout() const {{ return \"{7}\";}}\n"
+            //     "\n"
+            //     "    void render(std::shared_ptr<view_base> self,\n"
+            //     "        md::callback::async_cb cb,\n"
+            //     "    );\n"
+            //     "\n"
+            //     "}};\n"
+            //     "{8}\n",
+            //     ns_open,
+            //     doc->cls_name,
+            //     inherit_val,
+            //     doc->ns,
+            //     doc->path,
+            //     doc->name,
+            //     doc->abs_path,
+            //     doc->layout,
+            //     ns_close
+            // );
             
             doc->i_src = fmt::format(
                 "/*\n"
@@ -329,23 +305,22 @@ public:
                 
                 "{2} \n"
                 
-                "{3}\n"
-                
                 // include view header
-                "#include \"{4}\"\n"
+                "#include \"{3}\"\n"
                 
                 "#endif // {1}\n",
                 gen_notice,
                 inc_guards,
                 includes,
-                cls_def,
                 doc->h_filename
             );
             
-            /*
+            
             doc->h_src = doc->rn->gen_header_code(
                 dbg, docs, doc
             );
+            
+            /*
             doc->c_src = doc->rn->gen_source_code(
                 dbg, docs, doc
             );

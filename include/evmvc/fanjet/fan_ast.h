@@ -915,7 +915,87 @@ public:
         std::vector<document>& docs,
         document doc) const
     {
-        throw MD_ERR("Not implemented!");
+        std::vector<std::string> ns_vals;
+        std::string ns_open, ns_close;
+        boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
+        for(auto ns_v : ns_vals){
+            ns_open += "namespace " + ns_v + "{ ";
+            ns_close += "}";
+        }
+        if(dbg)
+            ns_close += " // " + ns_open;
+        
+        std::string inherit_val("    : public ::evmvc::fanjet::view_base");
+        for(auto ii : doc->inherits_items){
+            auto id = ast::find(docs, doc, ii->path);
+            ii->nscls_name = id->nscls_name;
+            
+            inherit_val += fmt::format(
+                ",\n{} {}",
+                ii->access == ast::inherits_access_type::pub ?
+                    "    public" :
+                ii->access == ast::inherits_access_type::pro ?
+                    "    protected" :
+                ii->access == ast::inherits_access_type::pri ?
+                    "    private" :
+                    "    private",
+                ii->nscls_name
+            );
+            if(!inherit_val.empty())
+                inherit_val += "\n";
+        }
+        inherit_val += "\n";
+        
+        std::string cls_head = fmt::format(
+            // -inc.h include
+            "#include \"{0}\"\n"
+            // namespace
+            "{1}"
+            // class name
+            "class {2} "
+            // inheriance
+            "{3}"
+            "{{ private: ",
+            doc->i_filename,
+            ns_open,
+            doc->cls_name,
+            inherit_val
+        );
+        
+        std::string cls_body;
+        
+        std::string cls_foot = fmt::format(
+            "\n\npublic:\n"
+            // constructor
+            "    {0}(\n"
+            "        sp_view_engine engine,\n"
+            "        const evmvc::sp_response& _res)\n"
+            "        : ::evmvc::fanjet::view_base(engine, _res)\n"
+            "    {{\n"
+            "    }}\n"
+            "\n"
+            "    md::string_view ns() const {{ return \"{1}\";}}\n"
+            "    md::string_view path() const {{ return \"{2}\";}}\n"
+            "    md::string_view name() const {{ return \"{3}\";}}\n"
+            "    md::string_view abs_path() const {{ return \"{4}\";}}\n"
+            "    md::string_view layout() const {{ return \"{5}\";}}\n"
+            "\n"
+            "    void render(std::shared_ptr<view_base> self,\n"
+            "        md::callback::async_cb cb,\n"
+            "    );\n"
+            "\n"
+            "}};\n"
+            "{6}\n",
+            doc->cls_name,
+            doc->ns,
+            doc->path,
+            doc->name,
+            doc->abs_path,
+            doc->layout,
+            ns_close
+        );
+        
+        return cls_head + cls_body + cls_foot;
     }
     
     std::string gen_source_code(
