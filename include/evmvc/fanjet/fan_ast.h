@@ -33,41 +33,6 @@ SOFTWARE.
 
 namespace evmvc { namespace fanjet { namespace ast {
 
-class node_t;
-typedef std::shared_ptr<node_t> node;
-class root_node_t;
-typedef std::shared_ptr<root_node_t> root_node;
-class token_node_t;
-typedef std::shared_ptr<token_node_t> token_node;
-class expr_node_t;
-typedef std::shared_ptr<expr_node_t> expr_node;
-class string_node_t;
-typedef std::shared_ptr<string_node_t> string_node;
-
-class directive_node_t;
-typedef std::shared_ptr<directive_node_t> directive_node;
-class literal_node_t;
-typedef std::shared_ptr<literal_node_t> literal_node;
-class comment_node_t;
-typedef std::shared_ptr<comment_node_t> comment_node;
-class output_node_t;
-typedef std::shared_ptr<output_node_t> output_node;
-class code_block_node_t;
-typedef std::shared_ptr<code_block_node_t> code_block_node;
-class code_control_node_t;
-typedef std::shared_ptr<code_control_node_t> code_control_node;
-class code_err_node_t;
-typedef std::shared_ptr<code_err_node_t> code_err_node;
-class code_fun_node_t;
-typedef std::shared_ptr<code_fun_node_t> code_fun_node;
-class code_async_node_t;
-typedef std::shared_ptr<code_async_node_t> code_async_node;
-
-class fan_key_node_t;
-typedef std::shared_ptr<fan_key_node_t> fan_key_node;
-class fan_fn_node_t;
-typedef std::shared_ptr<fan_fn_node_t> fan_fn_node;
-
 enum class node_type
 {
     invalid         = INT_MIN,
@@ -84,14 +49,19 @@ enum class node_type
     fmt             = INT_MIN +10,
     get_raw         = INT_MIN +11,
     fmt_raw         = INT_MIN +12,
+    src             = INT_MIN +13,
+
+
     
     directive       =
         (int)(
             section_type::dir_ns |
+            section_type::dir_path |
             section_type::dir_name |
             section_type::dir_layout |
             section_type::dir_header |
-            section_type::dir_inherits
+            section_type::dir_inherits |
+            section_type::dir_include
         ),
     literal         = 
         (int)(
@@ -115,18 +85,18 @@ enum class node_type
     code_control    =
         (int)(
             section_type::code_if |
-            section_type::code_elif |
-            section_type::code_else |
+            // section_type::code_elif |
+            // section_type::code_else |
             section_type::code_switch |
             section_type::code_while |
             section_type::code_for |
-            section_type::code_do |
-            section_type::code_dowhile
+            section_type::code_do // |
+            // section_type::code_dowhile
         ),
     code_err        =
         (int)(
-            section_type::code_try |
-            section_type::code_trycatch
+            section_type::code_try // |
+            // section_type::code_trycatch
         ),
     code_fun        =
         (int)(
@@ -169,6 +139,8 @@ inline md::string_view to_string(node_type t)
             return "get-raw";
         case node_type::fmt_raw:
             return "fmt-raw";
+        case node_type::src:
+            return "src";
 
         case node_type::directive:
             return "directive";
@@ -595,7 +567,40 @@ public:
             n = n->next();
         return n;
     }
+    
+    std::vector<node> childs(ssize_t s, ssize_t e = SSIZE_MAX) const
+    {
+        ssize_t cs = (ssize_t)_childs.size();
+        if(s < 0)
+            s = cs + s;
+        
+        if(e == SSIZE_MAX)
+            e = cs -1;
+        
+        if(e < 0){
+            e = cs - 1 + e;
+            if(e < s)
+                e = s;
+        }
 
+        if(s > e)
+            throw MD_ERR(
+                "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
+                s, e
+            );
+        
+        if(s < 0 || e > cs -1)
+            throw MD_ERR(
+                "Out of bound, s: '{}', e: '{}', childs: '{}'",
+                s, e, _childs.size()
+            );
+        
+        std::vector<node> r;
+        for(ssize_t i = s; i <= e; ++i)
+            r.emplace_back(_childs[i]);
+        
+        return r;
+    }
     
     size_t line() const 
     {
@@ -631,22 +636,26 @@ public:
     
     std::string text(ssize_t s, ssize_t e = SSIZE_MAX)
     {
+        ssize_t cs = (ssize_t)_childs.size();
+        if(s < 0)
+            s = cs + s;
+        
+        if(e == SSIZE_MAX)
+            e = cs -1;
+        
+        if(e < 0){
+            e = cs - 1 + e;
+            if(e < s)
+                e = s;
+        }
+        
         if(s > e)
             throw MD_ERR(
-                "'s' must be grater or equal to 'e', s: '{}', e: '{}'",
+                "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
                 s, e
             );
         
-        if(s < 0)
-            s = (ssize_t)_childs.size() + s;
-        
-        if(e == SSIZE_MAX)
-            e = (ssize_t)_childs.size() -1;
-        
-        if(e < 0)
-            e = (ssize_t)_childs.size() - 1 + e;
-        
-        if(s < 0 || e > _childs.size() -1)
+        if(s < 0 || e > cs -1)
             throw MD_ERR(
                 "Out of bound, s: '{}', e: '{}', childs: '{}'",
                 s, e, _childs.size()
@@ -654,7 +663,7 @@ public:
         
         std::string txt;
         for(ssize_t i = s; i <= e; ++i)
-            txt += _childs[i]->_token->text(true);
+            txt += _childs[i]->token_text();
         
         return txt;
     }
@@ -836,6 +845,16 @@ public:
         return "|-" + md::replace_substring_copy(text, "\n", "\n| ") + "\n";
     }
     
+    virtual std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc
+    ) const = 0;
+    virtual std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc
+    ) const = 0;
     
 protected:
     node _shared_from_this() const
@@ -891,6 +910,22 @@ public:
     bool prev_sibling_allowed() const { return false;}
     bool next_sibling_allowed() const { return false;}
     
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
 protected:
     void parse(ast::token t);
 
@@ -921,6 +956,24 @@ protected:
         : node_t(ast::section_type::token , nullptr, nullptr, nullptr)
     {
     }
+    
+public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+
 protected:
     void parse(ast::token t)
     {
@@ -954,6 +1007,21 @@ protected:
     expr_type type() const { return _type;}
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -984,6 +1052,22 @@ public:
         return _enclosing_char;
     }
     
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
 protected:
     void parse(ast::token t);
 
@@ -991,23 +1075,6 @@ private:
     std::string _enclosing_char;
 };
 
-enum class inherits_access_type
-{
-    // public
-    pub     = 0,
-    // protected
-    pro     = 1,
-    // private
-    pri     = 2,
-};
-class inherits_item_t
-{
-public:
-    inherits_access_type access;
-    std::string alias;
-    std::string path;
-};
-typedef std::shared_ptr<inherits_item_t> inherits_item;
 
 class directive_node_t
     : public node_t
@@ -1028,7 +1095,7 @@ public:
     
     void get_inherits_items(std::vector<inherits_item>& items)
     {
-        std::string txt = n->text(1, -1);
+        std::string txt = this->child(1)->text(1, -1);
         
         std::vector<std::string> vals;
         boost::split(
@@ -1044,7 +1111,7 @@ public:
             std::string tmp;
             for(auto c : v){
                 if(w1.empty()){
-                    if(::isspace(c) || c == "="){
+                    if(::isspace(c) || c == '='){
                         w1 = tmp;
                         tmp = "";
                         continue;
@@ -1053,7 +1120,7 @@ public:
                     continue;
                 }
                 if(w2.empty()){
-                    if(::isspace(c) || c == "="){
+                    if(::isspace(c) || c == '='){
                         w2 = tmp;
                         tmp = "";
                         continue;
@@ -1061,6 +1128,9 @@ public:
                     tmp += c;
                     continue;
                 }
+
+                if(::isspace(c) || c == '=')
+                    continue;
                 
                 tmp += c;
             }
@@ -1125,6 +1195,27 @@ public:
         }
     }
     
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        if(this->sec_type() == section_type::dir_include){
+            //auto inc_vals = this->childs(1);
+            return "#include ...";
+        }
+        
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
 protected:
     void parse(ast::token t);
 
@@ -1148,6 +1239,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1172,6 +1278,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1196,6 +1317,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1223,6 +1359,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1251,6 +1402,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1281,6 +1447,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1308,6 +1489,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1339,6 +1535,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1368,6 +1579,21 @@ protected:
     }
 
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:
@@ -1392,6 +1618,21 @@ protected:
     }
     
 public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
     
     
 protected:

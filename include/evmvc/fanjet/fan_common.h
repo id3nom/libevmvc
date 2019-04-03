@@ -27,114 +27,303 @@ SOFTWARE.
 
 #include "../stable_headers.h"
 
-namespace evmvc { namespace fanjet {
+namespace evmvc { namespace fanjet { 
+class parser;
+}}
+
+namespace evmvc { namespace fanjet { namespace ast {
+
+class node_t;
+typedef std::shared_ptr<node_t> node;
+class root_node_t;
+typedef std::shared_ptr<root_node_t> root_node;
+class token_node_t;
+typedef std::shared_ptr<token_node_t> token_node;
+class expr_node_t;
+typedef std::shared_ptr<expr_node_t> expr_node;
+class string_node_t;
+typedef std::shared_ptr<string_node_t> string_node;
+
+class directive_node_t;
+typedef std::shared_ptr<directive_node_t> directive_node;
+class literal_node_t;
+typedef std::shared_ptr<literal_node_t> literal_node;
+class comment_node_t;
+typedef std::shared_ptr<comment_node_t> comment_node;
+class output_node_t;
+typedef std::shared_ptr<output_node_t> output_node;
+class code_block_node_t;
+typedef std::shared_ptr<code_block_node_t> code_block_node;
+class code_control_node_t;
+typedef std::shared_ptr<code_control_node_t> code_control_node;
+class code_err_node_t;
+typedef std::shared_ptr<code_err_node_t> code_err_node;
+class code_fun_node_t;
+typedef std::shared_ptr<code_fun_node_t> code_fun_node;
+class code_async_node_t;
+typedef std::shared_ptr<code_async_node_t> code_async_node;
+
+class fan_key_node_t;
+typedef std::shared_ptr<fan_key_node_t> fan_key_node;
+class fan_fn_node_t;
+typedef std::shared_ptr<fan_fn_node_t> fan_fn_node;
+
+
+enum class inherits_access_type
+{
+    // public
+    pub     = 0,
+    // protected
+    pro     = 1,
+    // private
+    pri     = 2,
+};
+class inherits_item_t
+{
+public:
+    inherits_access_type access;
+    std::string alias;
+    std::string path;
     
-    inline std::string norm_vname(
-        const std::string& vname,
-        const std::string& replacing_val = "-",
-        const std::string allowed_user_chars = "")
+    std::string nscls_name;
+};
+typedef std::shared_ptr<inherits_item_t> inherits_item;
+
+
+enum class doc_type
+{
+    layout = 0,
+    partial = 1,
+    helper = 2,
+    body = 3
+};
+
+class document_t
+{
+    friend class ::evmvc::fanjet::parser;
+    document_t()
     {
-        std::string nvname;
-        
-        for(size_t i = 0; i < vname.size(); ++i){
-            char c = vname[i];
-            if(i == 0){
-                if(
-                    !(c >= 'A' && c <= 'Z') &&
-                    !(c >= 'a' && c <= 'z') &&
-                    c != '_'
-                ){
-                    nvname += replacing_val;
-                    continue;
-                }
-                nvname += c;
+    }
+    
+public:
+    root_node rn;
+    
+    doc_type type;
+    
+    std::string ns;
+    std::string path;
+    std::string name;
+    std::string abs_path;
+    
+    std::string cls_name;
+    std::string nscls_name;
+    
+    std::string layout;
+    
+    std::string h_filename;
+    std::string h_src;
+    std::string i_filename;
+    std::string i_src;
+    std::string c_filename;
+    std::string c_src;
+    
+    std::vector<directive_node> includes;
+    std::vector<inherits_item> inherits_items;
+    
+    void replace_alias(std::string& source) const
+    {
+        std::string d;
+        std::string wrd;
+        for(auto c : source){
+            if(isalnum(c) || c == '_'){
+                wrd += c;
                 continue;
             }
             
+            if(wrd.empty()){
+                d += c;
+                continue;
+            }
+            
+            for(auto ii : inherits_items)
+                if(ii->alias == wrd){
+                    wrd = ii->nscls_name;
+                    break;
+                }
+            d += wrd;
+            wrd.clear();
+        }
+    }
+};
+typedef std::shared_ptr<document_t> document;
+    
+document find(
+    std::vector<document>& docs,
+    document doc,
+    const std::string& path
+    )
+{
+    if(path.empty())
+        throw MD_ERR(
+            "path is empty!"
+        );
+    
+    //TODO: isolate per namespace
+    // std::string ns;
+    // size_t nsp = path.rfind("::");
+    // if(nsp == std::string::npos)
+    //     ns = doc->ns;
+    
+    std::vector<std::string> parts;
+    std::string p = *path.rbegin() == '/' ? path.substr(1) : doc->path + path;
+    boost::split(parts, p, boost::is_any_of("/"));
+    
+    std::string name = *parts.rbegin();
+    
+    std::vector<document> ds;
+    for(auto d : docs)
+        if(d->name == name)
+            ds.emplace_back(d);
+    
+    if(ds.empty())
+        throw MD_ERR(
+            "No view matching path: '{}'", path
+        );
+    
+    for(size_t i = parts.size() -1; i >= 0; --i){
+        // look for the file in this order: 
+        //  path dir,
+        //  partials dir,
+        //  layouts dir,
+        //  helpers dir,
+        
+        std::string rp;
+        for(size_t j = 0; j < i; ++j)
+            rp += parts[j] + "/";
+        
+        for(auto d : ds){
+            if(d->path == rp)
+                return d;
+            
+            if(d->path == rp + "partials/")
+                return d;
+            
+            if(d->path == rp + "layouts/")
+                return d;
+            
+            if(d->path == rp + "helpers/")
+                return d;
+        }
+    }
+    
+    throw MD_ERR(
+        "No view matching path: '{}'", path
+    );
+}
+
+inline std::string norm_vname(
+    const std::string& vname,
+    const std::string& replacing_val = "-",
+    const std::string allowed_user_chars = "")
+{
+    std::string nvname;
+    
+    for(size_t i = 0; i < vname.size(); ++i){
+        char c = vname[i];
+        if(i == 0){
             if(
                 !(c >= 'A' && c <= 'Z') &&
                 !(c >= 'a' && c <= 'z') &&
-                !(c >= '0' && c <= '9') &&
                 c != '_'
             ){
-                if(!allowed_user_chars.empty()){
-                    bool is_valid = false;
-                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
-                        if(c == allowed_user_chars[j]){
-                            is_valid = true;
-                            break;
-                        }
-                    if(is_valid){
-                        nvname += c;
-                        continue;
-                    }
-                }
-                
                 nvname += replacing_val;
                 continue;
             }
-            
             nvname += c;
+            continue;
         }
         
-        return nvname;
-    }
-    
-    inline bool validate_vname(
-        std::string& err,
-        const std::string& vname,
-        bool accept_empty = false,
-        const std::string allowed_user_chars = "")
-    {
-        if(vname.size() == 0)
-            return accept_empty;
-        
-        for(size_t i = 0; i < vname.size(); ++i){
-            char c = vname[i];
-            if(i == 0){
-                if(
-                    !(c >= 'A' && c <= 'Z') &&
-                    !(c >= 'a' && c <= 'z') &&
-                    c != '_'
-                ){
-                    err =
-                        "Variable must always start with one of 'AZ_az'";
-                    return false;
+        if(
+            !(c >= 'A' && c <= 'Z') &&
+            !(c >= 'a' && c <= 'z') &&
+            !(c >= '0' && c <= '9') &&
+            c != '_'
+        ){
+            if(!allowed_user_chars.empty()){
+                bool is_valid = false;
+                for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                    if(c == allowed_user_chars[j]){
+                        is_valid = true;
+                        break;
+                    }
+                if(is_valid){
+                    nvname += c;
+                    continue;
                 }
-                continue;
             }
             
+            nvname += replacing_val;
+            continue;
+        }
+        
+        nvname += c;
+    }
+    
+    return nvname;
+}
+
+inline bool validate_vname(
+    std::string& err,
+    const std::string& vname,
+    bool accept_empty = false,
+    const std::string allowed_user_chars = "")
+{
+    if(vname.size() == 0)
+        return accept_empty;
+    
+    for(size_t i = 0; i < vname.size(); ++i){
+        char c = vname[i];
+        if(i == 0){
             if(
                 !(c >= 'A' && c <= 'Z') &&
                 !(c >= 'a' && c <= 'z') &&
-                !(c >= '0' && c <= '9') &&
                 c != '_'
             ){
-                if(!allowed_user_chars.empty()){
-                    bool is_valid = false;
-                    for(size_t j = 0; j < allowed_user_chars.size(); ++j)
-                        if(c == allowed_user_chars[j]){
-                            is_valid = true;
-                            break;
-                        }
-                    if(is_valid)
-                        continue;
-                }
-                
                 err =
-                    "Variable must only contains the following chars: "
-                    "'AZ_az09" + allowed_user_chars;
+                    "Variable must always start with one of 'AZ_az'";
                 return false;
             }
+            continue;
         }
         
-        return true;
+        if(
+            !(c >= 'A' && c <= 'Z') &&
+            !(c >= 'a' && c <= 'z') &&
+            !(c >= '0' && c <= '9') &&
+            c != '_'
+        ){
+            if(!allowed_user_chars.empty()){
+                bool is_valid = false;
+                for(size_t j = 0; j < allowed_user_chars.size(); ++j)
+                    if(c == allowed_user_chars[j]){
+                        is_valid = true;
+                        break;
+                    }
+                if(is_valid)
+                    continue;
+            }
+            
+            err =
+                "Variable must only contains the following chars: "
+                "'AZ_az09" + allowed_user_chars;
+            return false;
+        }
     }
     
+    return true;
+}
     
-}}//::evmvc::fanjet
-
-namespace evmvc { namespace fanjet { namespace ast {
+    
 enum class section_type
     : int
 {
@@ -145,19 +334,22 @@ enum class section_type
     string              = INT_MIN +4,
     any                 = INT_MIN +5,
     
-    body                = INT_MIN +6,
-    render              = INT_MIN +7,
-    set                 = INT_MIN +8,
-    get                 = INT_MIN +9,
-    fmt                 = INT_MIN +10,
-    get_raw             = INT_MIN +11,
-    fmt_raw             = INT_MIN +12,
+    body                = INT_MIN +6,   // @body
+    render              = INT_MIN +7,   // @>view partial name;
+    set                 = INT_MIN +8,   // @set("name", "val")
+    get                 = INT_MIN +9,   // @get("name", "val")
+    fmt                 = INT_MIN +10,  // @fmt("fmtstr", ...)
+    get_raw             = INT_MIN +11,  // @get-raw("name", "val")
+    fmt_raw             = INT_MIN +12,  // @fmt-raw("fmtstr", ...)
+    src                 = INT_MIN +13,  // @src
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
     dir_layout          = (1 << 2),     // @layout ...
     dir_header          = (1 << 3),     // @header ... ;
     dir_inherits        = (1 << 4),     // @inherits ... ;
+    dir_include         = (1 << 14),    // @include ...
+    dir_path            = (1 << 15),    // @path ...
     
     literal             = (1 << 5),     // text <tag attr> ... </tag><tag/> 
     
@@ -173,17 +365,17 @@ enum class section_type
     code_block          = (1 << 12),    // @{ ... }
     
     code_if             = (1 << 13),    // @if( ... ){ ... }
-    code_elif           = (1 << 14),    // else if( ... ){ ... }
-    code_else           = (1 << 15),    // else{ ... }
+    // code_elif           = (1 << 14),    // else if( ... ){ ... }
+    // code_else           = (1 << 15),    // else{ ... }
     code_switch         = (1 << 16),    // @switch( ... ){ ... }
 
     code_while          = (1 << 17),    // @while( ... ){ ... }
     code_for            = (1 << 18),    // @for( ... ){ ... }
     code_do             = (1 << 19),    // @do{ ... }
-    code_dowhile        = (1 << 20),    // while( ... );
+    // code_dowhile        = (1 << 20),    // while( ... );
     
     code_try            = (1 << 21),    // @try{ ... }
-    code_trycatch       = (1 << 22),    // catch( ... ){ ... }
+    // code_trycatch       = (1 << 22),    // catch( ... ){ ... }
     
     code_funi           = (1 << 23),    // @funi{ ... }
     code_func           = (1 << 24),    // @func{ ... }
@@ -228,9 +420,13 @@ inline md::string_view to_string(section_type t)
             return "get-raw";
         case section_type::fmt_raw:
             return "fmt-raw";
+        case section_type::src:
+            return "src";
 
         case section_type::dir_ns:
             return "dir_ns";
+        case section_type::dir_path:
+            return "dir_path";
         case section_type::dir_name:
             return "dir_name";
         case section_type::dir_layout:
@@ -239,6 +435,8 @@ inline md::string_view to_string(section_type t)
             return "dir_header";
         case section_type::dir_inherits:
             return "dir_inherits";
+        case section_type::dir_include:
+            return "dir_include";
 
         case section_type::literal:
             return "literal";
@@ -262,10 +460,10 @@ inline md::string_view to_string(section_type t)
 
         case section_type::code_if:
             return "code_if";
-        case section_type::code_elif:
-            return "code_elif";
-        case section_type::code_else:
-            return "code_else";
+        // case section_type::code_elif:
+        //     return "code_elif";
+        // case section_type::code_else:
+        //     return "code_else";
         case section_type::code_switch:
             return "code_switch";
 
@@ -275,13 +473,13 @@ inline md::string_view to_string(section_type t)
             return "code_for";
         case section_type::code_do:
             return "code_do";
-        case section_type::code_dowhile:
-            return "code_dowhile";
+        // case section_type::code_dowhile:
+        //     return "code_dowhile";
 
         case section_type::code_try:
             return "code_try";
-        case section_type::code_trycatch:
-            return "code_trycatch";
+        // case section_type::code_trycatch:
+        //     return "code_trycatch";
 
         case section_type::code_funi:
             return "code_funi";

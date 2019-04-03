@@ -95,10 +95,14 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             n = directive_node(new directive_node_t(
                 t->is_fan_namespace() ?
                     ast::section_type::dir_ns :
+                t->is_fan_path() ?
+                    ast::section_type::dir_path :
                 t->is_fan_name() ?
                     ast::section_type::dir_name :
                 t->is_fan_layout() ?
                     ast::section_type::dir_layout :
+                t->is_fan_include() ?
+                    ast::section_type::dir_include :
                 t->is_fan_header() ?
                     ast::section_type::dir_header :
                     ast::section_type::dir_inherits
@@ -225,6 +229,8 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             n = fan_key_node(new fan_key_node_t(
                 t->is_fan_body() ?
                     ast::section_type::body :
+                t->is_fan_src() ?
+                    ast::section_type::src :
                     ast::section_type::invalid
             ));
             
@@ -511,11 +517,18 @@ inline void directive_node_t::parse(ast::token t)
     while(t){
         switch(this->sec_type()){
             case ast::section_type::dir_ns:
+            case ast::section_type::dir_path:
             case ast::section_type::dir_name:
             case ast::section_type::dir_layout:
+            case ast::section_type::dir_include:
                 if(t->is_eol()){
                     _done = true;
                     close_scope(t, this);
+                    return;
+                }
+                if(t->is_fan_comment()){
+                    _done = true;
+                    open_scope(t, this);
                     return;
                 }
                 break;

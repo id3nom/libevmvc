@@ -1,8 +1,8 @@
 {
     "name": "fanjet",
     "displayName": "Fanjet syntax highlighting",
-    "description": "",
-    "version": "0.1.4",
+    "description": "Provides syntax higlighting for the Fanjet language",
+    "version": "0.1.5",
     "publisher": "libevmvc",
     "engines": {
         "vscode": "^1.32.3"

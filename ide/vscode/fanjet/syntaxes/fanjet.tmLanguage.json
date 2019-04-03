@@ -160,6 +160,7 @@
             "patterns": [
                 {"include": "#fanjet-namespace-directive"},
                 {"include": "#fanjet-name-directive"},
+                {"include": "#fanjet-path-directive"},
                 {"include": "#fanjet-layout-directive"},
                 {"include": "#fanjet-include-directive"},
                 {"include": "#fanjet-header-directive"},
@@ -182,6 +183,14 @@
         "fanjet-name-directive": {
             "name": "string.directive.name.fan",
             "begin": "(@name)\\s+",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            },
+            "end": "$"
+        },
+        "fanjet-path-directive": {
+            "name": "string.directive.path.fan",
+            "begin": "(@path)\\s+",
             "captures": {
                 "0": {"name": "keyword.control.fan"}
             },

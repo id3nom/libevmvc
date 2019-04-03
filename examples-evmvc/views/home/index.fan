@@ -24,6 +24,9 @@ SOFTWARE.
 @ns     
 @name   
 @layout _layout
+@inherits{
+    protected utils = helpers/utils
+}
 
 @set("title", "index - web-server example")
 

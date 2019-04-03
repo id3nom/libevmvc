@@ -198,10 +198,12 @@ public:
     bool is_fan_keyword() const
     {
         return
+            is_fan_src() ||
             is_fan_body();
     }
     
     bool is_fan_body() const { return _text == "@body";}
+    bool is_fan_src() const { return _text == "@src";}
     
     bool is_fan_fn() const
     {
@@ -284,20 +286,24 @@ public:
     bool is_fan_directive() const
     {
         return
+            is_fan_path() ||
             is_fan_name() ||
             is_fan_namespace() ||
             is_fan_layout() ||
             is_fan_header() ||
-            is_fan_inherits();
+            is_fan_inherits() ||
+            is_fan_include();
     }
     bool is_fan_namespace() const
     {
         return _text == "@namespace" || _text == "@ns";
     }
+    bool is_fan_path() const { return _text == "@path";}
     bool is_fan_name() const { return _text == "@name";}
     bool is_fan_layout() const { return _text == "@layout";}
     bool is_fan_header() const { return _text == "@header";}
     bool is_fan_inherits() const { return _text == "@inherits";}
+    bool is_fan_include() const { return _text == "@include";}
     
     bool is_fan_region() const
     {
@@ -598,10 +604,12 @@ const char* tokenizer::s_tokens[] = {
     "*@", // this one is special, must be verified for not to be *@@ literral
     
     "@namespace", "@ns",
+    "@path",
     "@name",
     "@layout",
     "@header",
     "@inherits",
+    "@include",
     
     "@region",
     "@endregion",
@@ -621,8 +629,10 @@ const char* tokenizer::s_tokens[] = {
     "@funi", "@func",
     "@<", "@await",
     
-    "@(",
     "@body",
+    "@src",
+    
+    "@(",
     "@>",
     "@set",
     "@get",

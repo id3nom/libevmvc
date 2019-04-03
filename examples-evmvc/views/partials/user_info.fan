@@ -25,7 +25,7 @@ SOFTWARE.
 @name   user_info @** comment ....
 @** @layout _layout
 @** @layout _layout
-@include "@src/../common.h" @** include something special....
+@include "@src/../common.h" @** include common.h relative to source view dir
 
 @header{
     

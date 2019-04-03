@@ -23,6 +23,7 @@ SOFTWARE.
 *@
 @namespace
 @name
+@path helpers/
 
 @funi{
     
