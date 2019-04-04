@@ -113,6 +113,31 @@ void replace_words(std::string& s, const std::string& f, const std::string& r)
     s = d;
 }
 
+typedef std::function<void(std::string& wrd)> replace_fn;
+void replace_words(std::string& s, replace_fn r)
+{
+    std::string d;
+    std::string wrd;
+    for(auto c : s){
+        if(isalnum(c) || c == '_' || c == '@'){
+            wrd += c;
+            continue;
+        }
+        
+        if(wrd.empty()){
+            d += c;
+            continue;
+        }
+        
+        r(wrd);
+        
+        d += wrd + c;
+        wrd.clear();
+    }
+    s = d;
+}
+
+
 enum class doc_type
 {
     layout = 0,
@@ -143,6 +168,7 @@ public:
     
     std::string cls_name;
     std::string nscls_name;
+    std::string self_name;
     
     std::string layout;
     
@@ -158,28 +184,18 @@ public:
     
     void replace_alias(std::string& source) const
     {
-        std::string d;
-        std::string wrd;
-        for(auto c : source){
-            if(isalnum(c) || c == '_' || c == '@'){
-                wrd += c;
-                continue;
-            }
-            
-            if(wrd.empty()){
-                d += c;
-                continue;
+        replace_words(source, [&](std::string& wrd){
+            if(wrd == "@this"){
+                wrd = self_name;
+                return;
             }
             
             for(auto ii : inherits_items)
                 if(ii->alias == wrd){
                     wrd = ii->nscls_name;
-                    break;
+                    return;
                 }
-            d += wrd + c;
-            wrd.clear();
-        }
-        source = d;
+        });
     }
     
     void replace_paths(std::string& source) const

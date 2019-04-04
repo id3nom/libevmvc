@@ -62,7 +62,7 @@ public:
     
     token prev() const { return _prev.lock();}
     
-    bool empty(bool list = false) const
+    bool empty(bool list = false, bool trimmed = false) const
     {
         if(!list || !_text.empty())
             return _text.empty();
@@ -75,10 +75,10 @@ public:
         }
         return true;
     }
-    std::string text(bool list = false) const
+    std::string text(bool list = false, bool trimmed = false) const
     {
         if(!list)
-            return _text;
+            return trimmed ? md::trim_copy(_text) : _text;
         
         std::string lst(_text);
         token t = this->_next;
@@ -86,9 +86,8 @@ public:
             lst += t->_text;
             t = t->_next;
         }
-        return lst;
+        return trimmed ? md::trim_copy(lst) : lst;
     }
-    std::string trim_text() const { return md::trim_copy(_text);}
     size_t line() const { return _line;}
     size_t col() const { return _col;}
     size_t pos() const { return _pos;}
@@ -174,7 +173,7 @@ public:
             _text == "\v" ||
             _text == "\f" ||
             _text == "\r" ||
-            trim_text().empty();
+            text(false, true).empty();
     }
     
     bool is_space() const { return _text == " ";}
@@ -457,6 +456,9 @@ public:
     // "^",
     bool is_bit_xor() const { return _text == "^";}
     
+    bool is_markdown_code_backticks() const { return _text == "\n```";}
+    bool is_markdown_code_tildes() const { return _text == "\n~~~";}
+    
     
 private:
     std::weak_ptr<token_t> _prev;
@@ -600,7 +602,7 @@ const char* tokenizer::s_tokens[] = {
     
     "@@",
     "@{",
-    
+    "@}",
     "@**",
     "@*",
     "*@", // this one is special, must be verified for not to be *@@ literral
@@ -632,6 +634,7 @@ const char* tokenizer::s_tokens[] = {
     "@<", "@await",
     
     "@body",
+    "@this",
     "@filename",
     "@dirname",
     
@@ -642,6 +645,7 @@ const char* tokenizer::s_tokens[] = {
     "@fmt",
     "@get-raw",
     "@fmt-raw",
+    "\n```", "\n~~~",
     "\"", "'", "`",
     "\n",
     ";",

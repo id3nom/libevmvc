@@ -21,56 +21,64 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 *@
-@ns     test
-@name   test03
-@layout _layout
+@ns     
+@name   user_info @** comment ....
+
+@** include common.h relative to source view directory
+@include @* comment *@ "@dirname/../../common.h" @** line comment
 
 @header{
     
-}
+    class abc
+    {
+    public:
+        char a;
+        char b;
+        char c;
+    };
+    
+}<br/>
 
 @(md){
-    
-    @}
-    
+# header AAA
+_italic text_
+
+``` sh
+$ echo("some bash code!!!")
+```
+
+~~~ c++
+// this is c++ code
+int i = j;
+class test
+{
+    test()
+    {
+    }
+};
+~~~
+
+# header BBB
+*_bold italic text_* 
+@} this must be inside markdown block
+
+* item a
+* item b
+
 }
 
-@set("title", "test03 - test")
-@set("hr", "<hr/>")
+@{
+    @this->write_enc("<div></div>");
+    int i = 1;
+    @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
+}<br/>
 
-@fmt(
-    "test string: '{}'",
-    "testing encoded format",
-    (int)23, (std::string)val
-)
+<div>
+    username: @get("username", "abc")<br/>
+    fullname: @get("fullname", "def 123")<br/>
+</div>
 
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="stylesheet" href="/html/css/uikit.min.css" />
-    <link rel="stylesheet" href="/html/css/app.css" />
-    
-    <title>@get("title", "some default value")</title>
-</head>
-<body>
-    @fmt-raw(
-        "<a href=\"{}\">hyperlink text {}</a>",
-        "/index",
-        (long)23
-    )
-    @::(long)22 ;
-    <a href="@::index_val;"> hyperlink text @:(long)23;  </a>
-    @:(long)23;
-    @get-raw("hr", "<br/>")
-    
-    "testing @:test;" <div>@:(int)23;</div>@:(int)23;
-    
-    @>header;
-    
-    
-    @body
+@header{
+}
 
-    @>footer;
-</body>
+<br/>

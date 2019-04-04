@@ -93,6 +93,7 @@ int main(int argc, char** argv)
     p.add("dest", 2);
     
     po::variables_map vm;
+    bool dbg = false;
     try{
         po::store(
             po::command_line_parser(argc, argv)
@@ -156,7 +157,7 @@ int main(int argc, char** argv)
         if(!bfs::exists(dest))
             bfs::create_directories(dest);
         
-        bool dbg = vm.count("debug") > 0;
+        dbg = vm.count("debug") > 0;
         
         std::vector<evmvc::fanjet::ast::document> docs;
         march_dir(
@@ -188,6 +189,25 @@ int main(int argc, char** argv)
             );
         
         return 0;
+    }catch(const md::error::stacked_error& serr){
+        if(vm.count("help")){
+            std::cout 
+                << "Usage: fanjet [options] src-path dest-path\n"
+                << desc << std::endl;
+            return -1;
+        }
+        
+        std::stringstream ss;
+        ss << desc;
+        
+        md::log::error(
+            "{}\n{}\n{}:{}\n\nUsage: fanjet [options] src-path dest-path\n{}",
+            serr.what(),
+            serr.func(), serr.file(), serr.line(),
+            ss.str()
+        );
+        return -1;
+        
     }catch(const std::exception& err){
         if(vm.count("help")){
             std::cout 

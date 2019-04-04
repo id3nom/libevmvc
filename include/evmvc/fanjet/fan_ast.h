@@ -571,13 +571,16 @@ public:
         return n;
     }
     
-    std::vector<node> childs(ssize_t s, ssize_t e = SSIZE_MAX) const
+    std::vector<node> childs(
+        ssize_t s,
+        ssize_t e = SSIZE_MAX,
+        std::vector<section_type> ts = {}) const
     {
         ssize_t cs = (ssize_t)_childs.size();
         if(s < 0)
             s = cs + s;
         
-        if(e == SSIZE_MAX)
+        if(e > cs -1)
             e = cs -1;
         
         if(e < 0){
@@ -600,10 +603,19 @@ public:
         
         std::vector<node> r;
         for(ssize_t i = s; i <= e; ++i)
+            if(ts.empty() ||
+                std::any_of(
+                    ts.begin(), ts.end(), 
+                    [ta = _childs[i]->sec_type()](section_type tb){
+                        return ta == tb;
+                    }
+                )
+            )
             r.emplace_back(_childs[i]);
         
         return r;
     }
+    
     
     size_t line() const 
     {
@@ -1008,9 +1020,7 @@ public:
             ns_close
         );
         
-        cls_body = this->child(0)->gen_header_code(
-            dbg, docs, doc
-        );
+        //cls_body = this->child(0)->gen_header_code(dbg, docs, doc);
         
         return cls_head + cls_body + cls_foot;
     }
@@ -1298,7 +1308,11 @@ public:
         document doc) const
     {
         if(this->sec_type() == section_type::dir_include){
-            auto inc_val = this->child(1)->token_text();
+            auto nl = this->childs(1, SSIZE_MAX, {section_type::token});
+            std::string inc_val;
+            for(auto n : nl)
+                inc_val += n->token_text();
+            
             doc->replace_paths(inc_val);
             return "#include " + inc_val;
         }
@@ -1332,7 +1346,8 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(node_type::literal, t, parent, prev, next)
+        : node_t(node_type::literal, t, parent, prev, next),
+        in_markdown_code("")
     {
     }
 
@@ -1342,6 +1357,8 @@ public:
         std::vector<document>& docs,
         document doc) const
     {
+        
+        
         throw MD_ERR("Not implemented!");
     }
     
@@ -1358,7 +1375,7 @@ protected:
     void parse(ast::token t);
 
 private:
-    
+    std::string in_markdown_code;
 };
 
 class comment_node_t

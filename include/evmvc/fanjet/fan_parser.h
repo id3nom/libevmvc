@@ -193,6 +193,7 @@ public:
         
         doc->cls_name = ast::norm_vname(doc->path + doc->name, "_");
         doc->nscls_name = doc->ns + "::" + doc->cls_name;
+        doc->self_name = "_" + doc->cls_name + "__self_";
         
         std::string nvname = ast::norm_vname(doc->abs_path, "-");
         doc->h_filename = nvname + ".h";

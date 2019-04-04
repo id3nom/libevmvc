@@ -5,7 +5,8 @@
         "L:*":{
             "patterns":[
 
-                {"include": "#fanjet-escape"},
+                {"include": "#fanjet-escape-at"},
+                {"include": "#fanjet-escape-brace-close"},
 
                 {"include": "#fanjet-comments"},
                 {"include": "#fanjet-regions"},
@@ -28,7 +29,8 @@
     "patterns": [
         {"include": "text.html.basic"},
 
-        {"include": "#fanjet-escape"},
+        {"include": "#fanjet-escape-at"},
+        {"include": "#fanjet-escape-brace-close"},
 
         {"include": "#fanjet-directives"},
 
@@ -49,9 +51,13 @@
     ],
     "repository": {
         
-        "fanjet-escape":{
-            "name": "meta.escape.fan",
+        "fanjet-escape-at":{
+            "name": "meta.escape.at.fan",
             "match": "@@"
+        },
+        "fanjet-escape-brace-close":{
+            "name": "ponctuation.definition.bracket.end",
+            "match": "@\\}"
         },
         
         "fanjet-comments": {
@@ -114,7 +120,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -131,7 +137,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -145,7 +151,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -223,7 +229,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -236,7 +242,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -261,7 +267,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -277,7 +283,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -445,7 +451,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -475,7 +481,7 @@
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
             },
-            "end": "\\}",
+            "end": "(?<!@)\\}",
             "endCaptures":{
                 "0": { "name": "ponctuation.definition.bracket.end"}
             },
@@ -502,6 +508,7 @@
             "name": "meta.commands.fan",
             "patterns": [
                 {"include": "#fanjet-commands-body"},
+                {"include": "#fanjet-commands-this"},
                 {"include": "#fanjet-commands-filename"},
                 {"include": "#fanjet-commands-dirname"},
                 {"include": "#fanjet-commands-partial"},
@@ -517,6 +524,13 @@
             "match": "@body",
             "captures": {
                 "0": {"name": "keyword.control.fan"}
+            }
+        },
+        "fanjet-commands-this":{
+            "name": "meta.commands.body",
+            "match": "@this",
+            "captures": {
+                "0": {"name": "variable.language.this.fan"}
             }
         },
         "fanjet-commands-dirname":{

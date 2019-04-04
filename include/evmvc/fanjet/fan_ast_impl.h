@@ -332,7 +332,23 @@ inline void literal_node_t::parse(ast::token t)
             return;
         
         if(this->sec_type() != section_type::literal){
-            if(t->is_curly_brace_close()){
+            if(this->sec_type() == section_type::markup_markdown){
+                
+                if(t->is_markdown_code_backticks() ||
+                    t->is_markdown_code_tildes()
+                ){
+                    if(this->in_markdown_code.empty())
+                        this->in_markdown_code = t->text();
+                    else if(this->in_markdown_code == t->text())
+                        this->in_markdown_code.clear();
+                }
+                
+                if(this->in_markdown_code.empty() && t->is_curly_brace_close()){
+                    close_scope(t, this);
+                    return;
+                }
+                
+            }else if(t->is_curly_brace_close()){
                 close_scope(t, this);
                 return;
             }
@@ -394,7 +410,7 @@ inline void expr_node_t::parse(ast::token t)
                 bool is_def = false;
                 ast::token it = t->next();
                 while(it){
-                    if(!it->trim_text().empty() && !it->is_eol()){
+                    if(!it->text(false, true).empty() && !it->is_eol()){
                         if(it->is_semicolon()){
                             is_dec = true;
                             break;
@@ -529,7 +545,7 @@ inline void directive_node_t::parse(ast::token t)
                     return;
                 }
                 if(t->is_fan_comment()){
-                    _done = true;
+                    _done = t->is_fan_line_comment();
                     open_scope(t, this);
                     return;
                 }
@@ -645,7 +661,7 @@ inline void code_block_node_t::parse(ast::token t)
                     bool is_if = false;
                     ast::token it = t->next();
                     while(it){
-                        if(!it->trim_text().empty() && !it->is_eol()){
+                        if(!it->text(false, true).empty() && !it->is_eol()){
                             if(it->is_cpp_else())
                                 is_else = true;
                             else if(is_else && it->is_cpp_if()){
@@ -679,7 +695,7 @@ inline void code_block_node_t::parse(ast::token t)
                 bool is_catch = false;
                 ast::token it = t->next();
                 while(it){
-                    if(!it->trim_text().empty() && !it->is_eol()){
+                    if(!it->text(false, true).empty() && !it->is_eol()){
                         if(it->is_cpp_catch()){
                             is_catch = true;
                             break;
@@ -734,7 +750,7 @@ inline void code_control_node_t::parse(ast::token t)
     
     ast::token st = t;
     while(t){
-        if(!t->trim_text().empty() && !t->is_eol()
+        if(!t->text(false, true).empty() && !t->is_eol()
             && !t->is_cpp_else() && !t->is_cpp_if() &&
             !t->is_cpp_while()
         ){
@@ -817,7 +833,7 @@ inline void code_err_node_t::parse(ast::token t)
     
     ast::token st = t;
     while(t){
-        if(!t->trim_text().empty() && !t->is_eol() && !t->is_cpp_catch()){
+        if(!t->text(false, true).empty() && !t->is_eol() && !t->is_cpp_catch()){
 
             if(_need_expr){
                 if(t->is_parenthesis_open()){
@@ -868,7 +884,7 @@ inline void code_fun_node_t::parse(ast::token t)
     
     ast::token st = t;
     while(t){
-        if(!t->trim_text().empty() && !t->is_eol()){
+        if(!t->text(false, true).empty() && !t->is_eol()){
             if(t->is_curly_brace_open()){
                 _done = true;
                 open_scope(t, this);
@@ -916,7 +932,7 @@ inline void code_async_node_t::parse(ast::token t)
             1 : 0;
     
     while(t){
-        if(!t->trim_text().empty() && !t->is_eol()
+        if(!t->text(false, true).empty() && !t->is_eol()
         ){
             if(opened_tags > 0){
                 if(t->is_gt())

@@ -25,7 +25,7 @@ SOFTWARE.
 @name   user_info @** comment ....
 
 @** include common.h relative to source view directory
-@include "@dirname/../../common.h"
+@include @* comment *@ "@dirname/../../common.h" @** line comment
 
 @header{
     
@@ -39,7 +39,34 @@ SOFTWARE.
     
 }<br/>
 
+@(md){
+# header AAA
+_italic text_
+
+``` sh
+$ echo("some bash code!!!")
+```
+
+some `$ echo("inline `` code")` ...
+
+~~~ c++
+// this is c++ code
+int i = j;
+class test
+{
+    test()
+    {
+    }
+};
+~~~
+
+# header BBB
+*_bold italic text_*
+@} this must be inside markdown block
+}
+
 @{
+    @this->write_enc("<div></div>");
     int i = 1;
     @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
 }<br/>
