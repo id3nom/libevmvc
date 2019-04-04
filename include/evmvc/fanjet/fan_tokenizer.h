@@ -444,6 +444,7 @@ public:
     bool is_div() const { return _text == "/";}
     // "~",
     bool is_bit_not() const { return _text == "~";}
+    bool is_tilde() const { return _text == "~";}
     // "&",
     bool is_bit_and() const { return _text == "&";}
     bool is_address_of() const { return _text == "&";}
@@ -456,9 +457,13 @@ public:
     // "^",
     bool is_bit_xor() const { return _text == "^";}
     
-    bool is_markdown_code_backticks() const { return _text == "\n```";}
-    bool is_markdown_code_tildes() const { return _text == "\n~~~";}
+    //bool is_markdown_code_backticks() const { return _text == "\n```";}
+    //bool is_markdown_code_tildes() const { return _text == "\n~~~";}
     
+    bool is_tag_open() const { return _text == "<";}
+    bool is_tag_close() const { return _text == ">";}
+    bool is_tag_end() const { return _text == "/>";}
+    bool is_tag_block_open() const { return _text == "</";}
     
 private:
     std::weak_ptr<token_t> _prev;
@@ -645,7 +650,7 @@ const char* tokenizer::s_tokens[] = {
     "@fmt",
     "@get-raw",
     "@fmt-raw",
-    "\n```", "\n~~~",
+    //"\n```", "\n~~~",
     "\"", "'", "`",
     "\n",
     ";",

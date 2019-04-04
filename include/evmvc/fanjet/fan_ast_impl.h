@@ -58,6 +58,326 @@ inline void root_node_t::parse(ast::token t)
     l->parse(t);
 }
 
+inline bool open_scope(
+    ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup = 1)
+{
+    if(!n)
+        return false;
+        
+    token nt = t;
+    t = nt->snip();
+    pn->add_child(n);
+    if(t)
+        n->add_sibling_token(ast::sibling_pos::prev, t);
+    
+    // we don't want nt instance to be release
+    t = nt;
+    // hup
+    for(size_t i = 0; i < end_hup; ++i){
+        nt = nt->next();
+        if(!nt){
+            throw MD_ERR(
+                "Are you missing an open scope? line: '{}', col: '{}'",
+                t->line(), t->col()
+            );
+        }
+    }
+    
+    t = nt->snip();
+    if(t)
+        n->add_token(t);
+    
+    n->parse(nt);
+    return true;
+}
+
+inline bool open_string(ast::token& t, ast::node_t* pn)
+{
+    if(t->is_double_quote() || t->is_single_quote() || t->is_backtick()){
+        ast::node n = string_node(new string_node_t(
+            t->text()
+        ));
+        
+        return open_scope(t, pn, n);
+    }
+    return false;
+}
+
+inline bool open_fan_comment(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_comment() && !t->is_fan_region())
+        return false;
+    
+    ast::node n = comment_node(new comment_node_t(
+        t->is_fan_line_comment() ?
+            ast::section_type::comment_line :
+        t->is_fan_blk_comment_open() ?
+            ast::section_type::comment_block :
+            ast::section_type::region_start
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_directive(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_directive())
+        return false;
+    
+    if(pn->sec_type() != section_type::literal)
+        throw MD_ERR(
+            "Directive can only be defined at the first scope level."
+            " line: '{}', col: '{}', pos: '{}'",
+            t->line(), t->col(), t->pos()
+        );
+    
+    ast::node n = directive_node(new directive_node_t(
+        t->is_fan_namespace() ?
+            ast::section_type::dir_ns :
+        t->is_fan_path() ?
+            ast::section_type::dir_path :
+        t->is_fan_name() ?
+            ast::section_type::dir_name :
+        t->is_fan_layout() ?
+            ast::section_type::dir_layout :
+        t->is_fan_include() ?
+            ast::section_type::dir_include :
+        t->is_fan_header() ?
+            ast::section_type::dir_header :
+            ast::section_type::dir_inherits
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_output(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_output())
+        return false;
+    ast::node n = output_node(new output_node_t(
+        t->is_fan_output_raw() ?
+            ast::section_type::output_raw :
+            ast::section_type::output_enc
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_code_block(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_code_block())
+        return false;
+    
+    ast::node n = code_block_node(new code_block_node_t());
+    return open_scope(t, pn, n);
+}
+
+inline bool open_code_block(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_curly_brace_open())
+        return false;
+    
+    ast::node n = code_block_node(new code_block_node_t());
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_control(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_control())
+        return false;
+    
+    ast::node n = code_control_node(new code_control_node_t(
+        t->is_fan_if() ?
+            ast::section_type::code_if :
+        t->is_fan_switch() ?
+            ast::section_type::code_switch :
+        t->is_fan_while() ?
+            ast::section_type::code_while :
+        t->is_fan_for() ?
+            ast::section_type::code_for :
+            ast::section_type::code_do
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_control(ast::token& t, ast::node_t* pn)
+{
+    if(
+        !t->is_cpp_if() &&
+        !t->is_cpp_switch() &&
+        !t->is_cpp_for() &&
+        !t->is_cpp_do() &&
+        !(t->is_cpp_while() && pn->node_type() != node_type::code_control)
+    )
+        return false;
+    
+    ast::node n = code_control_node(new code_control_node_t(
+        t->is_cpp_if() ?
+            ast::section_type::code_if :
+        t->is_cpp_switch() ?
+            ast::section_type::code_switch :
+        t->is_cpp_while() ?
+            ast::section_type::code_while :
+        t->is_cpp_for() ?
+            ast::section_type::code_for :
+            ast::section_type::code_do
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_try(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_try())
+        return false;
+        
+    ast::node n = code_err_node(new code_err_node_t(
+        ast::section_type::code_try
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_try(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_cpp_try())
+        return false;
+    
+    ast::node n = code_err_node(new code_err_node_t(
+        ast::section_type::code_try
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_funi_func(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_funi() && !t->is_fan_func())
+        return;
+    
+    ast::node n = code_fun_node(new code_fun_node_t(
+        t->is_fan_funi() ?
+            ast::section_type::code_funi :
+            ast::section_type::code_func
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_funa_await(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_funa() && !t->is_fan_await())
+        return false;
+    
+    ast::node n = code_async_node(new code_async_node_t(
+        t->is_fan_funa() ?
+            ast::section_type::code_funa :
+            ast::section_type::code_await
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_expr(ast::token& t, ast::node_t* pn)
+{
+    ast::node n = nullptr;
+    if(t->is_parenthesis_open())
+        n = expr_node(new expr_node_t(
+            expr_type::parens
+        ));
+    
+    else if(t->is_cpp_return() || t->is_cpp_throw())
+        n = expr_node(new expr_node_t(
+            expr_type::semicol
+        ));
+    
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_markup_open())
+        return false;
+    
+    size_t end_hup = 1;
+    
+    // find lang
+    token tl = t->next();
+    std::string l;
+    while(tl && !tl->is_parenthesis_close()){
+        ++end_hup;
+        l += tl->text();
+        tl = tl->next();
+    }
+    md::trim(l);
+    if(l != "html" && l != "htm" && l != "markdown" && l != "md")
+        throw MD_ERR(
+            "invalid literal language of '{}', line: '{}', col: '{}'\n"
+            "available language are 'html, htm, markdown and md!'",
+            md::replace_substring_copy(
+                md::replace_substring_copy(
+                    l, "{", "{{"
+                ), "}", "}}"
+            ),
+            t->line(), t->col()
+        );
+    
+    ast::node n = literal_node(new literal_node_t(
+        l == "html" || l == "htm" ?
+            ast::section_type::markup_html :
+        l == "markdown" || l == "md" ?
+            ast::section_type::markup_markdown :
+            ast::section_type::invalid
+    ));
+    while(tl && !tl->is_curly_brace_open()){
+        ++end_hup;
+        tl = tl->next();
+    }
+    ++end_hup;
+    
+    return open_scope(t, pn, n, end_hup);
+}
+
+inline bool open_fan_key(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_keyword())
+        return false;
+    
+    ast::node n = fan_key_node(new fan_key_node_t(
+        t->is_fan_body() ?
+            ast::section_type::body :
+        t->is_fan_filename() ?
+            ast::section_type::filename :
+        t->is_fan_dirname() ?
+            ast::section_type::dirname :
+            ast::section_type::invalid
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_fan_fn())
+        return false;
+    
+    ast::node n = fan_fn_node(new fan_fn_node_t(
+        t->is_fan_render() ?
+            ast::section_type::render :
+        t->is_fan_set() ?
+            ast::section_type::set :
+        t->is_fan_get() ?
+            ast::section_type::get :
+        t->is_fan_fmt() ?
+            ast::section_type::fmt :
+        t->is_fan_get_raw() ?
+            ast::section_type::get_raw :
+        t->is_fan_fmt_raw() ?
+            ast::section_type::fmt_raw :
+        
+            ast::section_type::invalid
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_tag(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_tag_open_start())
+        return;
+    
+}
+
 inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
     if(t->is_fan_start_key() ||
@@ -328,20 +648,76 @@ inline void literal_node_t::parse(ast::token t)
 {
     ast::token tt = t;
     while(t){
+        if(
+            open_fan_comment(t, this) ||
+            open_fan_directive(t, this) ||
+            open_fan_output(t, this) ||
+            
+            open_fan_code_block(t, this) ||
+            open_fan_control(t, this) ||
+            open_fan_try(t, this) ||
+            
+            open_fan_funi_func(t, this) ||
+            
+            open_fan_markup(t, this) ||
+            
+            open_fan_key(t, this) ||
+            open_fan_fn(t, this)
+        )
+            return;
+        
+        switch(this->sec_type()){
+            case section_type::literal:{
+                
+                
+                break;
+            }
+            
+            case section_type::markup_html:{
+                
+                
+                break;
+            }
+                
+            case section_type::markup_markdown:{
+                
+                break;
+            }
+            
+            default:
+                break;
+        }
+        
         if(open_scope(t, this))
             return;
         
         if(this->sec_type() != section_type::literal){
             if(this->sec_type() == section_type::markup_markdown){
-                
-                if(t->is_markdown_code_backticks() ||
-                    t->is_markdown_code_tildes()
-                ){
-                    if(this->in_markdown_code.empty())
-                        this->in_markdown_code = t->text();
-                    else if(this->in_markdown_code == t->text())
-                        this->in_markdown_code.clear();
+                if(auto tn = t->next()){
+                    if(this->in_markdown_code.empty()){
+                        if(t->is_eol() && tn->is_backtick()){
+                            
+                            
+                        }else if(t->is_eol() && tn->is_tilde()){
+                            
+                            
+                        }else if(t->is_backtick()){
+                            
+                        }
+                        
+                    }else{
+                        
+                    }
                 }
+                
+                // if(t->is_markdown_code_backticks() ||
+                //     t->is_markdown_code_tildes()
+                // ){
+                //     if(this->in_markdown_code.empty())
+                //         this->in_markdown_code = t->text();
+                //     else if(this->in_markdown_code == t->text())
+                //         this->in_markdown_code.clear();
+                // }
                 
                 if(this->in_markdown_code.empty() && t->is_curly_brace_close()){
                     close_scope(t, this);

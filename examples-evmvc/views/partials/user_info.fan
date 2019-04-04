@@ -44,7 +44,10 @@ SOFTWARE.
 _italic text_
 
 ``` sh
+
 $ echo("some bash code!!!")
+`` $ echo("some bash code!!!") ``
+
 ```
 
 some `$ echo("inline `` code")` ...

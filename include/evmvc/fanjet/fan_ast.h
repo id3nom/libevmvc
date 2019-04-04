@@ -31,6 +31,39 @@ SOFTWARE.
 
 #include <stack>
 
+#define EVMVC_FANJET_AST_OPEN_SCOPES \
+    friend bool open_scope(ast::token& t, ast::node_t* n); \
+    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
+    friend bool open_scope( \
+        ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup \
+    ); \
+     \
+    friend bool open_string(ast::token& t, ast::node_t* pn); \
+    friend bool open_code_block(ast::token& t, ast::node_t* pn); \
+    friend bool open_control(ast::token& t, ast::node_t* pn); \
+    friend bool open_try(ast::token& t, ast::node_t* pn); \
+    friend bool open_expr(ast::token& t, ast::node_t* pn); \
+    friend bool open_tag(ast::token& t, ast::node_t* pn); \
+     \
+    friend bool open_fan_comment(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_directive(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_output(ast::token& t, ast::node_t* pn); \
+     \
+    friend bool open_fan_code_block(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_control(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_try(ast::token& t, ast::node_t* pn); \
+     \
+    friend bool open_fan_funi_func(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_funa_await(ast::token& t, ast::node_t* pn); \
+     \
+    friend bool open_fan_markup(ast::token& t, ast::node_t* pn); \
+     \
+    friend bool open_fan_key(ast::token& t, ast::node_t* pn); \
+    friend bool open_fan_fn(ast::token& t, ast::node_t* pn); \
+     \
+    
+
+
 namespace evmvc { namespace fanjet { namespace ast {
 
 enum class node_type
@@ -192,9 +225,7 @@ class node_t
 {
     friend class code_control_node_t;
     friend class code_async_node_t;
-    
-    friend bool open_scope(ast::token& t, ast::node_t* n);
-    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff);
+    EVMVC_FANJET_AST_OPEN_SCOPES
     
 protected:
     node_t(
@@ -1050,8 +1081,7 @@ inline root_node parse(ast::token t)
     friend class node_t; \
     friend class root_node_t; \
     friend class code_block_node_t; \
-    friend bool open_scope(ast::token& t, ast::node_t* n); \
-    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
+    EVMVC_FANJET_AST_OPEN_SCOPES
     
 class token_node_t
     : public node_t
@@ -1461,8 +1491,7 @@ class code_block_node_t
 {
     friend class node_t;
     friend class root_node_t;
-    friend bool open_scope(ast::token& t, ast::node_t* n);
-    friend void close_scope(ast::token& t, ast::node_t* pn, bool ff);
+    EVMVC_FANJET_AST_OPEN_SCOPES
     
 protected:
     code_block_node_t(
