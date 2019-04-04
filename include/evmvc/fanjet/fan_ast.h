@@ -49,7 +49,8 @@ enum class node_type
     fmt             = INT_MIN +10,
     get_raw         = INT_MIN +11,
     fmt_raw         = INT_MIN +12,
-    src             = INT_MIN +13,
+    filename        = INT_MIN +13,
+    dirname         = INT_MIN +14,
 
 
     
@@ -139,8 +140,10 @@ inline md::string_view to_string(node_type t)
             return "get-raw";
         case node_type::fmt_raw:
             return "fmt-raw";
-        case node_type::src:
-            return "src";
+        case node_type::filename:
+            return "filename";
+        case node_type::dirname:
+            return "dirname";
 
         case node_type::directive:
             return "directive";
@@ -925,13 +928,15 @@ public:
         if(dbg)
             ns_close += " // " + ns_open;
         
-        std::string inherit_val("    : public ::evmvc::fanjet::view_base");
+        std::string inherit_val;
+        std::string inherit_cstr;
         for(auto ii : doc->inherits_items){
             auto id = ast::find(docs, doc, ii->path);
             ii->nscls_name = id->nscls_name;
             
             inherit_val += fmt::format(
-                ",\n{} {}",
+                "{}{} {}",
+                inherit_val.empty() ? " : " : ", ",
                 ii->access == ast::inherits_access_type::pub ?
                     "    public" :
                 ii->access == ast::inherits_access_type::pro ?
@@ -942,9 +947,16 @@ public:
                 ii->nscls_name
             );
             if(!inherit_val.empty())
-                inherit_val += "\n";
+                inherit_val += " ";
+            inherit_cstr +=
+                (inherit_cstr.empty() ? "" : ", ") + ii->nscls_name +
+                "(engine, _res)";
         }
-        inherit_val += "\n";
+        if(inherit_val.empty()){
+            inherit_val = " : public ::evmvc::fanjet::view_base";
+            inherit_cstr = " ::evmvc::fanjet::view_base(engine, _res)";
+        }
+        inherit_val += " ";
         
         std::string cls_head = fmt::format(
             // -inc.h include
@@ -968,31 +980,36 @@ public:
             "\n\npublic:\n"
             // constructor
             "    {0}(\n"
-            "        sp_view_engine engine,\n"
-            "        const evmvc::sp_response& _res)\n"
-            "        : ::evmvc::fanjet::view_base(engine, _res)\n"
+            "        ::evmvc::sp_view_engine engine,\n"
+            "        const ::evmvc::sp_response& _res)\n"
+            "        : {1}\n"
             "    {{\n"
             "    }}\n"
             "\n"
-            "    md::string_view ns() const {{ return \"{1}\";}}\n"
-            "    md::string_view path() const {{ return \"{2}\";}}\n"
-            "    md::string_view name() const {{ return \"{3}\";}}\n"
-            "    md::string_view abs_path() const {{ return \"{4}\";}}\n"
-            "    md::string_view layout() const {{ return \"{5}\";}}\n"
+            "    md::string_view ns() const {{ return \"{2}\";}}\n"
+            "    md::string_view path() const {{ return \"{3}\";}}\n"
+            "    md::string_view name() const {{ return \"{4}\";}}\n"
+            "    md::string_view abs_path() const {{ return \"{5}\";}}\n"
+            "    md::string_view layout() const {{ return \"{6}\";}}\n"
             "\n"
             "    void render(std::shared_ptr<view_base> self,\n"
-            "        md::callback::async_cb cb,\n"
+            "        md::callback::async_cb cb\n"
             "    );\n"
             "\n"
             "}};\n"
-            "{6}\n",
+            "{7}\n",
             doc->cls_name,
+            inherit_cstr,
             doc->ns,
             doc->path,
             doc->name,
             doc->abs_path,
             doc->layout,
             ns_close
+        );
+        
+        cls_body = this->child(0)->gen_header_code(
+            dbg, docs, doc
         );
         
         return cls_head + cls_body + cls_foot;
@@ -1281,8 +1298,9 @@ public:
         document doc) const
     {
         if(this->sec_type() == section_type::dir_include){
-            //auto inc_vals = this->childs(1);
-            return "#include ...";
+            auto inc_val = this->child(1)->token_text();
+            doc->replace_paths(inc_val);
+            return "#include " + inc_val;
         }
         
         throw MD_ERR("Not implemented!");

@@ -198,12 +198,14 @@ public:
     bool is_fan_keyword() const
     {
         return
-            is_fan_src() ||
+            is_fan_filename() ||
+            is_fan_dirname() ||
             is_fan_body();
     }
     
     bool is_fan_body() const { return _text == "@body";}
-    bool is_fan_src() const { return _text == "@src";}
+    bool is_fan_filename() const { return _text == "@filename";}
+    bool is_fan_dirname() const { return _text == "@dirname";}
     
     bool is_fan_fn() const
     {
@@ -630,7 +632,8 @@ const char* tokenizer::s_tokens[] = {
     "@<", "@await",
     
     "@body",
-    "@src",
+    "@filename",
+    "@dirname",
     
     "@(",
     "@>",

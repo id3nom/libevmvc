@@ -48,8 +48,11 @@ public:
     
     sp_view_engine engine() const { return _engine;}
     
-    virtual bfs::path path() const = 0;
-    virtual std::string name() const = 0;
+    virtual md::string_view ns() const = 0;
+    virtual md::string_view path() const = 0;
+    virtual md::string_view name() const = 0;
+    virtual md::string_view abs_path() const = 0;
+    virtual md::string_view layout() const = 0;
     
     virtual void render(
         std::shared_ptr<view_base> self,
@@ -58,8 +61,8 @@ public:
     
     void write_enc(md::string_view data);
     void write_raw(md::string_view data);
-    void render_partial(md::string_view path);
-    void render_view(md::string_view path);
+    //void render_partial(md::string_view path, md::callback::async_cb cb);
+    void render_view(md::string_view path, md::callback::async_cb cb);
     
 private:
     sp_view_engine _engine;

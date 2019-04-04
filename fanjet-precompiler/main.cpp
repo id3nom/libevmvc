@@ -278,6 +278,7 @@ void process_fanjet_file(
         
         evmvc::fanjet::ast::document doc = 
             evmvc::fanjet::parser::generate_doc(
+                src,
                 ns,
                 view_path,
                 fan_src,
@@ -303,12 +304,29 @@ void save_docs(
         bfs::create_directories(dest);
     
     for(auto d : docs){
-        bfs::path ifn = dest / d->i_filename;
-        if(bfs::exists(ifn))
-            bfs::remove(ifn);
         
-        bfs::ofstream fout(ifn);
+        bfs::path fn = dest / d->i_filename;
+        if(bfs::exists(fn))
+            bfs::remove(fn);
+        bfs::ofstream fout(fn);
         fout << d->i_src;
         fout.close();
+        
+        fn = dest / d->h_filename;
+        if(bfs::exists(fn))
+            bfs::remove(fn);
+        fout.open(fn);
+        fout << d->h_src;
+        fout.close();
+        
+        fn = dest / d->c_filename;
+        if(bfs::exists(fn))
+            bfs::remove(fn);
+        if(!d->c_src.empty()){
+            fout.open(fn);
+            fout << d->h_src;
+            fout.close();
+        }
+        
     }
 }

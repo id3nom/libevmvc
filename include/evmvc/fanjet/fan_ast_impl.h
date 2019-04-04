@@ -229,8 +229,10 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             n = fan_key_node(new fan_key_node_t(
                 t->is_fan_body() ?
                     ast::section_type::body :
-                t->is_fan_src() ?
-                    ast::section_type::src :
+                t->is_fan_filename() ?
+                    ast::section_type::filename :
+                t->is_fan_dirname() ?
+                    ast::section_type::dirname :
                     ast::section_type::invalid
             ));
             

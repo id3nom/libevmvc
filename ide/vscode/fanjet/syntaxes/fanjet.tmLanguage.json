@@ -502,7 +502,8 @@
             "name": "meta.commands.fan",
             "patterns": [
                 {"include": "#fanjet-commands-body"},
-                {"include": "#fanjet-commands-src"},
+                {"include": "#fanjet-commands-filename"},
+                {"include": "#fanjet-commands-dirname"},
                 {"include": "#fanjet-commands-partial"},
                 {"include": "#fanjet-commands-set"},
                 {"include": "#fanjet-commands-get"},
@@ -518,9 +519,16 @@
                 "0": {"name": "keyword.control.fan"}
             }
         },
-        "fanjet-commands-src":{
+        "fanjet-commands-dirname":{
             "name": "meta.commands.body",
-            "match": "@src",
+            "match": "@dirname",
+            "captures": {
+                "0": {"name": "keyword.control.fan"}
+            }
+        },
+        "fanjet-commands-filename":{
+            "name": "meta.commands.body",
+            "match": "@filename",
             "captures": {
                 "0": {"name": "keyword.control.fan"}
             }

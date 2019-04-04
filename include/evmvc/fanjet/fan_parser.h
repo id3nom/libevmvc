@@ -55,12 +55,19 @@ public:
      * for more information see: Fanjet engine directory structure
      */
     static ast::document generate_doc(
+        bfs::path file_path,
         const std::string& ns,
         const std::string& view_path,
         const std::string& fan_src,
         bool dbg)
     {
         ast::document doc = ast::document(new ast::document_t());
+        
+        file_path = bfs::absolute(file_path);
+        doc->filename = file_path.string();
+        doc->dirname = file_path.parent_path().string();
+        if(*doc->dirname.rbegin() != '/')
+            doc->dirname += "/";
         
         doc->rn = parse(fan_src);
         
@@ -294,7 +301,7 @@ public:
             
             doc->i_src = fmt::format(
                 "/*\n"
-                "  {0}\n"
+                "  {0}"
                 "*/\n"
                 "\n"
                 "#ifndef {1}\n"
@@ -316,9 +323,9 @@ public:
             );
             
             
-            doc->h_src = doc->rn->gen_header_code(
-                dbg, docs, doc
-            );
+            doc->h_src =
+                doc->rn->gen_header_code(dbg, docs, doc) +
+                "\n/*\n" + gen_notice + " */\n";
             
             /*
             doc->c_src = doc->rn->gen_source_code(

@@ -1,4 +1,4 @@
-@*
+/*
 MIT License
 
 Copyright (c) 2019 Michel Dénommée
@@ -20,36 +20,11 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-*@
-@ns     
-@name   user_info @** comment ....
+*/
 
-@** include common.h relative to source view directory
-@include "@dirname/../../common.h"
+#ifndef _libevmvc_examples_common_h
+#define _libevmvc_examples_common_h
 
-@header{
-    
-    class abc
-    {
-    public:
-        char a;
-        char b;
-        char c;
-    };
-    
-}<br/>
 
-@{
-    int i = 1;
-    @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
-}<br/>
 
-<div>
-    username: @get("username", "abc")<br/>
-    fullname: @get("fullname", "def 123")<br/>
-</div>
-
-@header{
-}
-
-<br/>
+#endif //_libevmvc_examples_common_h

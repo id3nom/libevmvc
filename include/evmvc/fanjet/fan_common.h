@@ -89,6 +89,29 @@ public:
 };
 typedef std::shared_ptr<inherits_item_t> inherits_item;
 
+void replace_words(std::string& s, const std::string& f, const std::string& r)
+{
+    std::string d;
+    std::string wrd;
+    for(auto c : s){
+        if(isalnum(c) || c == '_' || c == '@'){
+            wrd += c;
+            continue;
+        }
+        
+        if(wrd.empty()){
+            d += c;
+            continue;
+        }
+        
+        if(wrd == f){
+            wrd = r;
+        }
+        d += wrd + c;
+        wrd.clear();
+    }
+    s = d;
+}
 
 enum class doc_type
 {
@@ -106,6 +129,9 @@ class document_t
     }
     
 public:
+    std::string dirname;
+    std::string filename;
+    
     root_node rn;
     
     doc_type type;
@@ -135,7 +161,7 @@ public:
         std::string d;
         std::string wrd;
         for(auto c : source){
-            if(isalnum(c) || c == '_'){
+            if(isalnum(c) || c == '_' || c == '@'){
                 wrd += c;
                 continue;
             }
@@ -150,9 +176,23 @@ public:
                     wrd = ii->nscls_name;
                     break;
                 }
-            d += wrd;
+            d += wrd + c;
             wrd.clear();
         }
+        source = d;
+    }
+    
+    void replace_paths(std::string& source) const
+    {
+        replace_words(source, "@dirname", this->dirname);
+        replace_words(source, "@filename", this->filename);
+    }
+    
+    void replace_vars(std::string& source) const
+    {
+        replace_alias(source);
+        replace_words(source, "@dirname", this->dirname);
+        replace_words(source, "@filename", this->filename);
     }
 };
 typedef std::shared_ptr<document_t> document;
@@ -341,7 +381,8 @@ enum class section_type
     fmt                 = INT_MIN +10,  // @fmt("fmtstr", ...)
     get_raw             = INT_MIN +11,  // @get-raw("name", "val")
     fmt_raw             = INT_MIN +12,  // @fmt-raw("fmtstr", ...)
-    src                 = INT_MIN +13,  // @src
+    filename            = INT_MIN +13,  // @filename
+    dirname             = INT_MIN +14,  // @dirname
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
@@ -420,8 +461,10 @@ inline md::string_view to_string(section_type t)
             return "get-raw";
         case section_type::fmt_raw:
             return "fmt-raw";
-        case section_type::src:
-            return "src";
+        case section_type::filename:
+            return "filename";
+        case section_type::dirname:
+            return "dirname";
 
         case section_type::dir_ns:
             return "dir_ns";
