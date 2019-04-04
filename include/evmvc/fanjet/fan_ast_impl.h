@@ -286,6 +286,24 @@ inline bool open_expr(ast::token& t, ast::node_t* pn)
     return open_scope(t, pn, n);
 }
 
+inline bool open_tag(ast::token& t, ast::node_t* pn)
+{
+    ast::node n = nullptr;
+    
+    if(t->is_parenthesis_open())
+        n = expr_node(new expr_node_t(
+            expr_type::parens
+        ));
+    
+    else if(t->is_cpp_return() || t->is_cpp_throw())
+        n = expr_node(new expr_node_t(
+            expr_type::semicol
+        ));
+    
+    return open_scope(t, pn, n);
+}
+
+
 inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
 {
     if(!t->is_fan_markup_open())
@@ -371,9 +389,19 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
     return open_scope(t, pn, n);
 }
 
+inline bool tag_is_opening(ast::token& t)
+{
+    auto st = t;
+    
+}
+inline bool tag_is_closing(ast::token& t)
+{
+    
+}
+
 inline bool open_tag(ast::token& t, ast::node_t* pn)
 {
-    if(!t->is_tag_open_start())
+    if(!t->is_tag_open())
         return;
     
 }
@@ -828,6 +856,126 @@ inline void expr_node_t::parse(ast::token t)
         "Scope is not closed, are you missing {}? "
         "line: '{}', col: '{}'",
         "a closing parenthesis, a closing brace or semicolon",
+        _dbg_line, _dbg_col
+    );
+}
+
+inline void tag_node_t::parse(ast::token t)
+{
+    if(_dbg_line == 0){
+        _dbg_line = t->line();
+        _dbg_col = t->col();
+    }
+    
+    ast::token st = t;
+    while(t){
+        // for opening tag: <t...>, <t.../>
+        if(!this->_start_completed){
+            if(open_string(t, this))
+                return;
+            
+            if(this->_tag == tag_type::html_void){
+                if(t->is_tag_gt() || t->is_tag_slash_gt()){
+                    this->_start_completed = true;
+                    this->_end_started = true;
+                    this->_end_completed = true;
+                    this->_done = true;
+                    close_scope(t, this);
+                    return;
+                }
+
+            }else if(t->is_tag_slash_gt()){
+                    this->_start_completed = true;
+                    this->_end_started = true;
+                    this->_end_completed = true;
+                    this->_done = true;
+                    close_scope(t, this);
+                    return;
+
+            }else if(t->is_tag_gt()){
+                this->_start_completed = true;
+            }
+            
+            if(t) t = t->next();
+            continue;
+        }
+        
+        // for <t>...</t>
+        if(this->_start_completed &&
+            !this->_end_started &&
+            !this->_end_completed
+        ){
+            if(
+                open_fan_comment(t, this) ||
+                open_fan_directive(t, this) ||
+                open_fan_output(t, this) ||
+                
+                open_fan_code_block(t, this) ||
+                open_fan_control(t, this) ||
+                open_fan_try(t, this) ||
+                
+                open_fan_funi_func(t, this) ||
+                
+                open_fan_markup(t, this) ||
+                
+                open_fan_key(t, this) ||
+                open_fan_fn(t, this)
+            )
+                return;
+            
+            if(open_tag(t, this))
+                return;
+            
+            if(t->is_tag_lt_slash()){
+                
+            }
+            
+            if(t) t = t->next();
+            continue;
+        }
+        
+        // for </t>
+        if(this->_start_completed &&
+            this->_end_started &&
+            !this->_end_completed
+        ){
+            
+            
+            
+            if(t) t = t->next();
+            continue;
+        }
+        
+        
+        // switch(this->_tag){
+        //     case tag_type::html:{
+        //         
+        //         break;
+        //     }
+        //     case tag_type::html_void:{
+        //         
+        //         break;
+        //     }
+        //     case tag_type::mathml:{
+        //         
+        //         break;
+        //     }
+        //     case tag_type::svg:{
+        //         
+        //         break;
+        //     }
+        //     
+        //     default:
+        //         break;
+        // }
+        
+        if(t) t = t->next();
+    }
+    
+    throw MD_ERR(
+        "Tag is not closed, are you missing {}? "
+        "line: '{}', col: '{}'",
+        "a closing '" + _tag_name + "' tag",
         _dbg_line, _dbg_col
     );
 }

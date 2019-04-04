@@ -84,8 +84,8 @@ enum class node_type
     fmt_raw         = INT_MIN +12,
     filename        = INT_MIN +13,
     dirname         = INT_MIN +14,
-
-
+    tag             = INT_MIN +15,
+    
     
     directive       =
         (int)(
@@ -158,6 +158,9 @@ inline md::string_view to_string(node_type t)
             return "string";
         case node_type::any:
             return "any";
+
+        case node_type::tag:
+            return "tag";
 
         case node_type::body:
             return "body";
@@ -1785,6 +1788,64 @@ protected:
 private:
     bool _done;
 };
+
+
+enum class tag_type
+{
+    unknown     = 0,
+    html        = 1,
+    html_void   = 2,
+    mathml      = 3,
+    svg         = 4,
+};
+class tag_node_t
+    : public node_t
+{
+    EVMVC_FANJET_NODE_FRIENDS
+protected:
+    tag_node_t(
+        node parent = nullptr,
+        node prev = nullptr,
+        node next = nullptr)
+        : node_t(
+            ast::node_type::tag, ast::section_type::tag, parent, prev, next
+        ),
+        _done(false),
+        _tag(tag_type::unknown)
+    {
+    }
+    
+public:
+    std::string gen_header_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+    std::string gen_source_code(
+        bool dbg,
+        std::vector<document>& docs,
+        document doc) const
+    {
+        throw MD_ERR("Not implemented!");
+    }
+    
+protected:
+    void parse(ast::token t);
+    
+private:
+    bool _done;
+    
+    tag_type _tag;
+    std::string _tag_name;
+
+    bool _start_completed;
+    bool _end_started;
+    bool _end_completed;
+};
+
 
 
 }}}//::evmvc::fanjet::ast

@@ -48,6 +48,8 @@ class directive_node_t;
 typedef std::shared_ptr<directive_node_t> directive_node;
 class literal_node_t;
 typedef std::shared_ptr<literal_node_t> literal_node;
+class tag_node_t;
+typedef std::shared_ptr<tag_node_t> tag_node;
 class comment_node_t;
 typedef std::shared_ptr<comment_node_t> comment_node;
 class output_node_t;
@@ -400,6 +402,8 @@ enum class section_type
     filename            = INT_MIN +13,  // @filename
     dirname             = INT_MIN +14,  // @dirname
     
+    tag                 = INT_MIN +15,  // <tag/><tag></tag><void tag>
+    
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
     dir_layout          = (1 << 2),     // @layout ...
@@ -462,6 +466,9 @@ inline md::string_view to_string(section_type t)
             return "string";
         case section_type::any:
             return "any";
+
+        case section_type::tag:
+            return "tag";
             
         case section_type::body:
             return "body";
