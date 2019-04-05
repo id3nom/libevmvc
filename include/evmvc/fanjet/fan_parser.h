@@ -148,24 +148,23 @@ public:
                 auto dn = std::static_pointer_cast<ast::directive_node_t>(n);
                 doc->includes.emplace_back(dn);
             }
-            
-            // else if(
-            //     (!ns_exists || !name_exists) &&
-            //     n->node_type() != ast::node_type::directive &&
-            //     n->node_type() != ast::node_type::comment){
-            //     
-            //     size_t toksize = 1;
-            //     if(n->node_type() == ast::node_type::token)
-            //         toksize = md::trim_copy(n->token_section_text()).size();
-            //     
-            //     if(toksize > 0)
-            //         throw MD_ERR(
-            //             "@ns and @name directive are required "
-            //             "and must be defined before any other directive\n"
-            //             "Current directive: '{}', line: {}, col: {}",
-            //             ast::to_string(n->sec_type()), n->line(), n->col()
-            //         );
-            // }
+
+            else if(n->sec_type() == ast::section_type::dir_header){
+                auto dn = std::static_pointer_cast<ast::directive_node_t>(n);
+                
+                if(!doc->pre_inc_header)
+                    doc->pre_inc_header = dn;
+                else if(!doc->post_inc_header)
+                    doc->post_inc_header = dn;
+                else
+                    throw MD_ERR(
+                        "@header directive can only be specified twice.\n"
+                        "First time for view pre include definition and "
+                        "second time for view post include definition.\n"
+                        "line: {}, col: {}",
+                        n->line(), n->col()
+                    );
+            }
             
             n = n->next();
         }
@@ -252,15 +251,28 @@ public:
                 );
             }
             
-            // std::vector<std::string> ns_vals;
-            // std::string ns_open, ns_close;
-            // boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
-            // for(auto ns_v : ns_vals){
-            //     ns_open += "namespace " + ns_v + "{ ";
-            //     ns_close += "}";
-            // }
-            // if(dbg)
-            //     ns_close += " // " + ns_open;
+            
+            std::vector<std::string> ns_vals;
+            std::string ns_open, ns_close("\n");
+            boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
+            for(auto ns_v : ns_vals){
+                ns_open += "namespace " + ns_v + "{ ";
+                ns_close += "}";
+            }
+            if(dbg)
+                ns_close += " // " + ns_open;
+            ns_open += "\n";
+            ns_close += "\n";
+            
+            std::string pre_inc = doc->pre_inc_header ? 
+                doc->pre_inc_header->gen_header_code(dbg, docs, doc) : "";
+            std::string post_inc = doc->post_inc_header ? 
+                doc->post_inc_header->gen_header_code(dbg, docs, doc) : "";
+            
+            if(!pre_inc.empty())
+                pre_inc = ns_open + pre_inc + ns_close;
+            if(!post_inc.empty())
+                post_inc = ns_open + post_inc + ns_close;
             
             // std::string cls_def;
             // cls_def += fmt::format(
@@ -302,25 +314,30 @@ public:
             
             doc->i_src = fmt::format(
                 "/*\n"
+                // generation notice
                 "  {0}"
                 "*/\n"
                 "\n"
                 "#ifndef {1}\n"
                 "#define {1}\n"
-                
                 // include the fanjet base class
                 "#include \"evmvc/fanjet/fan_view_base.h\"\n"
-                
+                // includes
                 "{2} \n"
-                
+                // pre inc
+                "{3} \n"
                 // include view header
-                "#include \"{3}\"\n"
+                "#include \"{4}\"\n"
+                // post inc
+                "{5} \n"
                 
                 "#endif // {1}\n",
                 gen_notice,
                 inc_guards,
                 includes,
-                doc->h_filename
+                pre_inc,
+                doc->h_filename,
+                post_inc
             );
             
             

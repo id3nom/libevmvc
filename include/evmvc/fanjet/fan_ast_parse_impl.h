@@ -461,7 +461,7 @@ inline bool open_tag(ast::token& t, ast::node_t* pn)
     
     n->_tag_name = nt->text();
     
-    return open_scope(nt, pn, n);
+    return open_scope(t, pn, n);
 }
 
 /*

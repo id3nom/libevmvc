@@ -184,6 +184,9 @@ public:
     std::vector<directive_node> includes;
     std::vector<inherits_item> inherits_items;
     
+    directive_node pre_inc_header;
+    directive_node post_inc_header;
+    
     void replace_alias(std::string& source) const
     {
         replace_words(source, [&](std::string& wrd){

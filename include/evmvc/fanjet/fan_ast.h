@@ -63,7 +63,14 @@ SOFTWARE.
     friend bool open_fan_key(ast::token& t, ast::node_t* pn); \
     friend bool open_fan_fn(ast::token& t, ast::node_t* pn); \
      \
-    
+
+#define EVMVC_FANJET_AST_GENERATORS \
+    std::string gen_code_block( \
+        bool dbg, \
+        std::vector<document>& docs, \
+        document doc, \
+        std::vector<token_node>& tns \
+    ); \
 
 
 namespace evmvc { namespace fanjet { namespace ast {
@@ -231,6 +238,7 @@ class node_t
     friend class code_control_node_t;
     friend class code_async_node_t;
     EVMVC_FANJET_AST_OPEN_SCOPES
+    EVMVC_FANJET_AST_GENERATORS
     
 protected:
     node_t(
@@ -964,110 +972,13 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        std::vector<std::string> ns_vals;
-        std::string ns_open, ns_close;
-        boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
-        for(auto ns_v : ns_vals){
-            ns_open += "namespace " + ns_v + "{ ";
-            ns_close += "}";
-        }
-        if(dbg)
-            ns_close += " // " + ns_open;
-        
-        std::string inherit_val;
-        std::string inherit_cstr;
-        for(auto ii : doc->inherits_items){
-            auto id = ast::find(docs, doc, ii->path);
-            ii->nscls_name = id->nscls_name;
-            
-            inherit_val += fmt::format(
-                "{}{} {}",
-                inherit_val.empty() ? " : " : ", ",
-                ii->access == ast::inherits_access_type::pub ?
-                    "    public" :
-                ii->access == ast::inherits_access_type::pro ?
-                    "    protected" :
-                ii->access == ast::inherits_access_type::pri ?
-                    "    private" :
-                    "    private",
-                ii->nscls_name
-            );
-            if(!inherit_val.empty())
-                inherit_val += " ";
-            inherit_cstr +=
-                (inherit_cstr.empty() ? "" : ", ") + ii->nscls_name +
-                "(engine, _res)";
-        }
-        if(inherit_val.empty()){
-            inherit_val = " : public ::evmvc::fanjet::view_base";
-            inherit_cstr = " ::evmvc::fanjet::view_base(engine, _res)";
-        }
-        inherit_val += " ";
-        
-        std::string cls_head = fmt::format(
-            // -inc.h include
-            "#include \"{0}\"\n"
-            // namespace
-            "{1}"
-            // class name
-            "class {2} "
-            // inheriance
-            "{3}"
-            "{{ private: ",
-            doc->i_filename,
-            ns_open,
-            doc->cls_name,
-            inherit_val
-        );
-        
-        std::string cls_body;
-        
-        std::string cls_foot = fmt::format(
-            "\n\npublic:\n"
-            // constructor
-            "    {0}(\n"
-            "        ::evmvc::sp_view_engine engine,\n"
-            "        const ::evmvc::sp_response& _res)\n"
-            "        : {1}\n"
-            "    {{\n"
-            "    }}\n"
-            "\n"
-            "    md::string_view ns() const {{ return \"{2}\";}}\n"
-            "    md::string_view path() const {{ return \"{3}\";}}\n"
-            "    md::string_view name() const {{ return \"{4}\";}}\n"
-            "    md::string_view abs_path() const {{ return \"{5}\";}}\n"
-            "    md::string_view layout() const {{ return \"{6}\";}}\n"
-            "\n"
-            "    void render(std::shared_ptr<view_base> self,\n"
-            "        md::callback::async_cb cb\n"
-            "    );\n"
-            "\n"
-            "}};\n"
-            "{7}\n",
-            doc->cls_name,
-            inherit_cstr,
-            doc->ns,
-            doc->path,
-            doc->name,
-            doc->abs_path,
-            doc->layout,
-            ns_close
-        );
-        
-        //cls_body = this->child(0)->gen_header_code(dbg, docs, doc);
-        
-        return cls_head + cls_body + cls_foot;
-    }
-    
+        document doc
+    ) const;
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1086,7 +997,9 @@ inline root_node parse(ast::token t)
     friend class node_t; \
     friend class root_node_t; \
     friend class code_block_node_t; \
-    EVMVC_FANJET_AST_OPEN_SCOPES
+    EVMVC_FANJET_AST_OPEN_SCOPES \
+    EVMVC_FANJET_AST_GENERATORS
+
     
 class token_node_t
     : public node_t
@@ -1103,18 +1016,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
 
 protected:
     void parse(ast::token t)
@@ -1152,19 +1061,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1191,26 +1095,19 @@ protected:
     }
 
 public:
-    std::string enclosing_char() const
-    {
-        return _enclosing_char;
-    }
+    std::string enclosing_char() const { return _enclosing_char; }
     
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1343,28 +1240,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        if(this->sec_type() == section_type::dir_include){
-            auto nl = this->childs(1, SSIZE_MAX, {section_type::token});
-            std::string inc_val;
-            for(auto n : nl)
-                inc_val += n->token_text();
-            
-            doc->replace_paths(inc_val);
-            return "#include " + inc_val;
-        }
-        
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1393,21 +1276,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        
-        
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1434,19 +1310,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1473,19 +1344,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1500,6 +1366,8 @@ class code_block_node_t
     friend class node_t;
     friend class root_node_t;
     EVMVC_FANJET_AST_OPEN_SCOPES
+    EVMVC_FANJET_AST_GENERATORS
+
     
 protected:
     code_block_node_t(
@@ -1514,19 +1382,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1557,19 +1420,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1602,19 +1460,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1644,19 +1497,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1690,19 +1538,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1734,19 +1577,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1773,19 +1611,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
-    
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1828,18 +1661,14 @@ public:
     std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
     std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
-        document doc) const
-    {
-        throw MD_ERR("Not implemented!");
-    }
+        document doc
+    ) const;
     
 protected:
     void parse(ast::token t);
@@ -1858,6 +1687,7 @@ private:
 
 
 }}}//::evmvc::fanjet::ast
-#include "fan_ast_impl.h"
+#include "fan_ast_parse_impl.h"
+#include "fan_ast_gen_impl.h"
 
 #endif //_libevmvc_fanjet_ast_h
