@@ -76,6 +76,9 @@ class test
 @{
     @this->write_enc("<div></div>");
     int i = 1;
+    for(; i < 10; ++i){
+        @this->write_enc(i);
+    }
     @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
 }<br/>
 
