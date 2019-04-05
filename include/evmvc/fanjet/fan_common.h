@@ -187,6 +187,8 @@ public:
     directive_node pre_inc_header;
     directive_node post_inc_header;
     
+    
+    
     void replace_alias(std::string& source) const
     {
         replace_words(source, [&](std::string& wrd){

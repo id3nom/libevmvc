@@ -1697,4 +1697,10 @@ inline void fan_fn_node_t::parse(ast::token t)
     
 }
 
+inline void token_node_t::parse(ast::token t)
+{
+    throw MD_ERR("Can't parse a token node!");
+}
+
+
 }}}//::evmvc::fanjet::ast

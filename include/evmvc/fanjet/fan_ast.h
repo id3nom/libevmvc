@@ -31,7 +31,7 @@ SOFTWARE.
 
 #include <stack>
 
-#define EVMVC_FANJET_AST_OPEN_SCOPES \
+#define EVMVC_FANJET_AST_FRIEND_OPEN_SCOPES \
     /* friend bool open_scope(ast::token& t, ast::node_t* n); */ \
     friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
     friend bool open_scope( \
@@ -64,13 +64,31 @@ SOFTWARE.
     friend bool open_fan_fn(ast::token& t, ast::node_t* pn); \
      \
 
-#define EVMVC_FANJET_AST_GENERATORS \
-    std::string gen_code_block( \
+#define EVMVC_FANJET_AST_FRIEND_GENERATORS \
+    friend std::string gen_code_block( \
         bool dbg, \
         std::vector<document>& docs, \
         document doc, \
-        std::vector<token_node>& tns \
+        const std::vector<node>& tns \
     ); \
+
+
+#define EVMVC_FANJET_AST_NODE_IMPL_DECL \
+public: \
+    std::string gen_header_code( \
+        bool dbg, \
+        std::vector<document>& docs, \
+        document doc \
+    ) const; \
+    std::string gen_source_code( \
+        bool dbg, \
+        std::vector<document>& docs, \
+        document doc \
+    ) const; \
+protected: \
+    void parse(ast::token t); \
+
+#define EVMVC_FANJET_AST_NODE_CLS() \
 
 
 namespace evmvc { namespace fanjet { namespace ast {
@@ -237,8 +255,8 @@ class node_t
 {
     friend class code_control_node_t;
     friend class code_async_node_t;
-    EVMVC_FANJET_AST_OPEN_SCOPES
-    EVMVC_FANJET_AST_GENERATORS
+    EVMVC_FANJET_AST_FRIEND_OPEN_SCOPES
+    EVMVC_FANJET_AST_FRIEND_GENERATORS
     
 protected:
     node_t(
@@ -693,7 +711,7 @@ public:
         return _token->text(true);
     }
     
-    std::string text(ssize_t s, ssize_t e = SSIZE_MAX)
+    std::string text(ssize_t s, ssize_t e = SSIZE_MAX) const
     {
         ssize_t cs = (ssize_t)_childs.size();
         if(s < 0)
@@ -953,6 +971,8 @@ protected:
     size_t _dbg_col;
 };
 
+
+
 root_node parse(ast::token t);
 class root_node_t
     : public node_t
@@ -969,19 +989,7 @@ public:
     bool prev_sibling_allowed() const { return false;}
     bool next_sibling_allowed() const { return false;}
     
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
 
 private:
     
@@ -997,8 +1005,8 @@ inline root_node parse(ast::token t)
     friend class node_t; \
     friend class root_node_t; \
     friend class code_block_node_t; \
-    EVMVC_FANJET_AST_OPEN_SCOPES \
-    EVMVC_FANJET_AST_GENERATORS
+    EVMVC_FANJET_AST_FRIEND_OPEN_SCOPES \
+    EVMVC_FANJET_AST_FRIEND_GENERATORS \
 
     
 class token_node_t
@@ -1012,25 +1020,7 @@ protected:
     {
     }
     
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-
-protected:
-    void parse(ast::token t)
-    {
-        throw MD_ERR("Can't parse a token node!");
-        //this->_token = t;
-    }
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
 };
 
 enum class expr_type
@@ -1057,21 +1047,7 @@ protected:
     
     expr_type type() const { return _type;}
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
 
 private:
     expr_type _type;
@@ -1097,20 +1073,7 @@ protected:
 public:
     std::string enclosing_char() const { return _enclosing_char; }
     
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
 
 private:
     std::string _enclosing_char;
@@ -1237,20 +1200,8 @@ public:
         }
     }
     
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _done;
@@ -1272,21 +1223,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     std::string in_markdown_code;
@@ -1306,21 +1244,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     
@@ -1340,21 +1265,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     
@@ -1365,8 +1277,8 @@ class code_block_node_t
 {
     friend class node_t;
     friend class root_node_t;
-    EVMVC_FANJET_AST_OPEN_SCOPES
-    EVMVC_FANJET_AST_GENERATORS
+    EVMVC_FANJET_AST_FRIEND_OPEN_SCOPES
+    EVMVC_FANJET_AST_FRIEND_GENERATORS
 
     
 protected:
@@ -1378,21 +1290,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     
@@ -1416,21 +1315,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _need_expr;
@@ -1456,21 +1342,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _need_expr;
@@ -1493,21 +1366,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _done;
@@ -1534,21 +1394,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _need_expr;
@@ -1573,21 +1420,8 @@ protected:
     {
     }
 
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
 };
@@ -1607,21 +1441,8 @@ protected:
     {
     }
     
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
 
 private:
     bool _done;
@@ -1657,21 +1478,8 @@ protected:
     {
     }
     
-public:
-    std::string gen_header_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-    std::string gen_source_code(
-        bool dbg,
-        std::vector<document>& docs,
-        document doc
-    ) const;
-    
-protected:
-    void parse(ast::token t);
+    EVMVC_FANJET_AST_NODE_IMPL_DECL
+
     
 private:
     bool _done;

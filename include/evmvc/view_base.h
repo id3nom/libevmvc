@@ -61,6 +61,7 @@ public:
     
     void write_enc(md::string_view data);
     void write_raw(md::string_view data);
+    void write_lang(const std::string& lang, md::string_view data);
     //void render_partial(md::string_view path, md::callback::async_cb cb);
     void render_view(md::string_view path, md::callback::async_cb cb);
     
