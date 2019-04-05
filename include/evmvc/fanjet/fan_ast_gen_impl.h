@@ -68,9 +68,30 @@ std::string escape_cpp_source(const std::string& source)
     return "\"" + tmp + "\"";
 }
 
+std::string replace_fan_keys(document doc, const std::string& s)
+{
+    return replace_words(s, [&](std::string& wrd){
+        if(wrd == "@this"){
+            wrd = doc->self_name;
+            return;
+        }
+        
+        if(wrd == "@filename"){
+            wrd = doc->filename;
+            return;
+        }
+        
+        if(wrd == "@dirname"){
+            wrd = doc->dirname;
+            return;
+        }
+    });
+}
+
 std::string write_tokens(
+    document doc,
     node& tok_node, escape_fn esc = nullptr,
-    const std::string& prefix = "this->write_raw(",
+    const std::string& prefix = "@this->write_raw(",
     const std::string& suffix = ");"
     )
 {
@@ -85,7 +106,10 @@ std::string write_tokens(
     if(esc)
         out = esc(out);
     
-    return prefix + out + suffix;
+    return 
+        replace_fan_keys(doc, prefix) +
+        out +
+        replace_fan_keys(doc, suffix);
 }
 
 
@@ -93,17 +117,18 @@ inline std::string gen_code_block(
     bool dbg, std::vector<document>& docs, document doc,
     const std::vector<node>& tns)
 {
-    std::string _source;
+    // gen source code
+    std::string s;
     for(auto tn : tns){
         if(tn->sec_type() == section_type::token){
-            _source += tn->token_text();
+            s += tn->token_text();
         }else
-            _source += tn->gen_header_code(
+            s += tn->gen_header_code(
                 dbg, docs, doc
             );
     }
     
-    return _source;
+    return replace_fan_keys(doc, s);
 }
 
 
@@ -206,7 +231,11 @@ inline std::string root_node_t::gen_header_code(
     );
     
     cls_body = fmt::format(
-        "void __exec(md::callback::async_cb cb){{ {} }}",
+        "void __exec("
+        "std::shared_ptr<{}> {}, md::callback::async_cb cb"
+        "){{ {} }}",
+        doc->cls_name,
+        doc->self_name,
         this->child(0)->gen_header_code(dbg, docs, doc)
     );
     
@@ -255,38 +284,50 @@ inline std::string literal_node_t::gen_header_code(
         sec_type() == section_type::markup_markdown ? last_child() :
             nullptr;
     
-    std::string vn = unique_var_name();
-    s += "std::string " + vn + ";";
+    switch(sec_type()){
+        case section_type::literal:
+        case section_type::markup_html:
+            s += fmt::format(
+                "{}->begin_write(\"{}\");",
+                doc->self_name, "html"
+            );
+            break;
+        case section_type::markup_markdown:
+            s += fmt::format(
+                "{}->begin_write(\"{}\");",
+                doc->self_name, "md"
+            );
+            break;
+        default:
+            break;
+    }
     
     while(n && n != ln){
-        if(n->sec_type() == section_type::token){
-            
-            if(sec_type() == section_type::literal)
-                s += write_tokens(n, escape_cpp_source);
-            else if(sec_type() == section_type::markup_html)
-                s += write_tokens(n, escape_cpp_source);
-            else if(sec_type() == section_type::markup_markdown){
-                s += vn + " += " +
-                    write_tokens(n, escape_cpp_source, "", "") + ";";
-            }
-        }
+        if(n->sec_type() == section_type::token)
+            s += write_tokens(doc, n, escape_cpp_source);
         
-        else if(n->node_type() != ast::node_type::directive){
-            if(sec_type() == section_type::literal)
-                s += n->gen_header_code(dbg, docs, doc);
-            else if(sec_type() == section_type::markup_html)
-                s += n->gen_header_code(dbg, docs, doc);
-            else if(sec_type() == section_type::markup_markdown){
-                s += vn + " += " + n->gen_header_code(dbg, docs, doc) + ";";
-            }
-        
-        }
+        else if(n->node_type() != ast::node_type::directive)
+            s += n->gen_header_code(dbg, docs, doc);
         
         n = n->next();
     }
     
-    if(sec_type() == section_type::markup_markdown){
-        return s + "this->write_lang(\"md\", " + vn + ");";
+    switch(sec_type()){
+        case section_type::literal:
+        case section_type::markup_html:
+            s += fmt::format(
+                "{}->commit_write(\"{}\");",
+                doc->self_name, "html"
+            );
+            break;
+        case section_type::markup_markdown:
+            s += fmt::format(
+                "{}->commit_write(\"{}\");",
+                doc->self_name, "md"
+            );
+            break;
+        default:
+            break;
     }
     
     return s;
@@ -315,7 +356,19 @@ inline std::string string_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
-    return text(0);
+    std::string s;
+    node n = child(0);
+    while(n){
+        if(n->sec_type() == section_type::token)
+            s += write_tokens(doc, n, escape_cpp_source);
+        
+        else if(n->node_type() != ast::node_type::directive)
+            s += n->gen_header_code(dbg, docs, doc);
+        
+        n = n->next();
+    }
+    
+    return s;
 }
 
 inline std::string tag_node_t::gen_header_code(
@@ -326,9 +379,8 @@ inline std::string tag_node_t::gen_header_code(
     std::string s;
     node n = child(0);
     while(n){
-        if(n->sec_type() == section_type::token){
-            s += write_tokens(n, escape_cpp_source);
-        }
+        if(n->sec_type() == section_type::token)
+            s += write_tokens(doc, n, escape_cpp_source);
         
         else if(n->node_type() != ast::node_type::directive)
             s += n->gen_header_code(dbg, docs, doc);

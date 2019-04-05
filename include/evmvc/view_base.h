@@ -59,11 +59,25 @@ public:
         md::callback::async_cb cb
     ) = 0;
     
+    void begin_write(md::string_view lng);
     void write_enc(md::string_view data);
     void write_raw(md::string_view data);
-    void write_lang(const std::string& lang, md::string_view data);
-    //void render_partial(md::string_view path, md::callback::async_cb cb);
+    void commit_write(md::string_view lng);
+    
     void render_view(md::string_view path, md::callback::async_cb cb);
+    
+    template<typename T>
+    void set_value(md::string_view name, T val)
+    {
+        throw MD_ERR("Not implemented");
+    }
+    
+    template<typename T>
+    T get_value(md::string_view name, T def_val = T())
+    {
+        throw MD_ERR("Not implemented");
+        //return def_val;
+    }
     
 private:
     sp_view_engine _engine;

@@ -115,6 +115,15 @@ void replace_words(std::string& s, const std::string& f, const std::string& r)
     s = d;
 }
 
+std::string replace_words(
+    const std::string& s, const std::string& f, const std::string& r)
+{
+    std::string c = s;
+    replace_words(c, f, r);
+    return c;
+}
+
+
 typedef std::function<void(std::string& wrd)> replace_fn;
 void replace_words(std::string& s, replace_fn r)
 {
@@ -139,6 +148,12 @@ void replace_words(std::string& s, replace_fn r)
     s = d;
 }
 
+std::string replace_words(const std::string& s, replace_fn r)
+{
+    std::string c = s;
+    replace_words(c, r);
+    return c;
+}
 
 enum class doc_type
 {
