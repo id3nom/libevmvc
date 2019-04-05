@@ -177,7 +177,9 @@ public:
             text(false, true).empty();
     }
     
+    bool is_space_or_tab() const { return is_space() || is_tab();}
     bool is_space() const { return _text == " ";}
+    bool is_tab() const { return _text == "\t";}
 
     bool is_cpp_line_comment() const { return _text == "//";}
     bool is_cpp_blk_comment_open() const { return _text == "/*";}
@@ -985,6 +987,7 @@ public:
         return it != _s.end();
     }
     
+    bool is_backslash() const { return _text == "\\";}
     
 private:
     std::weak_ptr<token_t> _prev;
@@ -1171,8 +1174,20 @@ const char* tokenizer::s_tokens[] = {
     "@fmt",
     "@get-raw",
     "@fmt-raw",
-    //"\n```", "\n~~~",
+    
+    // "\n``````````", "\n`````````", "\n````````", "\n```````", "\n``````", 
+    // "\n`````", "\n````", "\n```", "\n``",
+    // "\n~~~~~~~~~~", "\n~~~~~~~~~", "\n~~~~~~~~", "\n~~~~~~~", "\n~~~~~~", 
+    // "\n~~~~~", "\n~~~~", "\n~~~", "\n~~",
+    
+    "``````````", "`````````", "````````", "```````", "``````", 
+    "`````", "````", "```", "``",
+    "~~~~~~~~~~", "~~~~~~~~~", "~~~~~~~~", "~~~~~~~", "~~~~~~", 
+    "~~~~~", "~~~~", "~~~", "~~",
+    
     "\"", "'", "`",
+    "\\",
+    
     "\n",
     ";",
     "::",

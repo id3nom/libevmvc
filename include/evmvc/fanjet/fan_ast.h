@@ -38,7 +38,9 @@ SOFTWARE.
         ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup \
     ); \
      \
-    friend bool open_string(ast::token& t, ast::node_t* pn); \
+    friend bool open_code_string(ast::token& t, ast::node_t* pn); \
+    friend bool open_attr_string(ast::token& t, ast::node_t* pn); \
+    friend bool open_markdown_string(ast::token& t, ast::node_t* pn); \
     friend bool open_code_block(ast::token& t, ast::node_t* pn); \
     friend bool open_control(ast::token& t, ast::node_t* pn); \
     friend bool open_try(ast::token& t, ast::node_t* pn); \
@@ -1178,11 +1180,13 @@ class string_node_t
 protected:
     string_node_t(
         std::string enclosing_char,
+        std::string escape_char,
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
         : node_t(ast::section_type::string , parent, prev, next),
-        _enclosing_char(enclosing_char)
+        _enclosing_char(enclosing_char),
+        _escape_char(escape_char)
     {
     }
 
@@ -1213,6 +1217,7 @@ protected:
 
 private:
     std::string _enclosing_char;
+    std::string _escape_char;
 };
 
 

@@ -91,17 +91,82 @@ inline bool open_scope(
     return true;
 }
 
-inline bool open_string(ast::token& t, ast::node_t* pn)
+inline bool open_code_string(ast::token& t, ast::node_t* pn)
 {
-    if(t->is_double_quote() || t->is_single_quote() || t->is_backtick()){
-        ast::node n = string_node(new string_node_t(
-            t->text()
-        ));
+    if(!t->is_double_quote() && !t->is_single_quote())
+        return false;
+    ast::node n = string_node(new string_node_t(
+        t->text(), t->is_double_quote() ? "\\\"" : "\\'"
+    ));
+    
+    return open_scope(t, pn, n);
+}
+
+inline bool open_attr_string(ast::token& t, ast::node_t* pn)
+{
+    if(!t->is_double_quote() && !t->is_single_quote())
+        return false;
+    
+    ast::node n = string_node(new string_node_t(
+        t->text(), ""
+    ));
+    return open_scope(t, pn, n);
+}
+
+inline bool open_markdown_string(ast::token& t, ast::node_t* pn)
+{
+    static std::unordered_set<std::string> _s {
+        "``````````", "`````````", "````````", "```````", "``````", 
+        "`````", "````", "```", "``",
+        "~~~~~~~~~~", "~~~~~~~~~", "~~~~~~~~", "~~~~~~~", "~~~~~~", 
+        "~~~~~", "~~~~", "~~~", "~~"
+    };
+    
+    ast::node n = nullptr;
+    if(t->is_eol()){
+        ast::token nt = t->next();
+        if(!nt)
+            return false;
         
+        bool is_code = false;
+        if(nt->is_space()){
+            size_t c = 0;
+            while(nt && nt->is_space_or_tab()){
+                ++c;
+                nt = nt->next();
+            }
+            
+            is_code = c >= 4;
+        }else if(nt->is_tab()){
+            is_code = true;
+        }
+        
+        if(is_code){
+            n = string_node(new string_node_t(
+                t->text(), "\n"
+            ));
+            return open_scope(t, pn, n);
+        }
+        
+        nt = t->next();
+        if(_s.find(nt->text()) == _s.end())
+            return false;
+        
+        n = string_node(new string_node_t(
+            "\n" + nt->text(), ""
+        ));
         return open_scope(t, pn, n);
     }
-    return false;
+    
+    if(_s.find(t->text()) == _s.end())
+        return false;
+    
+    n = string_node(new string_node_t(
+        t->text(), ""
+    ));
+    return open_scope(t, pn, n);
 }
+
 
 inline bool open_fan_comment(ast::token& t, ast::node_t* pn)
 {
@@ -389,19 +454,10 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
     return open_scope(t, pn, n);
 }
 
-inline bool tag_is_opening(ast::token& t)
-{
-    auto st = t;
-    
-}
-inline bool tag_is_closing(ast::token& t)
-{
-    
-}
 
 inline bool open_tag(ast::token& t, ast::node_t* pn)
 {
-    if(!t->is_tag_open())
+    if(!t->is_tag_gt())
         return;
     
 }
@@ -608,9 +664,9 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
             pn->node_type() != node_type::literal &&
             (t->is_double_quote() || t->is_single_quote() || t->is_backtick())
         ){
-            n = string_node(new string_node_t(
-                t->text()
-            ));
+            // n = string_node(new string_node_t(
+            //     t->text()
+            // ));
         }
         
         if(n){
@@ -871,7 +927,7 @@ inline void tag_node_t::parse(ast::token t)
     while(t){
         // for opening tag: <t...>, <t.../>
         if(!this->_start_completed){
-            if(open_string(t, this))
+            if(open_attr_string(t, this))
                 return;
             
             if(this->_tag == tag_type::html_void){
@@ -883,7 +939,7 @@ inline void tag_node_t::parse(ast::token t)
                     close_scope(t, this);
                     return;
                 }
-
+            
             }else if(t->is_tag_slash_gt()){
                     this->_start_completed = true;
                     this->_end_started = true;
@@ -908,7 +964,6 @@ inline void tag_node_t::parse(ast::token t)
             if(
                 open_fan_comment(t, this) ||
                 open_fan_directive(t, this) ||
-                open_fan_output(t, this) ||
                 
                 open_fan_code_block(t, this) ||
                 open_fan_control(t, this) ||
@@ -918,6 +973,7 @@ inline void tag_node_t::parse(ast::token t)
                 
                 open_fan_markup(t, this) ||
                 
+                open_fan_output(t, this) ||
                 open_fan_key(t, this) ||
                 open_fan_fn(t, this)
             )
@@ -927,7 +983,7 @@ inline void tag_node_t::parse(ast::token t)
                 return;
             
             if(t->is_tag_lt_slash()){
-                
+                this->_end_started = true;
             }
             
             if(t) t = t->next();
@@ -939,35 +995,16 @@ inline void tag_node_t::parse(ast::token t)
             this->_end_started &&
             !this->_end_completed
         ){
-            
-            
+            if(t->is_tag_slash_gt()){
+                this->_end_completed = true;
+                this->_done = true;
+                close_scope(t, this);
+                return;
+            }
             
             if(t) t = t->next();
             continue;
         }
-        
-        
-        // switch(this->_tag){
-        //     case tag_type::html:{
-        //         
-        //         break;
-        //     }
-        //     case tag_type::html_void:{
-        //         
-        //         break;
-        //     }
-        //     case tag_type::mathml:{
-        //         
-        //         break;
-        //     }
-        //     case tag_type::svg:{
-        //         
-        //         break;
-        //     }
-        //     
-        //     default:
-        //         break;
-        // }
         
         if(t) t = t->next();
     }
@@ -988,42 +1025,38 @@ inline void string_node_t::parse(ast::token t)
     }
     
     ast::token st = t;
+    ast::node p = this->parent();
     while(t){
-        ast::token nt = t->next();
-        
-        if(this->_enclosing_char == "\"" && t->is_double_quote()){
-            if(nt && nt->text() == "\""){
-                t = nt->next();
-                continue;
+        if(this->_escape_char.empty()){
+            if(this->_enclosing_char == t->text()){
+                close_scope(t, this);
+                return;
             }
-            
-            close_scope(t, this);
-            return;
-            
-        } else if(this->_enclosing_char == "'" && t->is_single_quote()){
-            if(nt && nt->text() == "'"){
-                t = nt->next();
-                continue;
+        }else{
+            if(boost::starts_with(this->_escape_char, t->text())){
+                
+                
             }
-            
-            close_scope(t, this);
-            return;
-        
-        } else if(this->_enclosing_char == "`" && t->is_backtick()){
-            if(nt && nt->text() == "`"){
-                t = nt->next();
-                continue;
-            }
-            
-            close_scope(t, this);
-            return;
-            
         }
+        // } else if(this->_escape_char != t->text() &&
+        //     this->_enclosing_char == t->text()
+        // ){
+        //     close_scope(t, this);
+        //     return;
+        // }
         
         // only verify open_scope if w'ere in a literal section
-        if(this->parent() && this->parent()->node_type() == node_type::literal)
-            if(open_scope(t, this))
+        if(p && 
+            (p->node_type() == node_type::literal ||
+            p->node_type() == node_type::tag)
+        ){
+            if(
+                open_fan_output(t, this) ||
+                open_fan_key(t, this) ||
+                open_fan_fn(t, this)
+            )
                 return;
+        }
         
         if(t) t = t->next();
     }
