@@ -43,6 +43,11 @@ SOFTWARE.
 # header AAA
 _italic text_
 
+``` js
+var test = 0;
+```
+
+
 ``` sh
 
 $ echo("some bash code!!!")
@@ -50,7 +55,7 @@ $ echo("some bash code!!!")
 
 ```
 
-some `$ echo("inline `` code")` ...
+some ```$ echo("inline `` code")``` ...
 
 ~~~ c++
 // this is c++ code

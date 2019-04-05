@@ -875,7 +875,7 @@ public:
         return it != _s.end();
     }
     
-    bool is_svg_void_tag() const
+    bool is_svg_tag() const
     {
         static std::unordered_set<std::string> _s {
             "a",
@@ -1007,6 +1007,14 @@ class tokenizer
     }
     
 public:
+    class tmp_token
+    {
+    public:
+        size_t tl = 0;
+        size_t tc = 0;
+        size_t ti = 0;
+        std::string text;
+    };
     
     ~tokenizer()
     {
@@ -1045,19 +1053,53 @@ public:
             size_t lb = l;
             size_t cb = c;
             const char** tp = s_tokens;
+            
+            std::string tval;
+            size_t il = 0;
+            size_t ll = 0;
+            size_t cl = 0;
+            
             while(*tp){
                 std::string tok(*tp);
-                if(tokenizer::is_token(tok, text, i, l, c)){
-                    is_token = true;
-                    if(tmp_text.size() > 0)
-                        t = t->add_next(tmp_text, tl, tc, ti);
-                    tmp_text = "";
-                    ti = i;
-                    tl = l;
-                    t = t->add_next(tok, lb, cb, ib);
-                    break;
+                if(tok.size() > tval.size()){
+                    if(tokenizer::is_token(tok, text, i, l, c)){
+                        il = i;
+                        ll = l;
+                        cl = c;
+                        
+                        i = ib;
+                        l = lb;
+                        c = cb;
+                        
+                        is_token = true;
+                        tval = tok;
+                    }
                 }
+                // if(tokenizer::is_token(tok, text, i, l, c)){
+                //     is_token = true;
+                //     if(tmp_text.size() > 0)
+                //         t = t->add_next(tmp_text, tl, tc, ti);
+                //     tmp_text = "";
+                //     ti = i;
+                //     tl = l;
+                //     t = t->add_next(tok, lb, cb, ib);
+                //     break;
+                // }
                 ++tp;
+            }
+            
+            if(is_token){
+                if(tmp_text.size() > 0)
+                    t = t->add_next(tmp_text, tl, tc, ti);
+                tmp_text = "";
+                
+                i = il;
+                l = ll;
+                c = cl;
+                
+                ti = i;
+                tl = l;
+                t = t->add_next(tval, lb, cb, ib);
             }
             
             if(!is_token){
@@ -1222,6 +1264,7 @@ const char* tokenizer::s_tokens[] = {
     "do",
     
     // html tags
+    "<!DOCTYPE html>",
     "a",
     "abbr",
     "acronym",

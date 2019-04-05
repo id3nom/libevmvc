@@ -189,6 +189,10 @@ int main(int argc, char** argv)
             );
         
         return 0;
+        
+    }catch(int errcode){
+        return errcode;
+        
     }catch(const md::error::stacked_error& serr){
         if(vm.count("help")){
             std::cout 
@@ -305,6 +309,15 @@ void process_fanjet_file(
                 dbg
             );
         docs.emplace_back(doc);
+        
+    }catch(const md::error::stacked_error& serr){
+        md::log::error(
+            "{}\n{}\n{}:{}\n\nUsage: fanjet [options] src-path dest-path",
+            serr.what(),
+            serr.func(), serr.file(), serr.line()
+        );
+        throw -1;
+        
     }catch(const std::exception& error){
         std::string err_msg = fmt::format(
             "{}\nsrc: {}",

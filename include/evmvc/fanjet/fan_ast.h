@@ -32,7 +32,7 @@ SOFTWARE.
 #include <stack>
 
 #define EVMVC_FANJET_AST_OPEN_SCOPES \
-    friend bool open_scope(ast::token& t, ast::node_t* n); \
+    /* friend bool open_scope(ast::token& t, ast::node_t* n); */ \
     friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
     friend bool open_scope( \
         ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup \
@@ -1816,7 +1816,11 @@ protected:
             ast::node_type::tag, ast::section_type::tag, parent, prev, next
         ),
         _done(false),
-        _tag(tag_type::unknown)
+        _tag_type(tag_type::unknown),
+        _tag_name(""),
+        _start_completed(false),
+        _end_started(false),
+        _end_completed(false)
     {
     }
     
@@ -1843,7 +1847,7 @@ protected:
 private:
     bool _done;
     
-    tag_type _tag;
+    tag_type _tag_type;
     std::string _tag_name;
 
     bool _start_completed;

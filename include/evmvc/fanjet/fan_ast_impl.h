@@ -143,9 +143,9 @@ inline bool open_markdown_string(ast::token& t, ast::node_t* pn)
         
         if(is_code){
             n = string_node(new string_node_t(
-                t->text(), "\n"
+                "\n", ""
             ));
-            return open_scope(t, pn, n);
+            return open_scope(nt, pn, n);
         }
         
         nt = t->next();
@@ -155,7 +155,7 @@ inline bool open_markdown_string(ast::token& t, ast::node_t* pn)
         n = string_node(new string_node_t(
             "\n" + nt->text(), ""
         ));
-        return open_scope(t, pn, n);
+        return open_scope(nt, pn, n);
     }
     
     if(_s.find(t->text()) == _s.end())
@@ -312,7 +312,7 @@ inline bool open_try(ast::token& t, ast::node_t* pn)
 inline bool open_fan_funi_func(ast::token& t, ast::node_t* pn)
 {
     if(!t->is_fan_funi() && !t->is_fan_func())
-        return;
+        return false;
     
     ast::node n = code_fun_node(new code_fun_node_t(
         t->is_fan_funi() ?
@@ -350,24 +350,6 @@ inline bool open_expr(ast::token& t, ast::node_t* pn)
     
     return open_scope(t, pn, n);
 }
-
-inline bool open_tag(ast::token& t, ast::node_t* pn)
-{
-    ast::node n = nullptr;
-    
-    if(t->is_parenthesis_open())
-        n = expr_node(new expr_node_t(
-            expr_type::parens
-        ));
-    
-    else if(t->is_cpp_return() || t->is_cpp_throw())
-        n = expr_node(new expr_node_t(
-            expr_type::semicol
-        ));
-    
-    return open_scope(t, pn, n);
-}
-
 
 inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
 {
@@ -457,11 +439,32 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
 
 inline bool open_tag(ast::token& t, ast::node_t* pn)
 {
-    if(!t->is_tag_gt())
-        return;
+    if(!t->is_tag_lt())
+        return false;
     
+    auto nt = t->next();
+    if(!nt)
+        return false;
+    
+    ast::tag_node n = tag_node(new tag_node_t());
+    
+    if(nt->is_html_void_tag())
+        n->_tag_type = tag_type::html_void;
+    else if(nt->is_html_tag())
+        n->_tag_type = tag_type::html;
+    else if(nt->is_svg_tag())
+        n->_tag_type = tag_type::svg;
+    else if(nt->is_mathml_tag())
+        n->_tag_type = tag_type::mathml;
+    else
+        n->_tag_type = tag_type::unknown;
+    
+    n->_tag_name = nt->text();
+    
+    return open_scope(nt, pn, n);
 }
 
+/*
 inline bool open_scope(ast::token& t, ast::node_t* pn)
 {
     if(t->is_fan_start_key() ||
@@ -699,6 +702,7 @@ inline bool open_scope(ast::token& t, ast::node_t* pn)
     }
     return false;
 }
+*/
 
 inline void close_scope(ast::token& t, ast::node_t* pn, bool ff = true)
 {
@@ -746,80 +750,38 @@ inline void literal_node_t::parse(ast::token t)
             open_fan_markup(t, this) ||
             
             open_fan_key(t, this) ||
-            open_fan_fn(t, this)
+            open_fan_fn(t, this) ||
+            
+            open_tag(t, this)
         )
             return;
         
         switch(this->sec_type()){
             case section_type::literal:{
                 
-                
                 break;
             }
-            
             case section_type::markup_html:{
-                
-                
+                if(t->is_curly_brace_close()){
+                    close_scope(t, this);
+                    return;
+                }
                 break;
             }
-                
             case section_type::markup_markdown:{
+                if(open_markdown_string(t, this))
+                    return;
+                
+                if(t->is_curly_brace_close()){
+                    close_scope(t, this);
+                    return;
+                }
                 
                 break;
             }
             
             default:
                 break;
-        }
-        
-        if(open_scope(t, this))
-            return;
-        
-        if(this->sec_type() != section_type::literal){
-            if(this->sec_type() == section_type::markup_markdown){
-                if(auto tn = t->next()){
-                    if(this->in_markdown_code.empty()){
-                        if(t->is_eol() && tn->is_backtick()){
-                            
-                            
-                        }else if(t->is_eol() && tn->is_tilde()){
-                            
-                            
-                        }else if(t->is_backtick()){
-                            
-                        }
-                        
-                    }else{
-                        
-                    }
-                }
-                
-                // if(t->is_markdown_code_backticks() ||
-                //     t->is_markdown_code_tildes()
-                // ){
-                //     if(this->in_markdown_code.empty())
-                //         this->in_markdown_code = t->text();
-                //     else if(this->in_markdown_code == t->text())
-                //         this->in_markdown_code.clear();
-                // }
-                
-                if(this->in_markdown_code.empty() && t->is_curly_brace_close()){
-                    close_scope(t, this);
-                    return;
-                }
-                
-            }else if(t->is_curly_brace_close()){
-                close_scope(t, this);
-                return;
-            }
-            
-            if(!t->next())
-                throw MD_ERR(
-                    "Missing closing brace for node: '{}', "
-                    "line: '{}', col: '{}'",
-                    to_string(this->node_type()), 
-                    t->root()->line(), t->root()->col()
-                );
         }
         
         if(t) t = t->next();
@@ -845,7 +807,29 @@ inline void expr_node_t::parse(ast::token t)
     
     ast::token st = t;
     while(t){
-        if(open_scope(t, this))
+        if(
+            open_fan_comment(t, this)
+            || open_fan_directive(t, this)
+            || open_fan_output(t, this)
+            
+            //|| open_fan_code_block(t, this)
+            //|| open_fan_control(t, this)
+            //|| open_fan_try(t, this)
+            
+            //|| open_fan_funi_func(t, this)
+            
+            //|| open_fan_markup(t, this)
+            
+            || open_fan_key(t, this)
+            || open_fan_fn(t, this)
+            
+            //|| open_tag(t, this)
+            
+            || open_expr(t, this)
+            
+            || open_code_string(t, this)
+            || open_code_block(t, this)
+        )
             return;
         
         if((t->is_cpp_op() && !t->is_scope_resolution()) ||
@@ -865,7 +849,6 @@ inline void expr_node_t::parse(ast::token t)
                         this->parent()
                     );
                 
-
                 bool is_dec = false;
                 bool is_def = false;
                 ast::token it = t->next();
@@ -930,7 +913,7 @@ inline void tag_node_t::parse(ast::token t)
             if(open_attr_string(t, this))
                 return;
             
-            if(this->_tag == tag_type::html_void){
+            if(this->_tag_type == tag_type::html_void){
                 if(t->is_tag_gt() || t->is_tag_slash_gt()){
                     this->_start_completed = true;
                     this->_end_started = true;
@@ -995,7 +978,7 @@ inline void tag_node_t::parse(ast::token t)
             this->_end_started &&
             !this->_end_completed
         ){
-            if(t->is_tag_slash_gt()){
+            if(t->is_tag_gt()){
                 this->_end_completed = true;
                 this->_done = true;
                 close_scope(t, this);
@@ -1028,22 +1011,80 @@ inline void string_node_t::parse(ast::token t)
     ast::node p = this->parent();
     while(t){
         if(this->_escape_char.empty()){
-            if(this->_enclosing_char == t->text()){
+            // if(this->_enclosing_char == t->text()){
+            //     close_scope(t, this);
+            //     return;
+            // }
+            bool is_valid = false;
+            
+            if(boost::starts_with(this->_enclosing_char, t->text())){
+                std::string tesc = t->text();
+                auto nt = t;
+                while(nt &&
+                    boost::starts_with(this->_enclosing_char, tesc)
+                ){
+                    if(this->_enclosing_char == tesc){
+                        is_valid = true;
+                        t = nt;
+                        break;
+                    }
+                    nt = nt->next();
+                    if(nt)
+                        tesc += nt->text();
+                }
+            }
+            
+            if(is_valid){
                 close_scope(t, this);
                 return;
             }
+            
+            
         }else{
+            bool is_escaped = false;
             if(boost::starts_with(this->_escape_char, t->text())){
-                
+                std::string tesc = t->text();
+                auto nt = t;
+                while(nt && boost::starts_with(this->_escape_char, tesc)){
+                    if(this->_escape_char == tesc){
+                        is_escaped = true;
+                        t = nt;
+                        break;
+                    }
+                    nt = nt->next();
+                    if(nt)
+                        tesc += nt->text();
+                }
                 
             }
+            
+            if(!is_escaped){
+                bool is_valid = false;
+                
+                if(boost::starts_with(this->_enclosing_char, t->text())){
+                    std::string tesc = t->text();
+                    auto nt = t;
+                    while(nt &&
+                        boost::starts_with(this->_enclosing_char, tesc)
+                    ){
+                        if(this->_enclosing_char == tesc){
+                            is_valid = true;
+                            t = nt;
+                            break;
+                        }
+                        nt = nt->next();
+                        if(nt)
+                            tesc += nt->text();
+                    }
+                }
+                
+                if(is_valid){
+                    close_scope(t, this);
+                    return;
+                }
+            }
+            
         }
-        // } else if(this->_escape_char != t->text() &&
-        //     this->_enclosing_char == t->text()
-        // ){
-        //     close_scope(t, this);
-        //     return;
-        // }
         
         // only verify open_scope if w'ere in a literal section
         if(p && 
@@ -1062,9 +1103,9 @@ inline void string_node_t::parse(ast::token t)
     }
 
     throw MD_ERR(
-        "String is not closed, are you missing a '\"', ''' or '`'? "
+        "String is not closed, are you missing a '{}'? "
         "line: '{}', col: '{}'",
-        _dbg_line, _dbg_col
+        this->_enclosing_char, _dbg_line, _dbg_col
     );
     
 }
@@ -1103,7 +1144,7 @@ inline void directive_node_t::parse(ast::token t)
                 }
                 if(t->is_fan_comment()){
                     _done = t->is_fan_line_comment();
-                    open_scope(t, this);
+                    open_fan_comment(t, this);
                     return;
                 }
                 break;
@@ -1113,7 +1154,7 @@ inline void directive_node_t::parse(ast::token t)
                 if(!t->is_whitespace()){
                     if(t->is_curly_brace_open()){
                         _done = true;
-                        open_scope(t, this);
+                        open_code_block(t, this);
                         return;
                     }
                     throw MD_ERR(
@@ -1202,8 +1243,36 @@ inline void code_block_node_t::parse(ast::token t)
     }
     ast::token st = t;
     while(t){
-        if(open_scope(t, this))
+        if(
+            open_fan_comment(t, this)
+            || open_fan_directive(t, this)
+            //|| open_fan_output(t, this)
+            
+            //|| open_fan_code_block(t, this)
+            //|| open_fan_control(t, this)
+            //|| open_fan_try(t, this)
+            
+            //|| open_fan_funi_func(t, this)
+            || open_fan_funa_await(t, this)
+            
+            || open_fan_markup(t, this)
+            
+            || open_fan_key(t, this)
+            || open_fan_fn(t, this)
+            
+            //|| open_tag(t, this)
+            
+            || open_expr(t, this)
+            
+            || open_code_string(t, this)
+            || open_code_block(t, this)
+            
+            || open_control(t, this)
+            || open_try(t, this)
+        )
             return;
+        //if(open_scope(t, this))
+        //    return;
         
         if(t->is_curly_brace_close()){
             
@@ -1319,7 +1388,7 @@ inline void code_control_node_t::parse(ast::token t)
             ){
                 if(t->is_parenthesis_open()){
                     _need_expr = false;
-                    open_scope(t, this);
+                    open_expr(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1336,7 +1405,7 @@ inline void code_control_node_t::parse(ast::token t)
             ){
                 if(t->is_curly_brace_open()){
                     _need_code = false;
-                    open_scope(t, this);
+                    open_code_block(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1395,7 +1464,7 @@ inline void code_err_node_t::parse(ast::token t)
             if(_need_expr){
                 if(t->is_parenthesis_open()){
                     _need_expr = false;
-                    open_scope(t, this);
+                    open_expr(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1407,7 +1476,7 @@ inline void code_err_node_t::parse(ast::token t)
             if(_need_code){
                 if(t->is_curly_brace_open()){
                     _need_code = false;
-                    open_scope(t, this);
+                    open_code_block(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1444,7 +1513,7 @@ inline void code_fun_node_t::parse(ast::token t)
         if(!t->text(false, true).empty() && !t->is_eol()){
             if(t->is_curly_brace_open()){
                 _done = true;
-                open_scope(t, this);
+                open_code_block(t, this);
                 return;
             }
             throw MD_ERR(
@@ -1500,7 +1569,7 @@ inline void code_async_node_t::parse(ast::token t)
             }else if(_need_expr){
                 if(t->is_parenthesis_open()){
                     _need_expr = false;
-                    open_scope(t, this);
+                    open_expr(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1510,7 +1579,7 @@ inline void code_async_node_t::parse(ast::token t)
             }else if(_need_code){
                 if(t->is_curly_brace_open()){
                     _need_code = false;
-                    open_scope(t, this);
+                    open_code_block(t, this);
                     return;
                 }
                 throw MD_ERR(
@@ -1602,7 +1671,7 @@ inline void fan_fn_node_t::parse(ast::token t)
                 if(!t->is_whitespace()){
                     if(t->is_parenthesis_open()){
                         _done = true;
-                        open_scope(t, this);
+                        open_expr(t, this);
                         return;
                     }
                     throw MD_ERR(
