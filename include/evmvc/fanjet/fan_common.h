@@ -112,6 +112,11 @@ void replace_words(std::string& s, const std::string& f, const std::string& r)
         d += wrd + c;
         wrd.clear();
     }
+    if(!wrd.empty()){
+        if(wrd == f)
+            wrd = r;
+        d += wrd;
+    }
     s = d;
 }
 
@@ -144,6 +149,10 @@ void replace_words(std::string& s, replace_fn r)
         
         d += wrd + c;
         wrd.clear();
+    }
+    if(!wrd.empty()){
+        r(wrd);
+        d += wrd;
     }
     s = d;
 }
@@ -186,6 +195,7 @@ public:
     std::string cls_name;
     std::string nscls_name;
     std::string self_name;
+    std::string cb_name;
     
     std::string layout;
     
@@ -202,7 +212,7 @@ public:
     directive_node pre_inc_header;
     directive_node post_inc_header;
     
-    
+    size_t scope_level;
     
     void replace_alias(std::string& source) const
     {

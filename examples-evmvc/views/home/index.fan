@@ -32,6 +32,8 @@ SOFTWARE.
 
 In index.fan page <br/>
 
+@> req->params("test");
+
 <a href="/test">test</a><br/>
 <a href="/html/login.html">login</a><br/>
 <a href="/download-file/">/download-file/:[filename]</a><br/>

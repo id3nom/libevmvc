@@ -28,19 +28,16 @@ SOFTWARE.
 
 namespace evmvc {
 
-inline void view_base::write_enc(md::string_view data)
+template<>
+inline void view_base::write_enc<md::string_view>(md::string_view data)
 {
-    
+    _append_buffer(html_escape(data));
 }
 
-inline void view_base::write_raw(md::string_view data)
+template<>
+inline void view_base::write_raw<md::string_view>(md::string_view data)
 {
-    
-}
-
-inline void render_partial(md::string_view path)
-{
-    
+    _append_buffer(data);
 }
 
 inline void render_view(md::string_view path)

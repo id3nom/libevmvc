@@ -32,10 +32,10 @@ SOFTWARE.
 #include <stack>
 
 #define EVMVC_FANJET_AST_FRIEND_OPEN_SCOPES \
-    /* friend bool open_scope(ast::token& t, ast::node_t* n); */ \
     friend void close_scope(ast::token& t, ast::node_t* pn, bool ff); \
     friend bool open_scope( \
-        ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup \
+        ast::token& t, ast::node_t* pn, ast::node n, \
+        size_t end_hup, bool parse \
     ); \
      \
     friend bool open_code_string(ast::token& t, ast::node_t* pn); \
@@ -405,6 +405,53 @@ public:
         while(n && n->_node_type != t)
             n = n->next();
         return n;
+    }
+    
+    bool node_type_is_cpp_ctx() const
+    {
+        return 
+            this->node_type() == ast::node_type::output ||
+            this->node_type() == ast::node_type::code_block ||
+            this->node_type() == ast::node_type::code_control ||
+            this->node_type() == ast::node_type::code_err ||
+            this->node_type() == ast::node_type::code_fun ||
+            this->node_type() == ast::node_type::code_async ||
+            
+            this->node_type() == ast::node_type::render ||
+            this->node_type() == ast::node_type::set ||
+            this->node_type() == ast::node_type::get ||
+            this->node_type() == ast::node_type::fmt ||
+            this->node_type() == ast::node_type::get_raw ||
+            this->node_type() == ast::node_type::fmt_raw
+            ;
+    }
+    
+    bool is_cpp_ctx() const
+    {
+        if(this->node_type() == ast::node_type::literal)
+            return false;
+        
+        if(node_type_is_cpp_ctx())
+            return true;
+        
+        if(is_root())
+            return false;
+        
+        return this->parent()->is_cpp_ctx();
+    }
+    
+    bool is_literal_ctx() const
+    {
+        if(node_type_is_cpp_ctx())
+            return false;
+        
+        if(this->node_type() == ast::node_type::literal)
+            return true;
+        
+        if(is_root())
+            return false;
+        
+        return this->parent()->is_literal_ctx();
     }
     
     bool is_first_sibling(ast::node_type t = ast::node_type::any) const
@@ -1261,7 +1308,8 @@ protected:
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
-        : node_t(ast::node_type::output, t, parent, prev, next)
+        : node_t(ast::node_type::output, t, parent, prev, next),
+        _done(false)
     {
     }
 
@@ -1269,7 +1317,7 @@ protected:
 
 
 private:
-    
+    bool _done;
 };
 
 class code_block_node_t

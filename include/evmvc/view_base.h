@@ -28,7 +28,11 @@ SOFTWARE.
 #include "stable_headers.h"
 #include "response.h"
 
+#include <stack>
+
 namespace evmvc {
+
+typedef std::function<void(std::string& source)> view_lang_parser_fn;
 
 class view_engine;
 typedef std::shared_ptr<view_engine> sp_view_engine;
@@ -36,6 +40,8 @@ typedef std::shared_ptr<view_engine> sp_view_engine;
 class view_base
     : public std::enable_shared_from_this<view_base>
 {
+    typedef std::unordered_map<std::string, view_lang_parser_fn>
+        lang_parser_map;
 public:
     view_base(
         sp_view_engine engine,
@@ -59,32 +65,140 @@ public:
         md::callback::async_cb cb
     ) = 0;
     
-    void begin_write(md::string_view lng);
-    void write_enc(md::string_view data);
-    void write_raw(md::string_view data);
-    void commit_write(md::string_view lng);
-    
-    void render_view(md::string_view path, md::callback::async_cb cb);
-    
-    template<typename T>
-    void set_value(md::string_view name, T val)
+    void add_lang_parser(md::string_view lng, view_lang_parser_fn pfn)
     {
-        throw MD_ERR("Not implemented");
+        std::string lng_str = lng.to_string();
+        auto it = _lang_parsers.find(lng_str);
+        if(it != _lang_parsers.end())
+            throw MD_ERR(
+                "Language parser '{}' is already registered!",
+                lng_str
+            );
+        
+        if(pfn == nullptr)
+            throw MD_ERR("Language parser can't be NULL");
+        
+        _lang_parsers.emplace(
+            std::make_pair(lng_str, pfn)
+        );
+    }
+    
+    void begin_write(md::string_view lng)
+    {
+        _push_buffer(lng);
+    }
+    void commit_write(md::string_view lng)
+    {
+        _pop_buffer(lng);
     }
     
     template<typename T>
-    T get_value(md::string_view name, T def_val = T())
+    void write_enc(T data)
     {
-        throw MD_ERR("Not implemented");
-        //return def_val;
+        std::stringstream ss;
+        ss << "Writing to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
+    }
+    template<typename T>
+    void write_raw(T data)
+    {
+        std::stringstream ss;
+        ss << "Writing to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
+    }
+    
+    void write_body()
+    {
+        this->begin_write("html");
+        this->write_raw(_body_buffer);
+        this->commit_write("html");
+    }
+    void render_view(md::string_view path, md::callback::async_cb cb);
+    
+    template<typename T>
+    void set(md::string_view name, T val)
+    {
+        std::stringstream ss;
+        ss << "Writing to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
+    }
+    
+    template<typename T>
+    T get(md::string_view name, T def_val = T())
+    {
+        std::stringstream ss;
+        ss << "Converting to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
     }
     
 private:
     sp_view_engine _engine;
+    std::string _body_buffer;
+    std::string _out_buffer;
+    
+    std::stack<std::string> _buffers;
+    std::stack<std::string> _buffer_lngs;
+    
+    void _append_buffer(md::string_view d)
+    {
+        _buffers.top() += d.to_string();
+    }
+    
+    void _push_buffer(md::string_view lng)
+    {
+        _buffers.push("");
+        _buffer_lngs.push(lng.to_string());
+    }
+    
+    void _pop_buffer(md::string_view lng)
+    {
+        if(_buffer_lngs.top() != lng.to_string())
+            throw MD_ERR(
+                "Invalid language\n"
+                "Current language is: '{}', "
+                "and the request language to pop is '{}'",
+                _buffer_lngs.top(),
+                lng
+            );
+        
+        // look for a parser
+        auto it = _lang_parsers.find(lng.to_string());
+        if(it != _lang_parsers.end())
+            it->second(_buffers.top());
+        _out_buffer += _buffers.top();
+        _buffers.pop();
+        _buffer_lngs.pop();
+    }
     
 protected:
+    
+    static std::string uri_encode(md::string_view s)
+    {
+        char* r = evhttp_encode_uri(s.data());
+        std::string tmp(r);
+        free(r);
+        return tmp;
+    }
+    static std::string uri_decode(md::string_view s)
+    {
+        char* r = evhttp_decode_uri(s.data());
+        std::string tmp(r);
+        free(r);
+        return tmp;
+    }
+    static std::string html_escape(md::string_view s)
+    {
+        char* r = evhttp_htmlescape(s.data());
+        std::string tmp(r);
+        free(r);
+        return tmp;
+    }
+    
     evmvc::sp_response res;
     evmvc::sp_request req;
+    
+private:
+    lang_parser_map _lang_parsers;
 };
 
 };

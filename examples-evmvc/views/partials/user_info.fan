@@ -72,19 +72,39 @@ class test
 *_bold italic text_*
 @} this must be inside markdown block
 }
+for(){
+    test
+}
+
+@:"\\ \" \r \n \t \v " + 
+    @this->name().to_string() + 
+    @this->get<std::string>("\\ \" \r \n \t \v ")
+;
 
 @{
-    @this->write_enc("<div></div>");
+    @this->write_enc("\\ \" \r \n \t \v");
+    
+    std::string ts("tst");
+    @this->write_enc("<div></div>" + ts + "<div></div>");
     int i = 1;
     for(; i < 10; ++i){
         @this->write_enc(i);
     }
+    
+    if(i == 1){
+        @this->write_enc("i equals " + md::num_to_str(i, false));
+    }else if(i > 1){
+        @this->write_enc("i is gt than \"1\"");
+    }else{
+        @this->write_enc("than i must be lower than \"1\"");
+    }
+    
     @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
 }<br/>
 
 <div>
     username: @get("username", "abc")<br/>
-    fullname: @get("fullname", "def 123")<br/>
+    fullname: @get-raw("fullname", "def 123")<br/>
 </div>
 
 @header{

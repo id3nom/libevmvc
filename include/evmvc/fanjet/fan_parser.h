@@ -169,6 +169,8 @@ public:
             n = n->next();
         }
         
+        doc->scope_level = 0;
+        
         if(doc->ns.empty())
             doc->ns = ns;
 
@@ -193,6 +195,7 @@ public:
         doc->cls_name = ast::norm_vname(doc->path + doc->name, "_");
         doc->nscls_name = doc->ns + "::" + doc->cls_name;
         doc->self_name = "_" + doc->cls_name + "__self_";
+        doc->cb_name = "_" + doc->cls_name + "__cb_";
         
         std::string nvname = ast::norm_vname(doc->abs_path, "-");
         doc->h_filename = nvname + ".h";

@@ -29,7 +29,7 @@ namespace evmvc { namespace fanjet { namespace ast {
 
 typedef std::function<std::string(const std::string&)> escape_fn;
 
-std::string unique_var_name()
+std::string unique_ident(std::string prefix = "__evmvc_fanjet_ast_")
 {
     static size_t n = 0;
     return "__evmvc_fanjet_ast_" + md::num_to_str(++n, false);
@@ -73,6 +73,18 @@ std::string replace_fan_keys(document doc, const std::string& s)
     return replace_words(s, [&](std::string& wrd){
         if(wrd == "@this"){
             wrd = doc->self_name;
+            return;
+        }
+        if(wrd == "@req"){
+            wrd = doc->self_name + "->req";
+            return;
+        }
+        if(wrd == "@res"){
+            wrd = doc->self_name + "->res";
+            return;
+        }
+        if(wrd == "@cb"){
+            wrd = doc->cb_name;
             return;
         }
         
@@ -215,11 +227,13 @@ inline std::string root_node_t::gen_header_code(
         "    md::string_view layout() const {{ return \"{6}\";}}\n"
         "\n"
         "    void render(std::shared_ptr<view_base> self,\n"
-        "        md::callback::async_cb cb\n"
-        "    );\n"
+        "        md::callback::async_cb cb)\n"
+        "    {{\n"
+        "        this->__exec(std::static_pointer_cast<{7}>(self), cb);\n"
+        "    }}\n"
         "\n"
         "}};\n"
-        "{7}\n",
+        "{8}\n",
         doc->cls_name,
         inherit_cstr,
         doc->ns,
@@ -227,17 +241,23 @@ inline std::string root_node_t::gen_header_code(
         doc->name,
         doc->abs_path,
         doc->layout,
+        doc->cls_name,
         ns_close
     );
     
     cls_body = fmt::format(
         "void __exec("
-        "std::shared_ptr<{}> {}, md::callback::async_cb cb"
-        "){{ {} }}",
+        "std::shared_ptr<{}> {}, md::callback::async_cb {}"
+        "){{ {} ",
         doc->cls_name,
         doc->self_name,
+        doc->cb_name,
         this->child(0)->gen_header_code(dbg, docs, doc)
     );
+    cls_body += doc->cb_name + "(nullptr);";
+    for(size_t i = 0; i < doc->scope_level; ++i)
+        cls_body += "});";
+    cls_body += "}";
     
     return cls_head + cls_body + cls_foot;
 }
@@ -348,7 +368,28 @@ inline std::string expr_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
-    return text(0);
+    std::string s;
+    node n = child(0);
+    while(n){
+        if(this->is_literal_ctx()){
+            if(n->sec_type() == section_type::token)
+                s += write_tokens(doc, n, escape_cpp_source);
+            
+            else if(n->node_type() != ast::node_type::directive)
+                s += n->gen_header_code(dbg, docs, doc);
+            
+        }else if(this->is_cpp_ctx()){
+            if(n->sec_type() == section_type::token)
+                s += n->token_text();
+            
+            else if(n->node_type() != ast::node_type::directive)
+                s += n->gen_header_code(dbg, docs, doc);
+        }
+        
+        n = n->next();
+    }
+    
+    return s;
 }
 
 inline std::string string_node_t::gen_header_code(
@@ -357,15 +398,30 @@ inline std::string string_node_t::gen_header_code(
     document doc) const
 {
     std::string s;
-    node n = child(0);
-    while(n){
-        if(n->sec_type() == section_type::token)
-            s += write_tokens(doc, n, escape_cpp_source);
+    
+    if(this->is_literal_ctx()){
+        node n = child(0);
+        while(n){
+            if(n->sec_type() == section_type::token)
+                s += write_tokens(doc, n, escape_cpp_source);
+            
+            else if(n->node_type() != ast::node_type::directive)
+                s += n->gen_header_code(dbg, docs, doc);
+            
+            n = n->next();
+        }
         
-        else if(n->node_type() != ast::node_type::directive)
-            s += n->gen_header_code(dbg, docs, doc);
-        
-        n = n->next();
+    }else if(this->is_cpp_ctx()){
+        s += "\"";
+        auto ns = childs(1, -1);
+        for(auto n : ns){
+            if(n->sec_type() == section_type::token)
+                s += n->token_text();
+            
+            else if(n->node_type() != ast::node_type::directive)
+                s += n->gen_header_code(dbg, docs, doc);
+        }
+        s += "\"";
     }
     
     return s;
@@ -411,7 +467,19 @@ inline std::string output_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
-    return text(0);
+    std::string s;
+    
+    if(this->sec_type() == section_type::output_enc)
+        s += doc->self_name + "->write_enc(";
+    else
+        s += doc->self_name + "->write_raw(";
+    
+    // render (expr child content)
+    auto ns = child(1)->childs(0, -1);
+    s += gen_code_block(dbg, docs, doc, ns);
+    s += ");";
+    
+    return s;
 }
 
 inline std::string code_block_node_t::gen_header_code(
@@ -422,17 +490,19 @@ inline std::string code_block_node_t::gen_header_code(
     // source output
     std::string s;
     node fn = this->child(0);
+    
     std::string tt = fn->token_text();
-    if(tt == "{" || tt == "@{"){
+    if(tt != "{" && tt != "@{")
+        throw MD_ERR("Unknown code block start token: '{}'", fn->token_text());
+    
+    bool fanjet_block = tt == "@{";
+    if(!fanjet_block){
         s += "{";
     }
     
-    if(!s.empty()){
-        auto cns = this->childs(1, -1);
-        return s + gen_code_block(dbg, docs, doc, cns) + "}";
-    }
-    
-    throw MD_ERR("Unknown code block start token: '{}'", fn->token_text());
+    auto cns = this->childs(1, -1);
+    return s + gen_code_block(dbg, docs, doc, cns) + 
+        (fanjet_block ? "" : "}");
 }
 
 inline std::string code_control_node_t::gen_header_code(
@@ -440,7 +510,36 @@ inline std::string code_control_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
-    return text(0);
+    // source output
+    std::string s;
+    node fn = this->child(0);
+    
+    std::string tt = fn->token_text();
+    if(
+        tt != "@if" &&
+        tt != "@switch" &&
+
+        tt != "@while" &&
+        tt != "@for" &&
+        tt != "@do" &&
+        
+        tt != "if" &&
+        tt != "switch" &&
+
+        tt != "while" &&
+        tt != "for" &&
+        tt != "do"
+    )
+        throw MD_ERR("Unknown code block start token: '{}'", fn->token_text());
+    
+    bool fanjet_block = tt[0] == '@';
+    if(fanjet_block)
+        s += tt.substr(1);
+    else
+        s += tt;
+    
+    auto cns = this->childs(1);
+    return s + gen_code_block(dbg, docs, doc, cns);
 }
 
 inline std::string code_err_node_t::gen_header_code(
@@ -473,6 +572,31 @@ inline std::string fan_key_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
+    // source output
+    std::string s;
+    node fn = this->child(0);
+    
+    std::string tt = fn->token_text();
+    if(tt == "@body"){
+        s += doc->self_name + "->write_body();";
+        return s;
+    }
+    
+    // if(wrd == "@this"){
+    //     wrd = doc->self_name;
+    //     return;
+    // }
+    
+    // if(wrd == "@filename"){
+    //     wrd = doc->filename;
+    //     return;
+    // }
+    
+    // if(wrd == "@dirname"){
+    //     wrd = doc->dirname;
+    //     return;
+    // }
+    
     return text(0);
 }
 
@@ -481,7 +605,87 @@ inline std::string fan_fn_node_t::gen_header_code(
     std::vector<document>& docs,
     document doc) const
 {
-    return text(0);
+    // source output
+    std::string s;
+    node fn = this->child(0);
+    
+    std::string tt = fn->token_text();
+    if(
+        tt != "@>" &&
+        
+        tt != "@set" &&
+        tt != "@get" &&
+        tt != "@fmt" &&
+        tt != "@get-raw" &&
+        tt != "@fmt-raw"
+    )
+        throw MD_ERR("Unknown fanjet function: '{}'", fn->token_text());
+    
+    if(tt == "@>"){
+        // get (expr child content)
+        auto nds = child(1)->childs(0, -1);
+        
+        // store the view name
+        std::string vs;
+        
+        // verify if any child is not of token type
+        bool is_static = true;
+        for(auto n : nds)
+            if(n->node_type() != ast::node_type::token){
+                is_static = false;
+                break;
+            }else
+                vs += n->token_text();
+        
+        if(is_static)
+            vs = "\"" + md::trim_copy(replace_fan_keys(doc, vs)) + "\"";
+        else
+            vs = gen_code_block(dbg, docs, doc, nds);
+        
+        ++doc->scope_level;
+        std::string err_var = unique_ident("__err");
+        s += fmt::format(
+            "{}->render_view({}, [{}, {}](md::callback::cb_error {})"
+            "{{ if({}){{ {}({}); return; }} ",
+            doc->self_name,
+            vs,
+            doc->self_name,
+            doc->cb_name,
+            err_var,
+            err_var,
+            doc->cb_name,
+            err_var
+        );
+        // s += doc->self_name + 
+        //     "->render_view(" +
+        //     vs +
+        //     ", " +
+        //     doc->cb_name + ");";
+        return s;
+    }
+    
+    bool close_parens = true;
+    if(tt == "@set"){
+        s += doc->self_name + "->set";
+        close_parens = false;
+    }
+
+    else if(tt == "@get")
+        s += doc->self_name + "->write_enc(" +
+            doc->self_name + "->get<std::string>";
+    else if(tt == "@fmt")
+        s += doc->self_name + "->write_enc(" +
+            doc->self_name + "->fmt<std::string>";
+    else if(tt == "@get-raw")
+        s += doc->self_name + "->write_raw(" +
+            doc->self_name + "->get<std::string>";
+    else if(tt == "@fmt-raw")
+        s += doc->self_name + "->write_raw(" +
+            doc->self_name + "->fmt<std::string>";
+    
+    auto cns = this->childs(1);
+    return s + gen_code_block(dbg, docs, doc, cns) +
+        (close_parens ? ");" : ";");
 }
 
 

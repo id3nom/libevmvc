@@ -59,7 +59,8 @@ inline void root_node_t::parse(ast::token t)
 }
 
 inline bool open_scope(
-    ast::token& t, ast::node_t* pn, ast::node n, size_t end_hup = 1)
+    ast::token& t, ast::node_t* pn, ast::node n,
+    size_t end_hup = 1, bool parse = true)
 {
     if(!n)
         return false;
@@ -87,7 +88,9 @@ inline bool open_scope(
     if(t)
         n->add_token(t);
     
-    n->parse(nt);
+    t = nt;
+    if(parse)
+        n->parse(t);
     return true;
 }
 
@@ -217,12 +220,20 @@ inline bool open_fan_output(ast::token& t, ast::node_t* pn)
 {
     if(!t->is_fan_output())
         return false;
-    ast::node n = output_node(new output_node_t(
+    ast::output_node n = output_node(new output_node_t(
         t->is_fan_output_raw() ?
             ast::section_type::output_raw :
             ast::section_type::output_enc
     ));
-    return open_scope(t, pn, n);
+    
+    if(!open_scope(t, pn, n, 1, false))
+        throw MD_ERR("output_node instance is NULL!");
+    n->_done = true;
+    
+    ast::node expr_n = expr_node(new expr_node_t(
+        expr_type::semicol
+    ));
+    return open_scope(t, n.get(), expr_n);
 }
 
 inline bool open_fan_code_block(ast::token& t, ast::node_t* pn)
@@ -417,7 +428,7 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
     if(!t->is_fan_fn())
         return false;
     
-    ast::node n = fan_fn_node(new fan_fn_node_t(
+    ast::fan_fn_node n = fan_fn_node(new fan_fn_node_t(
         t->is_fan_render() ?
             ast::section_type::render :
         t->is_fan_set() ?
@@ -433,6 +444,20 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
         
             ast::section_type::invalid
     ));
+    
+    
+    if(n->sec_type() == section_type::render){
+        if(!open_scope(t, pn, n, 1, false))
+            throw MD_ERR("fan_fn_node instance is NULL!");
+        
+        n->_done = true;
+        ast::node expr_n = expr_node(new expr_node_t(
+            expr_type::semicol
+        ));
+        return open_scope(t, n.get(), expr_n);
+    }
+    
+    
     return open_scope(t, pn, n);
 }
 
@@ -1213,6 +1238,11 @@ inline void comment_node_t::parse(ast::token t)
 
 inline void output_node_t::parse(ast::token t)
 {
+    if(_done){
+        close_scope(t, this, false);
+        return;
+    }
+    
     if(_dbg_line == 0){
         _dbg_line = t->line();
         _dbg_col = t->col();
