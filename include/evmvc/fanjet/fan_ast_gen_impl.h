@@ -35,6 +35,18 @@ std::string unique_ident(std::string prefix = "__evmvc_fanjet_ast_")
     return prefix + "_" + md::num_to_str(++n, false);
 }
 
+std::string align_src(document doc, const node_t* n)
+{
+    // std::string ln;
+    // for(size_t i = doc->lines; i < n->_dbg_line; ++i){
+    //     ln += "\n";
+    //     ++doc->lines;
+    // }
+    // return ln;
+    return "";
+}
+
+
 std::string gen_code_block(
     bool dbg, std::vector<document>& docs, document doc,
     const std::vector<node>& tns
@@ -148,7 +160,7 @@ inline std::string gen_code_block(
 
 
 
-inline void root_node_t::gen_header_code(
+inline std::string root_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -209,6 +221,7 @@ inline void root_node_t::gen_header_code(
         inherit_val
     );
     
+    doc->reset_lines();
     std::string cls_body;
     
     std::string exec_fn = unique_ident("__exec_" + doc->cls_name);
@@ -328,7 +341,7 @@ inline void root_node_t::gen_header_code(
 }
 
 
-inline void directive_node_t::gen_header_code(
+inline std::string directive_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -351,12 +364,13 @@ inline void directive_node_t::gen_header_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void literal_node_t::gen_header_code(
+inline std::string literal_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
-    std::string s;
+    std::string s = align_src(doc, this);
+    
     node n = 
         sec_type() == section_type::literal ? child(0) :
         sec_type() == section_type::markup_html ? child(1) :
@@ -420,7 +434,7 @@ inline void literal_node_t::gen_header_code(
 
 
 
-inline void token_node_t::gen_header_code(
+inline std::string token_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -428,12 +442,12 @@ inline void token_node_t::gen_header_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void expr_node_t::gen_header_code(
+inline std::string expr_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
-    std::string s;
+    std::string s = align_src(doc, this);
     node n = child(0);
     while(n){
         if(this->is_literal_ctx()){
@@ -457,12 +471,12 @@ inline void expr_node_t::gen_header_code(
     return s;
 }
 
-inline void string_node_t::gen_header_code(
+inline std::string string_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
-    std::string s;
+    std::string s = align_src(doc, this);
     
     if(this->is_literal_ctx()){
         node n = child(0);
@@ -492,16 +506,17 @@ inline void string_node_t::gen_header_code(
     return s;
 }
 
-inline void tag_node_t::gen_header_code(
+inline std::string tag_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
-    std::string s;
+    std::string s = align_src(doc, this);
     node n = child(0);
     while(n){
-        if(n->sec_type() == section_type::token)
+        if(n->sec_type() == section_type::token){
             s += write_tokens(doc, n, escape_cpp_source);
+        }
         
         else if(n->node_type() != ast::node_type::directive)
             s += n->gen_header_code(dbg, docs, doc);
@@ -512,13 +527,14 @@ inline void tag_node_t::gen_header_code(
     return s;
 }
 
-inline void comment_node_t::gen_header_code(
+inline std::string comment_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // source output
-    std::string s = text(0);
+    std::string s = align_src(doc, this);
+    s += text(0);
     
     md::replace_substring(s, "@**", "//");
     md::replace_substring(s, "@*", "/*");
@@ -527,12 +543,12 @@ inline void comment_node_t::gen_header_code(
     return s;
 }
 
-inline void output_node_t::gen_header_code(
+inline std::string output_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
-    std::string s;
+    std::string s = align_src(doc, this);
     
     if(this->sec_type() == section_type::output_enc)
         s += doc->self_name + "->write_enc(";
@@ -547,13 +563,14 @@ inline void output_node_t::gen_header_code(
     return s;
 }
 
-inline void code_block_node_t::gen_header_code(
+inline std::string code_block_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // source output
-    std::string s;
+    std::string s = align_src(doc, this);
+
     node fn = this->child(0);
     
     std::string tt = fn->token_text();
@@ -570,13 +587,13 @@ inline void code_block_node_t::gen_header_code(
         (fanjet_block ? "" : "}");
 }
 
-inline void code_control_node_t::gen_header_code(
+inline std::string code_control_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // source output
-    std::string s;
+    std::string s = align_src(doc, this);
     node fn = this->child(0);
     
     std::string tt = fn->token_text();
@@ -607,23 +624,26 @@ inline void code_control_node_t::gen_header_code(
     return s + gen_code_block(dbg, docs, doc, cns);
 }
 
-inline void code_err_node_t::gen_header_code(
+inline std::string code_err_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
+    std::string s = align_src(doc, this);
+    
     return text(0);
 }
 
-inline void code_fun_node_t::gen_header_code(
+inline std::string code_fun_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // code source
-    std::string s;
+    std::string s = align_src(doc, this);
+    
     if(this->sec_type() == section_type::code_func){
-        std::string s = this->token_section_text();
+        s += this->token_section_text();
         std::vector<std::string> lines;
         boost::split(lines, s, boost::is_any_of("\n"));
         s.clear();
@@ -637,22 +657,23 @@ inline void code_fun_node_t::gen_header_code(
         gen_code_block(dbg, docs, doc, this->child(1)->childs(1, -1));
 }
 
-inline void code_async_node_t::gen_header_code(
+inline std::string code_async_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
+    std::string s = align_src(doc, this);
     return text(0);
 }
 
 
-inline void fan_key_node_t::gen_header_code(
+inline std::string fan_key_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // source output
-    std::string s;
+    std::string s = align_src(doc, this);
     node fn = this->child(0);
     
     std::string tt = fn->token_text();
@@ -679,13 +700,14 @@ inline void fan_key_node_t::gen_header_code(
     return text(0);
 }
 
-inline void fan_fn_node_t::gen_header_code(
+inline std::string fan_fn_node_t::gen_header_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
 {
     // source output
-    std::string s;
+    std::string s = align_src(doc, this);
+    
     node fn = this->child(0);
     
     std::string tt = fn->token_text();
@@ -785,7 +807,7 @@ inline void fan_fn_node_t::gen_header_code(
 
 
 
-inline void root_node_t::gen_source_code(
+inline std::string root_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -793,7 +815,7 @@ inline void root_node_t::gen_source_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void token_node_t::gen_source_code(
+inline std::string token_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -801,7 +823,7 @@ inline void token_node_t::gen_source_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void expr_node_t::gen_source_code(
+inline std::string expr_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -809,88 +831,7 @@ inline void expr_node_t::gen_source_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void string_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-
-inline void directive_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void literal_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void tag_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void comment_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void output_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void code_block_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void code_control_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void code_err_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void code_fun_node_t::gen_source_code(
-    bool dbg,
-    std::vector<document>& docs,
-    document doc) const
-{
-    throw MD_ERR("Not implemented!");
-}
-
-inline void code_async_node_t::gen_source_code(
+inline std::string string_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -899,7 +840,7 @@ inline void code_async_node_t::gen_source_code(
 }
 
 
-inline void fan_key_node_t::gen_source_code(
+inline std::string directive_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const
@@ -907,7 +848,88 @@ inline void fan_key_node_t::gen_source_code(
     throw MD_ERR("Not implemented!");
 }
 
-inline void fan_fn_node_t::gen_source_code(
+inline std::string literal_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string tag_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string comment_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string output_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string code_block_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string code_control_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string code_err_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string code_fun_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string code_async_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+
+inline std::string fan_key_node_t::gen_source_code(
+    bool dbg,
+    std::vector<document>& docs,
+    document doc) const
+{
+    throw MD_ERR("Not implemented!");
+}
+
+inline std::string fan_fn_node_t::gen_source_code(
     bool dbg,
     std::vector<document>& docs,
     document doc) const

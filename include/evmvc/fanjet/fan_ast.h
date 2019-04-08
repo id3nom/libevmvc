@@ -71,16 +71,17 @@ SOFTWARE.
         document doc, \
         const std::vector<node>& tns \
     ); \
+    friend std::string align_src(document doc, const node_t* n); \
 
 
 #define EVMVC_FANJET_AST_NODE_IMPL_DECL \
 public: \
-    void gen_header_code( \
+    std::string gen_header_code( \
         bool dbg, \
         std::vector<document>& docs, \
         document doc \
     ) const; \
-    void gen_source_code( \
+    std::string gen_source_code( \
         bool dbg, \
         std::vector<document>& docs, \
         document doc \
@@ -969,12 +970,12 @@ public:
         return "|-" + md::replace_substring_copy(text, "\n", "\n| ") + "\n";
     }
     
-    virtual void gen_header_code(
+    virtual std::string gen_header_code(
         bool dbg,
         std::vector<document>& docs,
         document doc
     ) const = 0;
-    virtual void gen_source_code(
+    virtual std::string gen_source_code(
         bool dbg,
         std::vector<document>& docs,
         document doc

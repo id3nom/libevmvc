@@ -170,6 +170,7 @@ public:
         }
         
         doc->scope_level = 0;
+        doc->lines = 1;
         
         if(doc->ns.empty())
             doc->ns = ns;

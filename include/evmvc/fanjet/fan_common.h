@@ -214,19 +214,16 @@ public:
     
     size_t scope_level;
     
-    std::string source;
     size_t lines;
-    void add_source(std::string s)
+    void count_lines(const std::string& s)
     {
         for(auto c : s)
             if(c == '\n')
                 ++lines;
-        source += s;
     }
-    void reset_source()
+    void reset_lines()
     {
-        lines = 0;
-        source.empty();
+        lines = 1;
     }
     
     void replace_alias(std::string& source) const
