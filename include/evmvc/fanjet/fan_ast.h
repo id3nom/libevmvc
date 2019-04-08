@@ -75,12 +75,12 @@ SOFTWARE.
 
 #define EVMVC_FANJET_AST_NODE_IMPL_DECL \
 public: \
-    std::string gen_header_code( \
+    void gen_header_code( \
         bool dbg, \
         std::vector<document>& docs, \
         document doc \
     ) const; \
-    std::string gen_source_code( \
+    void gen_source_code( \
         bool dbg, \
         std::vector<document>& docs, \
         document doc \
@@ -969,12 +969,12 @@ public:
         return "|-" + md::replace_substring_copy(text, "\n", "\n| ") + "\n";
     }
     
-    virtual std::string gen_header_code(
+    virtual void gen_header_code(
         bool dbg,
         std::vector<document>& docs,
         document doc
     ) const = 0;
-    virtual std::string gen_source_code(
+    virtual void gen_source_code(
         bool dbg,
         std::vector<document>& docs,
         document doc

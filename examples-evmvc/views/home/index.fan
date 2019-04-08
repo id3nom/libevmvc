@@ -25,7 +25,7 @@ SOFTWARE.
 @name   
 @layout _layout
 @inherits{
-    protected utils = helpers/utils
+    protected @utils = helpers/utils
 }
 
 @set("title", "index - web-server example")
@@ -33,6 +33,11 @@ SOFTWARE.
 In index.fan page <br/>
 
 @> req->params("test");
+
+@utils();
+@{
+    @utils::util_func01();
+}
 
 <a href="/test">test</a><br/>
 <a href="/html/login.html">login</a><br/>

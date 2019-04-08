@@ -214,6 +214,21 @@ public:
     
     size_t scope_level;
     
+    std::string source;
+    size_t lines;
+    void add_source(std::string s)
+    {
+        for(auto c : s)
+            if(c == '\n')
+                ++lines;
+        source += s;
+    }
+    void reset_source()
+    {
+        lines = 0;
+        source.empty();
+    }
+    
     void replace_alias(std::string& source) const
     {
         replace_words(source, [&](std::string& wrd){

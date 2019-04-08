@@ -26,10 +26,23 @@ SOFTWARE.
 @path helpers/
 
 @funi{
-    
+protected:
     void util_func01()
     {
         
     }
     
+}
+    
+
+empty table...
+<table></table>
+
+@func{
+    
+    void my_c_fun()
+    {
+        
+    }
+
 }
