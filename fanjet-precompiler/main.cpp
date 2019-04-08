@@ -179,7 +179,11 @@ int main(int argc, char** argv)
         
         std::string include_src;
         evmvc::fanjet::parser::generate_code(
-            gen_notice, include_src, docs, dbg
+            gen_notice,
+            include_src,
+            vm["namespace"].as<std::string>(),
+            docs,
+            dbg
         );
         
         save_docs(
@@ -336,12 +340,19 @@ void save_docs(
     if(!bfs::exists(dest))
         bfs::create_directories(dest);
     
+    bfs::path fn = dest / "views.h";
+    if(bfs::exists(fn))
+        bfs::remove(fn);
+    bfs::ofstream fout(fn);
+    fout << include_src;
+    fout.close();
+    
     for(auto d : docs){
         
-        bfs::path fn = dest / d->i_filename;
+        fn = dest / d->i_filename;
         if(bfs::exists(fn))
             bfs::remove(fn);
-        bfs::ofstream fout(fn);
+        fout.open(fn);
         fout << d->i_src;
         fout.close();
         

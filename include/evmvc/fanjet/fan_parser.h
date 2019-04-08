@@ -223,9 +223,32 @@ public:
     static void generate_code(
         const std::string& gen_notice,
         std::string& include_src,
+        const std::string& ns,
         std::vector<ast::document>& docs,
         bool dbg)
     {
+        std::string inc_src_incs;
+        std::string inc_src_gens = fmt::format(
+            "void register_engine()\n{{\n"
+            "    std::shared_ptr<evmvc::fanjet::view_engine> fjv =\n"
+            "        std::shared_ptr<evmvc::fanjet::view_engine>(\n"
+            "            \"{}\"\n"
+            "        );\n",
+            ns
+        );
+        
+        std::vector<std::string> ns_vals;
+        std::string inc_ns_open, inc_ns_close("\n");
+        boost::split(ns_vals, ns, boost::is_any_of(":"));
+        for(auto ns_v : ns_vals){
+            inc_ns_open += "namespace " + ns_v + "{ ";
+            inc_ns_close += "}";
+        }
+        if(dbg)
+            inc_ns_close += " // " + inc_ns_open;
+        inc_ns_open += "\n";
+        inc_ns_close += "\n";
+        
         for(size_t i = 0; i < docs.size(); ++i){
             ast::document doc = docs[i];
             
@@ -256,7 +279,7 @@ public:
             }
             
             
-            std::vector<std::string> ns_vals;
+            ns_vals.empty();
             std::string ns_open, ns_close("\n");
             boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
             for(auto ns_v : ns_vals){
@@ -278,43 +301,6 @@ public:
             if(!post_inc.empty())
                 post_inc = ns_open + post_inc + ns_close;
             
-            // std::string cls_def;
-            // cls_def += fmt::format(
-            //     "\n"
-            //     "{0}\n"
-            //     "class {1}\n"
-            //     "{2}"
-            //     "{{\n"
-            //     "public:\n"
-            //     "    {1}(\n"
-            //     "        sp_view_engine engine,\n"
-            //     "        const evmvc::sp_response& _res)\n"
-            //     "        : ::evmvc::fanjet::view_base(engine, _res)\n"
-            //     "    {{\n"
-            //     "    }}\n"
-            //     "\n"
-            //     "    md::string_view ns() const {{ return \"{3}\";}}\n"
-            //     "    md::string_view path() const {{ return \"{4}\";}}\n"
-            //     "    md::string_view name() const {{ return \"{5}\";}}\n"
-            //     "    md::string_view abs_path() const {{ return \"{6}\";}}\n"
-            //     "    md::string_view layout() const {{ return \"{7}\";}}\n"
-            //     "\n"
-            //     "    void render(std::shared_ptr<view_base> self,\n"
-            //     "        md::callback::async_cb cb,\n"
-            //     "    );\n"
-            //     "\n"
-            //     "}};\n"
-            //     "{8}\n",
-            //     ns_open,
-            //     doc->cls_name,
-            //     inherit_val,
-            //     doc->ns,
-            //     doc->path,
-            //     doc->name,
-            //     doc->abs_path,
-            //     doc->layout,
-            //     ns_close
-            // );
             
             doc->i_src = fmt::format(
                 "/*\n"
@@ -349,6 +335,24 @@ public:
                 doc->rn->gen_header_code(dbg, docs, doc) +
                 "\n/*\n" + gen_notice + " */\n";
             
+            inc_src_incs += fmt::format(
+                "#include \"{}\"\n",
+                doc->i_filename
+            );
+            inc_src_gens += fmt::format(
+                "    fjv->register_view_generator( \"{}\", \n"
+                "    [](evmvc::sp_view_engine engine, "
+                "const evmvc::sp_response& res\n"
+                "    )->std::shared_ptr<evmvc::fanjet::view_base>{{\n"
+                "        return std::shared_ptr<{}>(\n"
+                "            new {}(engine, res)\n"
+                "        );\n"
+                "    }});\n",
+                doc->path + doc->name,
+                doc->cls_name,
+                doc->cls_name
+            );
+            
             /*
             doc->c_src = doc->rn->gen_source_code(
                 dbg, docs, doc
@@ -356,6 +360,29 @@ public:
             */
         }
         
+        inc_src_gens += fmt::format(
+            "    evmvc::view_engine::register_engine(\n"
+            "        \"{}\", fjv\n"
+            "    );\n}}\n",
+            ns
+        );
+        
+        std::string inc_guards = "__" + ns + "_views_h";
+        md::replace_substring(inc_guards, "-", "_");
+        md::replace_substring(inc_guards, "/", "_");
+        md::replace_substring(inc_guards, ".", "_");
+        md::replace_substring(inc_guards, ":", "_");
+        
+        include_src +=
+            "#ifndef " + inc_guards + "\n"
+            "#define " + inc_guards + "\n"
+            "#include \"evmvc/fanjet/fan_view_engine.h\"\n" +
+            inc_src_incs +
+            inc_ns_open +
+            inc_src_gens +
+            inc_ns_close +
+            "#endif //" + inc_guards + "\n"
+            ;
     }
     
 private:

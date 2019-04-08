@@ -91,8 +91,14 @@ inline void view_base::render_view(
     std::string ps = path.to_string();
     if(ps.find("::") == std::string::npos)
         engine()->render_view(this->res, ps, cb);
-    else
+    else{
+        std::string p = 
+            (*path.rbegin() == '/') ?
+                path.substr(1).to_string() :
+                this->path().to_string() + ps;
+        
         view_engine::render(this->res, ps, cb);
+    }
 }
 
 

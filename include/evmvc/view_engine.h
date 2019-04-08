@@ -58,13 +58,16 @@ public:
         md::string_view path,
         md::callback::async_cb cb)
     {
-        size_t p = path.find("::");
-        std::string ns = p == std::string::npos ? "" : path.substr(0, p);
-        std::string vpath = path.substr(ns.size() + 2);
+        size_t p = path.rfind("::");
+        std::string ns = 
+            p == std::string::npos ? 
+                "" :
+                path.substr(0, p).to_string();
+        std::string vpath = path.substr(ns.size() + 2).to_string();
         
         if(!ns.empty()){
-            auto it = _engines.find(ns);
-            if(it == _engines.end())
+            auto it = _engines().find(ns);
+            if(it == _engines().end())
                 throw MD_ERR(
                     "Unable to find engine with namespace: '{}', path: '{}'",
                     ns, path
@@ -74,7 +77,7 @@ public:
         }
         
         // search the view in all namespace
-        for(auto it = _engines.begin(); it != _engines.end(); ++it){
+        for(auto it = _engines().begin(); it != _engines().end(); ++it){
             if(it->second->view_exists(vpath)){
                 it->second->render_view(res, vpath, cb);
                 return;

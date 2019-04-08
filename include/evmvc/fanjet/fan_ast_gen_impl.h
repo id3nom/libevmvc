@@ -177,6 +177,7 @@ inline std::string root_node_t::gen_header_code(
     
     std::string inherit_val;
     std::string inherit_cstr;
+    bool inherit_pub = false;
     for(auto ii : doc->inherits_items){
         auto id = ast::find(docs, doc, ii->path);
         ii->nscls_name = id->nscls_name;
@@ -193,6 +194,8 @@ inline std::string root_node_t::gen_header_code(
                 "    private",
             ii->nscls_name
         );
+        if(ii->access == ast::inherits_access_type::pub)
+            inherit_pub = true;
         if(!inherit_val.empty())
             inherit_val += " ";
         inherit_cstr +=
@@ -202,6 +205,9 @@ inline std::string root_node_t::gen_header_code(
     if(inherit_val.empty()){
         inherit_val = " : public ::evmvc::fanjet::view_base";
         inherit_cstr = " ::evmvc::fanjet::view_base(engine, _res)";
+    }else if(!inherit_pub){
+        inherit_val += ", public ::evmvc::fanjet::view_base";
+        inherit_cstr += ", ::evmvc::fanjet::view_base(engine, _res)";
     }
     inherit_val += " ";
     
@@ -241,7 +247,7 @@ inline std::string root_node_t::gen_header_code(
         "    md::string_view abs_path() const {{ return \"{5}\";}}\n"
         "    md::string_view layout() const {{ return \"{6}\";}}\n"
         "\n"
-        "    void render(std::shared_ptr<view_base> self,\n"
+        "    void render(std::shared_ptr<evmvc::view_base> self,\n"
         "        md::callback::async_cb cb)\n"
         "    {{\n"
         "        this->{7}(std::static_pointer_cast<{8}>(self), cb);\n"

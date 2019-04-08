@@ -64,21 +64,33 @@ public:
         const std::string& path,
         md::callback::async_cb cb)
     {
-        auto it = _views.find(path);
-        if(it == _views.end())
-            throw MD_ERR(
+        view_generator_fn vg = find_generator(path);
+        if(vg == nullptr){
+            cb(MD_ERR(
                 "Engine '{}' is unable to locate view at: '{}::{}'",
                 this->name(), this->ns(), path
-            );
-        
-        auto v = it->second(this->shared_from_this(), res);
+            ));
+            return;
+        }
+        auto v = vg(this->shared_from_this(), res);
         v->render(v, cb);
+        
+        // auto it = _views.find(path);
+        // if(it == _views.end())
+        //     throw MD_ERR(
+        //         "Engine '{}' is unable to locate view at: '{}::{}'",
+        //         this->name(), this->ns(), path
+        //     );
+        
+        // auto v = it->second(this->shared_from_this(), res);
+        // v->render(v, cb);
     }
     
     bool view_exists(const std::string& view_path) const
     {
-        auto it = _views.find(view_path);
-        return it != _views.end();
+        return find_generator(view_path) != nullptr;
+        // auto it = _views.find(view_path);
+        // return it != _views.end();
     }
     
     void register_view_generator(bfs::path view_path, view_generator_fn vg)
@@ -98,6 +110,81 @@ public:
     
     
 private:
+    view_generator_fn find_generator(
+        const std::string& path) const
+    {
+        if(path.empty())
+            throw MD_ERR(
+                "path is empty!"
+            );
+        
+        //TODO: isolate per namespace
+        // std::string ns;
+        // size_t nsp = path.rfind("::");
+        // if(nsp == std::string::npos)
+        //     ns = doc->ns;
+        
+        std::vector<std::string> parts;
+        std::string p = path;
+            //*path.rbegin() == '/' ? path.substr(1) : doc->path + path;
+        boost::split(parts, p, boost::is_any_of("/"));
+        
+        std::string name = *parts.rbegin();
+        
+        // std::vector<view_generator_fn> ds;
+        // for(auto d : docs)
+        //     if(d->name == name)
+        //         ds.emplace_back(d);
+        
+        // if(ds.empty())
+        //     throw MD_ERR(
+        //         "No view matching path: '{}'", path
+        //     );
+        
+        for(size_t i = parts.size() -1; i >= 0; --i){
+            // look for the file in this order: 
+            //  path dir,
+            //  partials dir,
+            //  layouts dir,
+            //  helpers dir,
+            
+            std::string rp;
+            for(size_t j = 0; j < i; ++j)
+                rp += parts[j] + "/";
+            
+            for(auto& v : _views){
+                if(v.first == rp + name)
+                    return v.second;
+                
+                if(v.first == rp + "partials/" + name)
+                    return v.second;
+                
+                if(v.first == rp + "layouts/" + name)
+                    return v.second;
+                
+                if(v.first == rp + "helpers/" + name)
+                    return v.second;
+                
+                // if(d->path == rp)
+                //     return d;
+                
+                // if(d->path == rp + "partials/")
+                //     return d;
+                
+                // if(d->path == rp + "layouts/")
+                //     return d;
+                
+                // if(d->path == rp + "helpers/")
+                //     return d;
+            }
+        }
+        
+        // throw MD_ERR(
+        //     "No view matching path: '{}'", path
+        // );
+        return nullptr;
+    }
+
     bfs::path _dest_dir;
     
     std::unordered_map<std::string, view_generator_fn> _views;
