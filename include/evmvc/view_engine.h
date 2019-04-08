@@ -53,13 +53,38 @@ public:
      * View Engine name
      */
     virtual md::string_view name() const = 0;
-    virtual void render(
+    static void render(
         const evmvc::sp_response& res,
-        const bfs::path& path,
-        md::callback::async_cb cb
-    ) = 0;
-    
-    
+        md::string_view path,
+        md::callback::async_cb cb)
+    {
+        size_t p = path.find("::");
+        std::string ns = p == std::string::npos ? "" : path.substr(0, p);
+        std::string vpath = path.substr(ns.size() + 2);
+        
+        if(!ns.empty()){
+            auto it = _engines.find(ns);
+            if(it == _engines.end())
+                throw MD_ERR(
+                    "Unable to find engine with namespace: '{}', path: '{}'",
+                    ns, path
+                );
+            it->second->render_view(res, vpath, cb);
+            return;
+        }
+        
+        // search the view in all namespace
+        for(auto it = _engines.begin(); it != _engines.end(); ++it){
+            if(it->second->view_exists(vpath)){
+                it->second->render_view(res, vpath, cb);
+                return;
+            }
+        }
+        throw MD_ERR(
+            "No view engine contains view at path: '{}'",
+            path
+        );
+    }
     
     static void register_engine(const std::string& ns, sp_view_engine engine)
     {
@@ -73,6 +98,14 @@ public:
             std::make_pair(ns, engine)
         );
     }
+    
+    
+    virtual bool view_exists(bfs::path view_path) const = 0;
+    virtual void render_view(
+        const evmvc::sp_response& res,
+        const std::string& path,
+        md::callback::async_cb cb
+    ) = 0;
     
 private:
     static std::unordered_map<std::string, sp_view_engine>& _engines()

@@ -59,25 +59,25 @@ public:
      */
     md::string_view name() const { return EVMVC_FANJET_VIEW_ENGINE_NAME;};
     
-    void render(
+    void render_view(
         const evmvc::sp_response& res,
-        const bfs::path& view_path,
+        const std::string& path,
         md::callback::async_cb cb)
     {
-        auto it = _views.find(view_path.string());
+        auto it = _views.find(path);
         if(it == _views.end())
             throw MD_ERR(
                 "Engine '{}' is unable to locate view at: '{}::{}'",
-                this->name(), this->ns(), view_path.string()
+                this->name(), this->ns(), path
             );
         
         auto v = it->second(this->shared_from_this(), res);
         v->render(v, cb);
     }
     
-    bool view_exists(bfs::path view_path) const
+    bool view_exists(const std::string& view_path) const
     {
-        auto it = _views.find(view_path.string());
+        auto it = _views.find(view_path);
         return it != _views.end();
     }
     

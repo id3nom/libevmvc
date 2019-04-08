@@ -85,10 +85,14 @@ inline bool view_base::get<bool>(
 }
 
 
-
-inline void render_view(md::string_view path)
+inline void view_base::render_view(
+    md::string_view path, md::callback::async_cb cb)
 {
-    
+    std::string ps = path.to_string();
+    if(ps.find("::") == std::string::npos)
+        engine()->render_view(this->res, ps, cb);
+    else
+        view_engine::render(this->res, ps, cb);
 }
 
 

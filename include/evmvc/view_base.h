@@ -55,7 +55,7 @@ public:
     {
     }
     
-    sp_view_engine engine() const { return _engine;}
+    sp_view_engine engine() const { return _engine.lock();}
     
     virtual md::string_view ns() const = 0;
     virtual md::string_view path() const = 0;
@@ -276,7 +276,7 @@ public:
     
     
 private:
-    sp_view_engine _engine;
+    std::weak_ptr<view_engine> _engine;
     std::string _body_buffer;
     std::string _out_buffer;
     
