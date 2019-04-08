@@ -42,6 +42,9 @@ class view_base
 {
     typedef std::unordered_map<std::string, view_lang_parser_fn>
         lang_parser_map;
+    
+    typedef std::unordered_map<std::string, std::string> data_map;
+    
 public:
     view_base(
         sp_view_engine engine,
@@ -92,20 +95,176 @@ public:
         _pop_buffer(lng);
     }
     
-    template<typename T>
+    template<typename T,
+        typename std::enable_if<
+            !(std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+            
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value)
+        , int32_t>::type = -1
+    >
     void write_enc(T data)
     {
         std::stringstream ss;
         ss << "Writing to " << typeid(T).name() << " is not supported";
         throw MD_ERR(ss.str());
     }
-    template<typename T>
+
+    template<typename T,
+        typename std::enable_if<
+            !(std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+            
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value)
+        , int32_t>::type = -1
+    >
     void write_raw(T data)
     {
         std::stringstream ss;
         ss << "Writing to " << typeid(T).name() << " is not supported";
         throw MD_ERR(ss.str());
     }
+    
+    
+    template<typename T,
+        typename std::enable_if<
+            !(std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+            
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value)
+        , int32_t>::type = -1
+    >
+    void set(md::string_view name, T data)
+    {
+        std::stringstream ss;
+        ss << "Writing to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
+    }
+    
+    template<typename T,
+        typename std::enable_if<
+            !(std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+            
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value)
+        , int32_t>::type = -1
+    >
+    T get(md::string_view name, const T& def_data = T()) const
+    {
+        std::stringstream ss;
+        ss << "Converting to " << typeid(T).name() << " is not supported";
+        throw MD_ERR(ss.str());
+    }
+    
+    template<
+        typename T,
+        typename std::enable_if<
+            std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value
+        , int32_t>::type = -1
+    >
+    void write_enc(T data)
+    {
+        write_enc(md::num_to_str(data));
+    }
+    
+    template<
+        typename T,
+        typename std::enable_if<
+            std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value
+        , int32_t>::type = -1
+    >
+    void write_raw(T data)
+    {
+        write_raw(md::num_to_str(data));
+    }
+    
+    template<
+        typename T,
+        typename std::enable_if<
+            std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value
+        , int32_t>::type = -1
+    >
+    void set(md::string_view name, T data)
+    {
+        set(name, md::num_to_str(data));
+    }
+    
+    template<
+        typename T,
+        typename std::enable_if<
+            std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value
+        , int32_t>::type = -1
+    >
+    T get(md::string_view name, const T& def_data = T()) const
+    {
+        auto it = _data.find(name.to_string());
+        if(it == _data.end())
+            return def_data;
+        return md::str_to_num<T>(it->second);
+    }
+    
+    
+    
     
     void write_body()
     {
@@ -115,21 +274,6 @@ public:
     }
     void render_view(md::string_view path, md::callback::async_cb cb);
     
-    template<typename T>
-    void set(md::string_view name, T val)
-    {
-        std::stringstream ss;
-        ss << "Writing to " << typeid(T).name() << " is not supported";
-        throw MD_ERR(ss.str());
-    }
-    
-    template<typename T>
-    T get(md::string_view name, T def_val = T())
-    {
-        std::stringstream ss;
-        ss << "Converting to " << typeid(T).name() << " is not supported";
-        throw MD_ERR(ss.str());
-    }
     
 private:
     sp_view_engine _engine;
@@ -199,6 +343,7 @@ protected:
     
 private:
     lang_parser_map _lang_parsers;
+    data_map _data;
 };
 
 };

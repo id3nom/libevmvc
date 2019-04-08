@@ -40,6 +40,52 @@ inline void view_base::write_raw<md::string_view>(md::string_view data)
     _append_buffer(data);
 }
 
+template<>
+inline void view_base::set<md::string_view>(
+    md::string_view name, md::string_view data)
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        _data.emplace(std::make_pair(name.to_string(), data.to_string()));
+    else
+        it->second = data.to_string();
+}
+
+template<>
+inline std::string view_base::get<std::string>(
+    md::string_view name, const std::string& def_data
+    ) const
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        return def_data;
+    return it->second;
+}
+
+template<>
+inline void view_base::set<bool>(
+    md::string_view name, bool data)
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        _data.emplace(std::make_pair(name.to_string(), data ? "true" : ""));
+    else
+        it->second = data ? "true" : "";
+}
+
+template<>
+inline bool view_base::get<bool>(
+    md::string_view name, const bool& def_data
+    ) const
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        return def_data;
+    return !it->second.empty();
+}
+
+
+
 inline void render_view(md::string_view path)
 {
     

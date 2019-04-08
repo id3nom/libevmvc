@@ -264,11 +264,12 @@ inline std::string root_node_t::gen_header_code(
     cls_body += fmt::format(
         "void {}("
         "std::shared_ptr<{}> {}, md::callback::async_cb {}"
-        "){{ ",
+        "){{ {}->begin_write(\"html\");",
         exec_fn,
         doc->cls_name,
         doc->self_name,
-        doc->cb_name
+        doc->cb_name,
+        doc->self_name
     );
     std::string next_fn = unique_ident("__exec_" + doc->cls_name);
     
@@ -308,7 +309,9 @@ inline std::string root_node_t::gen_header_code(
             cls_body += n->gen_header_code(dbg, docs, doc);
         
         if(!n->next()){
-            cls_body += doc->cb_name + "(nullptr);";
+            cls_body += 
+                doc->self_name + "->commit_write(\"html\");" +
+                doc->cb_name + "(nullptr);";
             for(size_t i = 0; i < doc->scope_level; ++i)
                 cls_body += "});";
             cls_body += "}";
