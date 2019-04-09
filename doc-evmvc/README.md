@@ -132,3 +132,18 @@ until the view is found or the views 'root' directory is reached.
 | @get-raw(n,d) |           | write non encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
 | @fmt-raw(f,v...) |        | write non encoded format output, 'f' is the format string and 'v...' is arguments |
 
+
+
+# benchmark
+
+$ cat curl-format.txt 
+    time_namelookup:  %{time_namelookup}\n
+       time_connect:  %{time_connect}\n
+    time_appconnect:  %{time_appconnect}\n
+   time_pretransfer:  %{time_pretransfer}\n
+      time_redirect:  %{time_redirect}\n
+ time_starttransfer:  %{time_starttransfer}\n
+                    ----------\n
+         time_total:  %{time_total}\n
+
+curl -w "@curl-format.txt" -o /dev/null -s "http://127.0.0.1:8080/views/index"
