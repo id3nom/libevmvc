@@ -290,7 +290,7 @@ document find(
             "No view matching path: '{}'", path
         );
     
-    for(size_t i = parts.size() -1; i >= 0; --i){
+    for(ssize_t i = (ssize_t)parts.size() -1; i >= 0; --i){
         // look for the file in this order: 
         //  path dir,
         //  partials dir,
@@ -298,7 +298,7 @@ document find(
         //  helpers dir,
         
         std::string rp;
-        for(size_t j = 0; j < i; ++j)
+        for(ssize_t j = 0; j < i; ++j)
             rp += parts[j] + "/";
         
         for(auto d : ds){

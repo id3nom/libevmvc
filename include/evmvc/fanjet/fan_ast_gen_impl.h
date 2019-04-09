@@ -63,16 +63,16 @@ std::string escape_cpp_source(const std::string& source)
     // double quote
     md::replace_substring(escs, "\"", "\\\"");
     // tab
-    md::replace_substring(escs, "\t", "\\\\t");
+    md::replace_substring(escs, "\t", "\\t");
     // // lf
-    // md::replace_substring(escs, "\n", "\\\\n");
+    // md::replace_substring(escs, "\n", "\\n");
     // cr
-    md::replace_substring(escs, "\r", "\\\\r");
+    md::replace_substring(escs, "\r", "\\r");
 
     std::string tmp;
     for(auto c : escs){
         if(c == '\n')
-            tmp += "\\\\n\"\n\"";
+            tmp += "\\n\"\n\"";
         else
             tmp += c;
     }
@@ -230,6 +230,13 @@ inline std::string root_node_t::gen_header_code(
     doc->reset_lines();
     std::string cls_body;
     
+    /*
+    layout = 0,
+    partial = 1,
+    helper = 2,
+    body = 3    
+    */
+    
     std::string exec_fn = unique_ident("__exec_" + doc->cls_name);
     std::string cls_foot = fmt::format(
         "\n\npublic:\n"
@@ -246,15 +253,20 @@ inline std::string root_node_t::gen_header_code(
         "    md::string_view name() const {{ return \"{4}\";}}\n"
         "    md::string_view abs_path() const {{ return \"{5}\";}}\n"
         "    md::string_view layout() const {{ return \"{6}\";}}\n"
+        "    evmvc::view_type type() const {{ return {7};}}\n"
         "\n"
         "    void render(std::shared_ptr<evmvc::view_base> self,\n"
         "        md::callback::async_cb cb)\n"
         "    {{\n"
-        "        this->{7}(std::static_pointer_cast<{8}>(self), cb);\n"
+        "        try{{\n"
+        "            this->{8}(std::static_pointer_cast<{9}>(self), cb);\n"
+        "        }}catch(const std::exception& err){{\n"
+        "            cb(err);\n"
+        "        }}\n"
         "    }}\n"
         "\n"
         "}};\n"
-        "{9}\n",
+        "{10}\n",
         doc->cls_name,
         inherit_cstr,
         doc->ns,
@@ -262,6 +274,15 @@ inline std::string root_node_t::gen_header_code(
         doc->name,
         doc->abs_path,
         doc->layout,
+        
+        doc->type == doc_type::layout ?
+            "evmvc::view_type::layout" :
+        doc->type == doc_type::partial ?
+            "evmvc::view_type::partial" :
+        doc->type == doc_type::helper ?
+            "evmvc::view_type::helper" :
+            "evmvc::view_type::body",
+        
         exec_fn,
         doc->cls_name,
         ns_close
@@ -270,7 +291,7 @@ inline std::string root_node_t::gen_header_code(
     cls_body += fmt::format(
         "void {}("
         "std::shared_ptr<{}> {}, md::callback::async_cb {}"
-        "){{ {}->begin_write(\"html\");",
+        "){{ try{{ {}->begin_write(\"html\");",
         exec_fn,
         doc->cls_name,
         doc->self_name,
@@ -288,8 +309,10 @@ inline std::string root_node_t::gen_header_code(
         
         else if(n->node_type() == ast::node_type::code_fun){
             cls_body += fmt::format(
-                "{}->{}({}, {});",
-                doc->self_name, next_fn, doc->self_name, doc->cb_name
+                "{}->{}({}, {});"
+                "}}catch(const std::exception& __err){{ {}(__err);return;}}",
+                doc->self_name, next_fn, doc->self_name,
+                doc->cb_name, doc->cb_name
             );
             //cls_body += doc->cb_name + "(nullptr);";
             for(size_t i = 0; i < doc->scope_level; ++i)
@@ -302,7 +325,7 @@ inline std::string root_node_t::gen_header_code(
             cls_body += fmt::format(
                 "private: void {}("
                 "std::shared_ptr<{}> {}, md::callback::async_cb {}"
-                "){{ ",
+                "){{ try{{",
                 next_fn,
                 doc->cls_name,
                 doc->self_name,
@@ -315,12 +338,30 @@ inline std::string root_node_t::gen_header_code(
             cls_body += n->gen_header_code(dbg, docs, doc);
         
         if(!n->next()){
-            cls_body += 
-                doc->self_name + "->commit_write(\"html\");" +
-                doc->cb_name + "(nullptr);";
+            cls_body += fmt::format(
+                "{}->commit_write(\"html\");"
+                "{}(nullptr);",
+                doc->self_name, doc->cb_name
+            );
+            // cls_body += 
+            //     doc->self_name + "->commit_write(\"html\");"
+            //     "}}catch(const std::exception& __err){{ {}(__err);return;}}" +
+            //     doc->cb_name + "(nullptr);";
+            
             for(size_t i = 0; i < doc->scope_level; ++i)
-                cls_body += "});";
-            cls_body += "}";
+                cls_body += fmt::format(
+                    "}}catch(const std::exception& __err){{ {}(__err);return;}}"
+                    "}});",
+                    doc->cb_name
+                );
+                //cls_body += "});";
+
+            cls_body += fmt::format(
+                "}}catch(const std::exception& __err){{ {}(__err);return;}}"
+                "}}",
+                doc->cb_name
+            );
+            //cls_body += "}";
             
             cls_body +=
                 "\n\n// ===========================\n"
@@ -754,26 +795,20 @@ inline std::string fan_fn_node_t::gen_header_code(
         
         ++doc->scope_level;
         std::string err_var = unique_ident("__err_" + doc->cls_name);
-        // s += fmt::format(
-        //     "{}->render_view({}, [{}, {}](md::callback::cb_error {})"
-        //     "{{ if({}){{ {}({}); return; }} ",
-        //     doc->self_name,
-        //     vs,
-        //     doc->self_name,
-        //     doc->cb_name,
-        //     err_var,
-        //     err_var,
-        //     doc->cb_name,
-        //     err_var
-        // );
+        
         s += fmt::format(
-            "{}->render_view({}, [&](md::callback::cb_error {})"
-            "{{ if({}){{ {}({}); return; }} ",
+            "{}->render_view({}, [{}, {}](md::callback::cb_error {})"
+            "{{ if({}){{ {}({}); return; }} try{{ ",
             doc->self_name,
             vs,
-            // doc->self_name,
-            // doc->cb_name,
+            
+            // lambda args
+            doc->self_name,
+            doc->cb_name,
+
+            // cb err
             err_var,
+            // on err
             err_var,
             doc->cb_name,
             err_var

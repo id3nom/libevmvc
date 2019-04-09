@@ -210,7 +210,10 @@ public:
     http_params_t& params() const { return *(_rt_params.get());}
     http_param& params(md::string_view name) const
     {
-        return *(_rt_params->get(name).get());
+        auto p = _rt_params->get(name);
+        if(p)
+            return *(p.get());
+        throw MD_ERR("Param do not exist: '{}'", name);
     }
     template<typename PARAM_T>
     PARAM_T params(md::string_view name, PARAM_T def_val) const

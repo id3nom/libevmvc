@@ -26,81 +26,66 @@ SOFTWARE.
 #include "view_base.h"
 #include "view_engine.h"
 
+
 namespace evmvc {
-
-template<>
-inline void view_base::write_enc<md::string_view>(md::string_view data)
-{
-    _append_buffer(html_escape(data));
-}
-
-template<>
-inline void view_base::write_raw<md::string_view>(md::string_view data)
-{
-    _append_buffer(data);
-}
-
-template<>
-inline void view_base::set<md::string_view>(
-    md::string_view name, md::string_view data)
-{
-    auto it = _data.find(name.to_string());
-    if(it == _data.end())
-        _data.emplace(std::make_pair(name.to_string(), data.to_string()));
-    else
-        it->second = data.to_string();
-}
-
-template<>
-inline std::string view_base::get<std::string>(
-    md::string_view name, const std::string& def_data
-    ) const
-{
-    auto it = _data.find(name.to_string());
-    if(it == _data.end())
-        return def_data;
-    return it->second;
-}
-
-template<>
-inline void view_base::set<bool>(
-    md::string_view name, bool data)
-{
-    auto it = _data.find(name.to_string());
-    if(it == _data.end())
-        _data.emplace(std::make_pair(name.to_string(), data ? "true" : ""));
-    else
-        it->second = data ? "true" : "";
-}
-
-template<>
-inline bool view_base::get<bool>(
-    md::string_view name, const bool& def_data
-    ) const
-{
-    auto it = _data.find(name.to_string());
-    if(it == _data.end())
-        return def_data;
-    return !it->second.empty();
-}
-
 
 inline void view_base::render_view(
     md::string_view path, md::callback::async_cb cb)
 {
+    auto self = this->shared_from_this();
+    auto scb = [self, cb](md::callback::cb_error err, const std::string& data){
+        if(err)
+            cb(err);
+        try{
+            self->write_raw(data);
+        }catch(const std::exception& err){
+            cb(err);
+            return;
+        }
+        cb(nullptr);
+    };
+    
     std::string ps = path.to_string();
-    if(ps.find("::") == std::string::npos)
-        engine()->render_view(this->res, ps, cb);
-    else{
-        std::string p = 
-            (*path.rbegin() == '/') ?
-                path.substr(1).to_string() :
-                this->path().to_string() + ps;
+    size_t nsp = ps.rfind("::");
+    if(nsp == std::string::npos){
+        if(*ps.begin() != '/')
+            ps = this->path().to_string() + ps;
+            
+        engine()->render_view(this->res, ps, scb);
         
-        view_engine::render(this->res, ps, cb);
+    }else{
+        std::string ns = ps.substr(0, nsp);
+        std::string p = ps.substr(ns.size() +2);
+        if(*p.begin() != '/')
+            ps = ns + "::" + this->path().to_string() + p;
+        
+        view_engine::render(this->res, ps, scb);
     }
 }
 
+inline void view_base::_pop_buffer(md::string_view lng)
+{
+    if(_buffer_lngs.top() != lng.to_string())
+        throw MD_ERR(
+            "Invalid language\n"
+            "Current language is: '{}', "
+            "and the request language to pop is '{}'",
+            _buffer_lngs.top(),
+            lng
+        );
+    
+    // look for a parser
+    evmvc::view_engine::parse_language(lng.to_string(), _buffers.top());
+    
+    std::string tbuf = _buffers.top();
+    _buffers.pop();
+    _buffer_lngs.pop();
+    
+    if(_buffers.size() == 0)
+        _out_buffer += tbuf;
+    else
+        _buffers.top() += tbuf;
+}
 
 
 };

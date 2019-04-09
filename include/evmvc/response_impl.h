@@ -174,13 +174,16 @@ inline void response::error(
         );
     
     err_msg += "</table></body></html>";
-    
-    if((int16_t)err_status < 400)
-        this->log()->info(log_val);
-    else if((int16_t)err_status < 500)
-        this->log()->warn(log_val);
-    else
-        this->log()->error(log_val);
+    try{
+        if((int16_t)err_status < 400)
+            this->log()->info(log_val);
+        else if((int16_t)err_status < 500)
+            this->log()->warn(log_val);
+        else
+            this->log()->error(log_val);
+    }catch(std::exception err){
+        this->log()->error(MD_ERR(err.what()));
+    }
     
     this->status(err_status).html(err_msg);
 }
@@ -454,9 +457,15 @@ inline void response::send_file(
 inline void response::render(
     const std::string& view_path, md::callback::async_cb cb)
 {
+    auto self = this->shared_from_this();
     view_engine::render(
-        this->shared_from_this(), view_path, cb
-    );
+    this->shared_from_this(), view_path,
+    [self, cb](md::callback::cb_error err, std::string data){
+        if(err)
+            return cb(err);
+        self->html(data);
+        cb(nullptr);
+    });
 }
 
 

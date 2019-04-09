@@ -32,7 +32,7 @@ SOFTWARE.
 
 In index.fan page <br/>
 
-@> req->params("test");
+@@> req->params("test");
 
 @utils();
 @{

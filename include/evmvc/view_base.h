@@ -30,20 +30,126 @@ SOFTWARE.
 
 #include <stack>
 
-namespace evmvc {
+#define EVMVC_VIEW_BASE_ADD_TYPE(T, w_data, wr_data, tos_data) \
+void write_enc(T data) \
+{ \
+    _append_buffer(w_data); \
+} \
+void write_raw(T data) \
+{ \
+    _append_buffer(wr_data); \
+} \
+void set(md::string_view name, T data) \
+{ \
+    auto it = _data.find(name.to_string()); \
+    if(it == _data.end()) \
+        _data.emplace( \
+            std::make_pair( \
+                name.to_string(), \
+                view_base_data( \
+                    new view_base_data_t(tos_data) \
+                ) \
+            ) \
+        ); \
+    else \
+        it->second = view_base_data( \
+            new view_base_data_t(tos_data) \
+        ); \
+}
 
-typedef std::function<void(std::string& source)> view_lang_parser_fn;
+
+namespace evmvc {
 
 class view_engine;
 typedef std::shared_ptr<view_engine> sp_view_engine;
 
+class view_base_data_t
+{
+public:
+    view_base_data_t(const std::string& v)
+        : _v(v)
+    {
+    }
+    
+    template<typename T,
+        typename std::enable_if<
+            !(std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+            
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value)
+        , int32_t>::type = -1
+    >
+    T get() const
+    {
+        std::stringstream ss;
+        ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
+        throw MD_ERR(ss.str());
+    }
+    
+    template<
+        typename T,
+        typename std::enable_if<
+            std::is_same<int16_t, T>::value ||
+            std::is_same<int32_t, T>::value ||
+            std::is_same<int64_t, T>::value ||
+
+            std::is_same<uint16_t, T>::value ||
+            std::is_same<uint32_t, T>::value ||
+            std::is_same<uint64_t, T>::value ||
+
+            std::is_same<float, T>::value ||
+            std::is_same<double, T>::value
+        , int32_t>::type = -1
+    >
+    T get() const
+    {
+        return md::str_to_num<T>(_v);
+    }
+    
+    template<typename T>
+    operator T() const
+    {
+        return get<T>();
+    }
+    
+private:
+    std::string _v;
+};
+template<>
+inline std::string evmvc::view_base_data_t::get<std::string, -1>() const
+{
+    return _v;
+}
+template<>
+inline const char* evmvc::view_base_data_t::get<const char*, -1>() const
+{
+    return _v.c_str();
+}
+template<>
+inline md::string_view evmvc::view_base_data_t::get<md::string_view, -1>() const
+{
+    return _v.c_str();
+}
+typedef std::shared_ptr<view_base_data_t> view_base_data;
+
+enum class view_type
+{
+    layout = 0,
+    partial = 1,
+    helper = 2,
+    body = 3
+};
+
 class view_base
     : public std::enable_shared_from_this<view_base>
 {
-    typedef std::unordered_map<std::string, view_lang_parser_fn>
-        lang_parser_map;
-    
-    typedef std::unordered_map<std::string, std::string> data_map;
+    typedef std::unordered_map<std::string, view_base_data> data_map;
     
 public:
     view_base(
@@ -57,6 +163,7 @@ public:
     
     sp_view_engine engine() const { return _engine.lock();}
     
+    virtual evmvc::view_type type() const = 0;
     virtual md::string_view ns() const = 0;
     virtual md::string_view path() const = 0;
     virtual md::string_view name() const = 0;
@@ -68,23 +175,6 @@ public:
         md::callback::async_cb cb
     ) = 0;
     
-    void add_lang_parser(md::string_view lng, view_lang_parser_fn pfn)
-    {
-        std::string lng_str = lng.to_string();
-        auto it = _lang_parsers.find(lng_str);
-        if(it != _lang_parsers.end())
-            throw MD_ERR(
-                "Language parser '{}' is already registered!",
-                lng_str
-            );
-        
-        if(pfn == nullptr)
-            throw MD_ERR("Language parser can't be NULL");
-        
-        _lang_parsers.emplace(
-            std::make_pair(lng_str, pfn)
-        );
-    }
     
     void begin_write(md::string_view lng)
     {
@@ -95,18 +185,24 @@ public:
         _pop_buffer(lng);
     }
     
+    // ==================
+    // == INVALID TYPE ==
+    // ==================
+    
     template<typename T,
         typename std::enable_if<
-            !(std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+            !(
+                std::is_same<int16_t, T>::value ||
+                std::is_same<int32_t, T>::value ||
+                std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
-            
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value)
+                std::is_same<uint16_t, T>::value ||
+                std::is_same<uint32_t, T>::value ||
+                std::is_same<uint64_t, T>::value ||
+                
+                std::is_same<float, T>::value ||
+                std::is_same<double, T>::value
+            )
         , int32_t>::type = -1
     >
     void write_enc(T data)
@@ -118,25 +214,26 @@ public:
 
     template<typename T,
         typename std::enable_if<
-            !(std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+            !(
+                std::is_same<int16_t, T>::value ||
+                std::is_same<int32_t, T>::value ||
+                std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
-            
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value)
+                std::is_same<uint16_t, T>::value ||
+                std::is_same<uint32_t, T>::value ||
+                std::is_same<uint64_t, T>::value ||
+                
+                std::is_same<float, T>::value ||
+                std::is_same<double, T>::value
+            )
         , int32_t>::type = -1
     >
     void write_raw(T data)
     {
         std::stringstream ss;
-        ss << "Writing to " << typeid(T).name() << " is not supported";
+        ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
         throw MD_ERR(ss.str());
     }
-    
     
     template<typename T,
         typename std::enable_if<
@@ -155,30 +252,13 @@ public:
     void set(md::string_view name, T data)
     {
         std::stringstream ss;
-        ss << "Writing to " << typeid(T).name() << " is not supported";
+        ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
         throw MD_ERR(ss.str());
     }
     
-    template<typename T,
-        typename std::enable_if<
-            !(std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
-
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
-            
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value)
-        , int32_t>::type = -1
-    >
-    T get(md::string_view name, const T& def_data = T()) const
-    {
-        std::stringstream ss;
-        ss << "Converting to " << typeid(T).name() << " is not supported";
-        throw MD_ERR(ss.str());
-    }
+    // ================
+    // == VALID TYPE ==
+    // ================
     
     template<
         typename T,
@@ -197,7 +277,7 @@ public:
     >
     void write_enc(T data)
     {
-        write_enc(md::num_to_str(data));
+        _append_buffer(html_escape(md::num_to_str(data)));
     }
     
     template<
@@ -217,7 +297,7 @@ public:
     >
     void write_raw(T data)
     {
-        write_raw(md::num_to_str(data));
+        _append_buffer(md::num_to_str(data));
     }
     
     template<
@@ -237,39 +317,83 @@ public:
     >
     void set(md::string_view name, T data)
     {
-        set(name, md::num_to_str(data));
+        std::string sdata = md::num_to_str(data);
+        auto it = _data.find(name.to_string());
+        if(it == _data.end())
+            _data.emplace(
+                std::make_pair(
+                    name.to_string(), 
+                    view_base_data(
+                        new view_base_data_t(sdata)
+                    )
+                )
+            );
+        else
+            it->second = view_base_data(
+                new view_base_data_t(sdata)
+            );
     }
     
-    template<
-        typename T,
-        typename std::enable_if<
-            std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
-
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
-
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value
-        , int32_t>::type = -1
-    >
-    T get(md::string_view name, const T& def_data = T()) const
+    EVMVC_VIEW_BASE_ADD_TYPE(
+        const char*,
+        html_escape(data),
+        data,
+        std::string(data)
+    )
+    EVMVC_VIEW_BASE_ADD_TYPE(
+        const std::string&,
+        html_escape(data),
+        data,
+        data
+    )
+    
+    // ================
+    // ==   ==
+    // ================
+    
+    view_base_data get(md::string_view name) const
     {
         auto it = _data.find(name.to_string());
         if(it == _data.end())
-            return def_data;
-        return md::str_to_num<T>(it->second);
+            return nullptr;
+        return *it->second;
+    }
+    
+    template<typename T>
+    T operator()(
+        md::string_view name, T def_val = T()) const
+    {
+        auto it = _data.find(name.to_string());
+        if(it == _data.end())
+            return def_val;
+        return it->second->get<T>();
+    }
+    
+    template<typename T>
+    T get(md::string_view name, T def_val = T()) const
+    {
+        auto it = _data.find(name.to_string());
+        if(it == _data.end())
+            return def_val;
+        return it->second->get<T>();
     }
     
     
     
+    // ================
+    // ==  ==
+    // ================
+    
+    
+    void set_body(std::shared_ptr<view_base> body)
+    {
+        _body = body;
+    }
     
     void write_body()
     {
         this->begin_write("html");
-        this->write_raw(_body_buffer);
+        this->write_raw(_body->buffer());
         this->commit_write("html");
     }
     void render_view(md::string_view path, md::callback::async_cb cb);
@@ -281,7 +405,7 @@ public:
     
 private:
     std::weak_ptr<view_engine> _engine;
-    std::string _body_buffer;
+    std::shared_ptr<view_base> _body;
     std::string _out_buffer;
     
     std::stack<std::string> _buffers;
@@ -298,25 +422,7 @@ private:
         _buffer_lngs.push(lng.to_string());
     }
     
-    void _pop_buffer(md::string_view lng)
-    {
-        if(_buffer_lngs.top() != lng.to_string())
-            throw MD_ERR(
-                "Invalid language\n"
-                "Current language is: '{}', "
-                "and the request language to pop is '{}'",
-                _buffer_lngs.top(),
-                lng
-            );
-        
-        // look for a parser
-        auto it = _lang_parsers.find(lng.to_string());
-        if(it != _lang_parsers.end())
-            it->second(_buffers.top());
-        _out_buffer += _buffers.top();
-        _buffers.pop();
-        _buffer_lngs.pop();
-    }
+    void _pop_buffer(md::string_view lng);
     
 protected:
     
@@ -346,9 +452,98 @@ protected:
     evmvc::sp_request req;
     
 private:
-    lang_parser_map _lang_parsers;
+    
     data_map _data;
 };
+
+
+
+
+
+/*
+template<>
+inline void view_base::write_enc<md::string_view>(md::string_view data)
+{
+    _append_buffer(html_escape(data));
+}
+template<>
+inline void view_base::write_enc<std::string>(std::string data)
+{
+    _append_buffer(html_escape(data));
+}
+template<>
+inline void view_base::write_enc<const char*>(const char* data)
+{
+    _append_buffer(html_escape(data));
+}
+
+
+template<>
+inline void view_base::write_raw<md::string_view>(md::string_view data)
+{
+    _append_buffer(data);
+}
+template<>
+inline void view_base::write_raw<std::string>(std::string data)
+{
+    _append_buffer(data);
+}
+template<>
+inline void view_base::write_raw<const char*>(const char* data)
+{
+    _append_buffer(data);
+}
+
+template<>
+inline void view_base::set<md::string_view>(
+    md::string_view name, md::string_view data)
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        _data.emplace(std::make_pair(name.to_string(), data.to_string()));
+    else
+        it->second = data.to_string();
+}
+
+template<>
+inline std::string view_base::get<std::string>(
+    md::string_view name, const std::string& def_data
+    ) const
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        return def_data;
+    return it->second;
+}
+
+template<>
+inline void view_base::set<bool>(
+    md::string_view name, bool data)
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        _data.emplace(std::make_pair(name.to_string(), data ? "true" : ""));
+    else
+        it->second = data ? "true" : "";
+}
+
+template<>
+inline bool view_base::get<bool>(
+    md::string_view name, const bool& def_data
+    ) const
+{
+    auto it = _data.find(name.to_string());
+    if(it == _data.end())
+        return def_data;
+    return !it->second.empty();
+}
+*/
+
+
+
+
+
+
 
 }//::evmvc
 #endif //_libevmvc_view_base_h

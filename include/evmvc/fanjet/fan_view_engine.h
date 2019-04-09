@@ -60,52 +60,90 @@ public:
     void render_view(
         const evmvc::sp_response& res,
         const std::string& path,
-        md::callback::async_cb cb)
+        md::callback::value_cb<const std::string&> cb)
     {
+        md::log::default_logger()->info(MD_ERR(
+            "request view at '{}'",
+            path
+        ));
+        
         view_generator_fn vg = find_generator(path);
         if(vg == nullptr){
             cb(MD_ERR(
                 "Engine '{}' is unable to locate view at: '{}::{}'",
                 this->name(), this->ns(), path
-            ));
+            ), "");
             return;
         }
-        auto v = vg(this->shared_from_this(), res);
+        std::shared_ptr<evmvc::view_base> v = vg(this->shared_from_this(), res);
         
-        std::vector<std::shared_ptr<fanjet::view_base>> layouts;
+        std::vector<std::shared_ptr<evmvc::view_base>> views;
+        views.emplace_back(v);
         
-        std::string s = v->layout().to_string();
-        
-        //v->render(v, cb);
-        v->render(v, [v, res, path, cb](md::callback::cb_error err){
-            if(err){
-                cb(err);
-                return;
+        std::shared_ptr<evmvc::view_base> tv = v;
+        while(tv && !tv->layout().empty()){
+            std::string s = v->layout().to_string();
+            if(s.find("::") == std::string::npos)
+                tv = this->get_view(res, s);
+            else
+                tv = evmvc::view_engine::get(res, s);
+                
+            if(tv){
+                // assign current view body
+                tv->set_body(*views.rbegin());
+                views.emplace_back(tv);
             }
-            
-            res->send(v->buffer());
-            
-            cb(nullptr);
-        });
+        }
+        
+        // fetch the upper layout
+        v = *views.rbegin();
+        
+        // render all views starting with the fartest child
+        md::async::each<std::shared_ptr<evmvc::view_base>>(views, 
+        [views, res](
+            std::shared_ptr<evmvc::view_base> v,
+            md::callback::async_cb ecb
+        ){
+            try{
+                md::log::default_logger()->info(MD_ERR(
+                    "rendering view '{}'",
+                    v->abs_path()
+                ));
+                v->render(v, ecb);
+            }catch(const std::exception& err){
+                ecb(err);
+            }
+        },
+        // on completion return view html data
+        [views, res, v, cb](const md::callback::cb_error& err){
+            if(err)
+                return cb(err, "");
 
+            md::log::default_logger()->info(MD_ERR(
+                "view '{}' rendered",
+                v->abs_path()
+            ));
+            cb(nullptr, v->buffer());
+        });
         
-        // auto it = _views.find(path);
-        // if(it == _views.end())
-        //     throw MD_ERR(
-        //         "Engine '{}' is unable to locate view at: '{}::{}'",
-        //         this->name(), this->ns(), path
-        //     );
-        
-        // auto v = it->second(this->shared_from_this(), res);
-        // v->render(v, cb);
+    }
+    
+    std::shared_ptr<evmvc::view_base> get_view(
+        const evmvc::sp_response& res,
+        const std::string& path)
+    {
+        view_generator_fn vg = find_generator(path);
+        if(!vg)
+            return nullptr;
+        return vg(this->shared_from_this(), res);
     }
     
     bool view_exists(const std::string& view_path) const
     {
         return find_generator(view_path) != nullptr;
-        // auto it = _views.find(view_path);
-        // return it != _views.end();
     }
+    
+    
     
     void register_view_generator(bfs::path view_path, view_generator_fn vg)
     {
@@ -155,7 +193,7 @@ private:
         //         "No view matching path: '{}'", path
         //     );
         
-        for(size_t i = parts.size() -1; i >= 0; --i){
+        for(ssize_t i = (ssize_t)parts.size() -1; i >= 0; --i){
             // look for the file in this order: 
             //  path dir,
             //  partials dir,
@@ -163,7 +201,7 @@ private:
             //  helpers dir,
             
             std::string rp;
-            for(size_t j = 0; j < i; ++j)
+            for(ssize_t j = 0; j < i; ++j)
                 rp += parts[j] + "/";
             
             for(auto& v : _views){
