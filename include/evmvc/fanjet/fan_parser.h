@@ -232,7 +232,7 @@ public:
             "void register_engine()\n{{\n"
             "    std::shared_ptr<evmvc::fanjet::view_engine> fjv =\n"
             "        std::shared_ptr<evmvc::fanjet::view_engine>(\n"
-            "            \"{}\"\n"
+            "            new evmvc::fanjet::view_engine(\"{}\")\n"
             "        );\n",
             ns
         );
@@ -339,19 +339,21 @@ public:
                 "#include \"{}\"\n",
                 doc->i_filename
             );
-            inc_src_gens += fmt::format(
-                "    fjv->register_view_generator( \"{}\", \n"
-                "    [](evmvc::sp_view_engine engine, "
-                "const evmvc::sp_response& res\n"
-                "    )->std::shared_ptr<evmvc::fanjet::view_base>{{\n"
-                "        return std::shared_ptr<{}>(\n"
-                "            new {}(engine, res)\n"
-                "        );\n"
-                "    }});\n",
-                doc->path + doc->name,
-                doc->cls_name,
-                doc->cls_name
-            );
+            
+            if(doc->type != ast::doc_type::helper)
+                inc_src_gens += fmt::format(
+                    "    fjv->register_view_generator( \"{}\", \n"
+                    "    [](evmvc::sp_view_engine engine, "
+                    "const evmvc::sp_response& res\n"
+                    "    )->std::shared_ptr<evmvc::fanjet::view_base>{{\n"
+                    "        return std::shared_ptr<{}>(\n"
+                    "            new {}(engine, res)\n"
+                    "        );\n"
+                    "    }});\n",
+                    doc->path + doc->name,
+                    doc->cls_name,
+                    doc->cls_name
+                );
             
             /*
             doc->c_src = doc->rn->gen_source_code(

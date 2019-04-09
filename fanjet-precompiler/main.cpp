@@ -49,6 +49,7 @@ void process_fanjet_file(
 );
 
 void save_docs(
+    const std::string& include_filename,
     const std::string& include_src,
     const std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& dest
@@ -187,6 +188,7 @@ int main(int argc, char** argv)
         );
         
         save_docs(
+            vm["include"].as<std::string>(),
             include_src,
             docs,
             vm["dest"].as<std::string>()
@@ -333,6 +335,7 @@ void process_fanjet_file(
 }
 
 void save_docs(
+    const std::string& include_filename,
     const std::string& include_src,
     const std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& dest)
@@ -340,7 +343,7 @@ void save_docs(
     if(!bfs::exists(dest))
         bfs::create_directories(dest);
     
-    bfs::path fn = dest / "views.h";
+    bfs::path fn = dest / include_filename;
     if(bfs::exists(fn))
         bfs::remove(fn);
     bfs::ofstream fout(fn);

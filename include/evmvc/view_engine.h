@@ -35,9 +35,8 @@ class view_engine
 {
 public:
     
-    view_engine(const std::string& ns, const bfs::path& views_dir)
-        : _ns(ns),
-        _views_dir(views_dir)
+    view_engine(const std::string& ns)
+        : _ns(ns)
     {
         
     }
@@ -46,8 +45,6 @@ public:
      * Engine instance namespace
      */
     std::string ns() const { return _ns;}
-    
-    bfs::path views_dir() const { return _views_dir;}
     
     /**
      * View Engine name
@@ -103,7 +100,7 @@ public:
     }
     
     
-    virtual bool view_exists(bfs::path view_path) const = 0;
+    virtual bool view_exists(const std::string& view_path) const = 0;
     virtual void render_view(
         const evmvc::sp_response& res,
         const std::string& path,
@@ -116,9 +113,8 @@ private:
         static std::unordered_map<std::string, sp_view_engine> _c;
         return _c;
     }
-
+    
     std::string _ns;
-    bfs::path _views_dir;
     
 };
 

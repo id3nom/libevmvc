@@ -27,6 +27,8 @@ SOFTWARE.
 #include "connection.h"
 #include "response.h"
 
+#include "view_engine.h"
+
 #define EVMVC_MAX_RES_STATUS_LINE_LEN 47
 // max header field size is 8KiB
 #define EVMVC_MAX_RES_HEADER_LINE_LEN 8192
@@ -449,6 +451,13 @@ inline void response::send_file(
     c->send_file(reply);
 }
 
+inline void response::render(
+    const std::string& view_path, md::callback::async_cb cb)
+{
+    view_engine::render(
+        this->shared_from_this(), view_path, cb
+    );
+}
 
 
 

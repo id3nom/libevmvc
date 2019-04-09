@@ -31,7 +31,7 @@
             "request": "launch",
             "program": "${workspaceFolder}/build/bin/evmvc_web_server",
             "args": [
-                "8", "8"
+                "1", "8"
             ],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}/build/bin/",

@@ -306,6 +306,8 @@ public:
         }
     }
     
+    void render(const std::string& view_path, md::callback::async_cb cb);
+    
 private:
     
     void _resume(md::callback::cb_error err)

@@ -32,6 +32,48 @@ set (EVMVC_EXAMPLES_LIBRARIES
     event_openssl
 )
 
+
+######################
+## views precompile ##
+######################
+
+file(GLOB_RECURSE EVMVC_VIEWS_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/views/" "*.fan"
+)
+
+message(STATUS "** EVMVC_VIEWS_SOURCES: ${EVMVC_VIEWS_SOURCES}")
+
+set_source_files_properties(
+    "${CMAKE_CURRENT_SOURCE_DIR}/web-server.cpp"
+    PROPERTIES
+    OBJECT_DEPENDS "${EVMVC_VIEWS_SOURCES}"
+)
+
+set(jetfan-cmd "${CMAKE_BINARY_DIR}/bin/fanjet")
+set(views-src-dir "${CMAKE_CURRENT_SOURCE_DIR}/views/")
+set(views-dest-dir "${CMAKE_BINARY_DIR}/bin/examples-views/")
+
+add_custom_command(OUTPUT "${views-dest-dir}examples_views.h"
+    DEPENDS ${ALL_TAR_RES}
+    COMMAND "${jetfan-cmd}" -vv -n "examples" -i "examples_views.h" -s "${views-src-dir}" -d "${views-dest-dir}"
+    COMMENT "Precompiling fanjet views from '${views-src-dir}' to '${views-dest-dir}'"
+    VERBATIM
+)
+
+add_custom_target(
+    examples_views ALL
+    DEPENDS "${views-dest-dir}examples_views.h"
+)
+
+include_directories(
+    "${views-dest-dir}"
+)
+
+######################
+## views precompile ##
+######################
+
 add_executable(evmvc_web_server web-server.cpp)
+add_dependencies(evmvc_web_server fanjet examples_views)
 target_link_libraries(evmvc_web_server ${EVMVC_EXAMPLES_LIBRARIES})
 

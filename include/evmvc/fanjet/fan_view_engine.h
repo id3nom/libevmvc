@@ -47,10 +47,8 @@ class view_engine
 public:
     
     view_engine(
-        const std::string& ns, const bfs::path& views_dir,
-        const bfs::path& dest_dir)
-        : evmvc::view_engine(ns, views_dir),
-        _dest_dir(dest_dir)
+        const std::string& ns)
+        : evmvc::view_engine(ns)
     {
     }
     
@@ -73,7 +71,23 @@ public:
             return;
         }
         auto v = vg(this->shared_from_this(), res);
-        v->render(v, cb);
+        
+        std::vector<std::shared_ptr<fanjet::view_base>> layouts;
+        
+        std::string s = v->layout().to_string();
+        
+        //v->render(v, cb);
+        v->render(v, [v, res, path, cb](md::callback::cb_error err){
+            if(err){
+                cb(err);
+                return;
+            }
+            
+            res->send(v->buffer());
+            
+            cb(nullptr);
+        });
+
         
         // auto it = _views.find(path);
         // if(it == _views.end())
@@ -185,8 +199,6 @@ private:
         return nullptr;
     }
 
-    bfs::path _dest_dir;
-    
     std::unordered_map<std::string, view_generator_fn> _views;
     
 };

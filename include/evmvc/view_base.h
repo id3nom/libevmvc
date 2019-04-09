@@ -274,6 +274,10 @@ public:
     }
     void render_view(md::string_view path, md::callback::async_cb cb);
     
+    const std::string& buffer() const
+    {
+        return _out_buffer;
+    }
     
 private:
     std::weak_ptr<view_engine> _engine;
@@ -346,5 +350,5 @@ private:
     data_map _data;
 };
 
-};
+}//::evmvc
 #endif //_libevmvc_view_base_h

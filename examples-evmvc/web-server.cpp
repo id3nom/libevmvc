@@ -36,6 +36,7 @@ extern "C" {
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "examples_views.h"
 
 void _on_event_log(int severity, const char *msg)
 {
@@ -157,6 +158,14 @@ int main(int argc, char** argv)
 void register_app_cbs()
 {
     auto srv = ::srv();
+    
+    examples::register_engine();
+    
+    srv->get("/views/index",
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->render("examples::index", nxt);
+    });
+    
     
     srv->get("/exit",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
