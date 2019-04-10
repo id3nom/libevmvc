@@ -29,10 +29,49 @@ SOFTWARE.
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>@get("title", "web-server example")</title>
+
     <link rel="stylesheet" href="/html/css/uikit.min.css" />
     <link rel="stylesheet" href="/html/css/app.css" />
     
-    <title>@get("title", "web-server example")</title>
+    <script src="/html/scripts/jquery-3.3.1.min.js"></script>
+    <script src="/html/scripts/markdown.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/latex.js@0.11.1/dist/latex.min.js"></script>
+  
+    
+    <script>
+    "use strict";
+    $(() => {
+        var mds = document.querySelectorAll("[data-markup=\"md\"]");
+        mds.forEach((v, i) => {
+            v.innerHTML = markdown.toHTML(unescape(v.innerHTML));
+        });
+        
+        var texs = document.querySelectorAll("[data-markup=\"tex\"]");
+        texs.forEach((v, i) => {
+            try{
+                var texgen = new latexjs.HtmlGenerator({hyphenate: false});
+                texgen = latexjs.parse(
+                    unescape(v.innerHTML),
+                    {generator: texgen}
+                );
+                
+                document.body.appendChild(
+                    texgen.stylesAndScripts(
+                        "https://cdn.jsdelivr.net/npm/latex.js@0.11.1/dist/"
+                    )
+                );
+                v.innerHTML = "";
+                v.appendChild(texgen.domFragment());
+                
+            }catch(err){
+                v.innerHTML = err.message;
+            }
+        });
+    });
+    </script>
 </head>
 <body>
     
@@ -47,3 +86,4 @@ SOFTWARE.
     
 </body>
 </html>
+

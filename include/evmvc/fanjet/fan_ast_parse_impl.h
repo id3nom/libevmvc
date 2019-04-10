@@ -542,32 +542,44 @@ inline void literal_node_t::parse(ast::token t)
 {
     ast::token tt = t;
     while(t){
+        // if(
+        //     open_fan_comment(t, this) ||
+        //     open_fan_directive(t, this) ||
+        //     open_fan_output(t, this) ||
+            
+        //     open_fan_code_block(t, this) ||
+        //     open_fan_control(t, this) ||
+        //     open_fan_try(t, this) ||
+            
+        //     open_fan_funi_func(t, this) ||
+            
+        //     open_fan_markup(t, this) ||
+            
+        //     open_fan_key(t, this) ||
+        //     open_fan_fn(t, this) ||
+            
+        //     open_tag(t, this)
+        // )
+        //     return;
+        
         if(
-            open_fan_comment(t, this) ||
-            open_fan_directive(t, this) ||
-            open_fan_output(t, this) ||
-            
-            open_fan_code_block(t, this) ||
-            open_fan_control(t, this) ||
-            open_fan_try(t, this) ||
-            
-            open_fan_funi_func(t, this) ||
-            
-            open_fan_markup(t, this) ||
-            
-            open_fan_key(t, this) ||
-            open_fan_fn(t, this) ||
-            
-            open_tag(t, this)
-        )
-            return;
+            t->is_double_quote() ||
+            t->is_single_quote()
+        ){
+            t = t->next();
+            continue;
+        }
         
         switch(this->sec_type()){
             case section_type::literal:{
-                
+                if(open_tag(t, this))
+                    return;
                 break;
             }
             case section_type::markup_html:{
+                if(open_tag(t, this))
+                    return;
+                
                 if(t->is_curly_brace_close()){
                     close_scope(t, this);
                     return;
@@ -575,8 +587,13 @@ inline void literal_node_t::parse(ast::token t)
                 break;
             }
             case section_type::markup_other:{
-                if(this->is_markdown() && open_markdown_string(t, this))
-                    return;
+                if(this->is_markdown()){
+                    if(open_tag(t, this))
+                        return;
+                    
+                    if(open_markdown_string(t, this))
+                        return;
+                }
                 
                 if(this->is_tex() || this->is_latex()){
                     // escaped braces and backslash
@@ -584,6 +601,7 @@ inline void literal_node_t::parse(ast::token t)
                         if(auto nt = t->next()){
                             if(
                                 nt->is_curly_brace_close() ||
+                                nt->is_curly_brace_open() ||
                                 nt->is_backslash()
                             ){
                                 t = nt->next();
@@ -592,6 +610,10 @@ inline void literal_node_t::parse(ast::token t)
                         }
                     }else if(t->is_curly_brace_open()){
                         ++this->braces;
+                        // md::log::info(
+                        //     "++braces: {}, line: {}, col: {}",
+                        //     this->braces, t->line(), t->col()
+                        // );
                         t = t->next();
                         continue;
                     }else if(t->is_curly_brace_close()){
@@ -600,6 +622,10 @@ inline void literal_node_t::parse(ast::token t)
                             return;
                         }
                         --this->braces;
+                        // md::log::info(
+                        //     "--braces: {}, line: {}, col: {}",
+                        //     this->braces, t->line(), t->col()
+                        // );
                         t = t->next();
                         continue;
                     }
@@ -616,6 +642,26 @@ inline void literal_node_t::parse(ast::token t)
             default:
                 break;
         }
+        
+        
+        if(
+            open_fan_comment(t, this) ||
+            open_fan_directive(t, this) ||
+            open_fan_output(t, this) ||
+            
+            open_fan_code_block(t, this) ||
+            open_fan_control(t, this) ||
+            open_fan_try(t, this) ||
+            
+            open_fan_funi_func(t, this) ||
+            
+            open_fan_markup(t, this) ||
+            
+            open_fan_key(t, this) ||
+            open_fan_fn(t, this)
+        )
+            return;
+        
         
         if(t) t = t->next();
     }

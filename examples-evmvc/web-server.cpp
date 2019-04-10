@@ -159,7 +159,28 @@ void register_app_cbs()
 {
     auto srv = ::srv();
     
+    auto md_parse = [](std::string& str){
+        str = evmvc::html_escape(str);
+        
+        str.insert(0, "<div data-markup=\"md\">");
+        str.append("</div>");
+    };
+    auto tex_parse = [](std::string& str){
+        str = evmvc::html_escape(str);
+        
+        str.insert(0, "<div data-markup=\"tex\">");
+        str.append("</div>");
+    };
+    // parse markdown markup
+    evmvc::view_engine::register_language_parser("md", md_parse);
+    evmvc::view_engine::register_language_parser("markdown", md_parse);
+    // parse latex markup
+    evmvc::view_engine::register_language_parser("tex", tex_parse);
+    evmvc::view_engine::register_language_parser("latex", tex_parse);
+    
+    // register fanjet views
     examples::register_engine();
+    
     
     srv->get("/views/index-fail",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){

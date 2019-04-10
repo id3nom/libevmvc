@@ -71,6 +71,7 @@
             "program": "${workspaceFolder}/build/bin/fanjet",
             "args": [
                 "-vv",
+                "-l", "markdown", "md", "tex", "latex", "wiki", 
                 "-n", "examples",
                 "-i", "examples_views.h",
                 "-s", "${workspaceFolder}/examples-evmvc/views/",

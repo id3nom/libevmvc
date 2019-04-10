@@ -51,7 +51,8 @@ public:
      */
     std::string ns() const { return _ns;}
     
-    void register_language_parser(md::string_view lng, view_lang_parser_fn pfn)
+    static void register_language_parser(
+        md::string_view lng, view_lang_parser_fn pfn)
     {
         std::string lng_str = lng.to_string();
         auto it = lang_parsers().find(lng_str);
