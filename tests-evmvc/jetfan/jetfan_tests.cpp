@@ -337,8 +337,9 @@ TEST_F(jetfan_test, ast_test)
             "</html>\n"
         );
         
+        std::vector<std::string> ml;
         fanjet::ast::root_node r = 
-            fanjet::parser::parse(fan_str);
+            fanjet::parser::parse(ml, fan_str);
         
         md::log::info(
             "debug ast output:\n{}",

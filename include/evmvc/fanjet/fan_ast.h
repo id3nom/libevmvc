@@ -1025,11 +1025,14 @@ root_node parse(ast::token t);
 class root_node_t
     : public node_t
 {
-    friend root_node ast::parse(ast::token t);
+    friend root_node ast::parse(
+        const std::vector<std::string>& markup_langs,
+        ast::token t
+    );
     friend bool open_fan_markup(ast::token& t, ast::node_t* pn);
     
     root_node_t(
-        const std::vector<std::string>& markup_langs
+        const std::unordered_set<std::string>& markup_langs
     )
         : node_t(ast::section_type::root, nullptr, nullptr),
         _markup_langs(markup_langs)
@@ -1043,7 +1046,7 @@ public:
     
     EVMVC_FANJET_AST_NODE_IMPL_DECL
     
-    const std::vector<std::string>& markup_langs() const
+    const std::unordered_set<std::string>& markup_langs() const
     {
         return _markup_langs;
     }
@@ -1054,15 +1057,21 @@ public:
     }
     
 private:
-    std::vector<std::string> _markup_langs;
+    std::unordered_set<std::string> _markup_langs;
 };
 inline root_node parse(
     const std::vector<std::string>& markup_langs,
     ast::token t)
 {
-    root_node r = root_node(new root_node_t(
-        markup_langs
-    ));
+    std::unordered_set<std::string> usl;
+    for(auto v : markup_langs)
+        usl.emplace(v);
+    if(usl.find("html") == usl.end())
+        usl.emplace("html");
+    if(usl.find("htm") == usl.end())
+        usl.emplace("htm");
+    
+    root_node r = root_node(new root_node_t(usl));
     r->parse(t);
     return r;
 }
@@ -1287,7 +1296,8 @@ protected:
         node next = nullptr)
         : node_t(node_type::literal, t, parent, prev, next),
         markup_language(lng),
-        in_markdown_code("")
+        in_markdown_code(""),
+        braces(0)
     {
     }
     
@@ -1323,6 +1333,7 @@ protected:
     
 private:
     std::string in_markdown_code;
+    size_t braces;
 };
 
 class comment_node_t

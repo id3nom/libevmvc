@@ -55,7 +55,7 @@ set(views-dest-dir "${CMAKE_BINARY_DIR}/bin/examples-views/")
 
 add_custom_command(OUTPUT "${views-dest-dir}examples_views.h"
     DEPENDS ${EVMVC_VIEWS_SOURCES}
-    COMMAND "${jetfan-cmd}" -v -n "examples" -i "examples_views.h" -s "${views-src-dir}" -d "${views-dest-dir}"
+    COMMAND "${jetfan-cmd}" -v -l "tex" "latex" "md" "markdown" -n "examples" -i "examples_views.h" -s "${views-src-dir}" -d "${views-dest-dir}"
     COMMENT "Precompiling fanjet views from '${views-src-dir}' to '${views-dest-dir}'"
     VERBATIM
 )

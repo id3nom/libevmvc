@@ -380,18 +380,37 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
     }
     md::trim(l);
     ast::root_node rn = std::static_pointer_cast<ast::root_node_t>(pn->root());
-    if(!rn->support_markup_lang(l))
-    //if(l != "html" && l != "htm" && l != "markdown" && l != "md")
+    if(!rn->support_markup_lang(l)){
+        std::unordered_set<std::string> allowed_langs = {
+            "html", "htm",
+            "markdown", "md",
+            "tex",
+            "latex",
+            "wiki"
+        };
+        
         throw MD_ERR(
-            "invalid literal language of '{}', line: '{}', col: '{}'\n"
-            "available language are 'html, htm, markdown and md!'",
-            md::replace_substring_copy(
-                md::replace_substring_copy(
-                    l, "{", "{{"
-                ), "}", "}}"
-            ),
-            t->line(), t->col()
+            "Invalid markup language '{}' at line: '{}', col: '{}'!\n\n"
+            "Available language are: '{}'\n"
+            "Known language are: '{}'\n"
+            "Please note that known language must be enabled, "
+            "except for 'html' and 'htm' languages.",
+            l, t->line(), t->col(),
+            md::join(rn->markup_langs(), ", "),
+            md::join(allowed_langs, ", ")
         );
+
+        // throw MD_ERR(
+        //     "invalid literal language of '{}', line: '{}', col: '{}'\n"
+        //     "available language are 'html, htm, markdown and md!'",
+        //     md::replace_substring_copy(
+        //         md::replace_substring_copy(
+        //             l, "{", "{{"
+        //         ), "}", "}}"
+        //     ),
+        //     t->line(), t->col()
+        // );
+    }
     
     ast::node n = literal_node(new literal_node_t(
         l,
@@ -560,12 +579,29 @@ inline void literal_node_t::parse(ast::token t)
                     return;
                 
                 if(this->is_tex() || this->is_latex()){
-                    // escaped closing brace
+                    // escaped braces and backslash
                     if(t->is_backslash()){
                         if(auto nt = t->next()){
-                            if(nt->is_curly_brace_close())
+                            if(
+                                nt->is_curly_brace_close() ||
+                                nt->is_backslash()
+                            ){
                                 t = nt->next();
+                                continue;
+                            }
                         }
+                    }else if(t->is_curly_brace_open()){
+                        ++this->braces;
+                        t = t->next();
+                        continue;
+                    }else if(t->is_curly_brace_close()){
+                        if(this->braces == 0){
+                            close_scope(t, this);
+                            return;
+                        }
+                        --this->braces;
+                        t = t->next();
+                        continue;
                     }
                 }
                 

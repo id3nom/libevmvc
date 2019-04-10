@@ -57,6 +57,12 @@ void save_docs(
     const bfs::path& dest
 );
 
+md::log::sp_logger& log()
+{
+    static md::log::sp_logger l = nullptr;
+    return l;
+}
+
 int main(int argc, char** argv)
 {
     po::options_description desc("fanjet");
@@ -129,8 +135,6 @@ int main(int argc, char** argv)
         std::vector<std::string> langs;
         if(vm.count("markup-language"))
             langs = vm["markup-language"].as<std::vector<std::string>>();
-        langs.emplace_back("html");
-        langs.emplace_back("htm");
         
         // log level override
         int log_val = -1;
@@ -151,18 +155,22 @@ int main(int argc, char** argv)
         sinks.emplace_back(out_sink);
         
         auto _log = std::make_shared<md::log::logger>(
-        "/", sinks.begin(), sinks.end()
+        "/Fanjet", sinks.begin(), sinks.end()
         );
         _log->set_level((md::log::log_level)log_val);
         md::log::default_logger() = _log;
+        log() = _log;
         
         if(md::log::default_logger()->should_log(md::log::log_level::warning)){
             std::cout
                 << "fanjet 0.1.0 Copyright (c) 2019 Michel Dénommée\n"
                 << std::endl;
         }
-        md::log::info(
-            "processing\n  ns: '{}'\n  src: '{}'\n  dest: '{}'",
+        log()->info(
+            "processing\n  "
+            "markup-languages: '{}'\n"
+            "  ns: '{}'\n  src: '{}'\n  dest: '{}'",
+            md::join(langs, ", "),
             vm["namespace"].as<std::string>(),
             vm["src"].as<std::string>(),
             vm["dest"].as<std::string>()
@@ -224,7 +232,7 @@ int main(int argc, char** argv)
         std::stringstream ss;
         ss << desc;
         
-        md::log::error(
+        log()->error(
             "{}\n{}\n{}:{}\n\nUsage: fanjet [options] src-path dest-path\n{}",
             serr.what(),
             serr.func(), serr.file(), serr.line(),
@@ -243,7 +251,7 @@ int main(int argc, char** argv)
         std::stringstream ss;
         ss << desc;
         
-        md::log::error(
+        log()->error(
             "{}\n\nUsage: fanjet [options] src-path dest-path\n{}",
             err.what(), ss.str()
         );
@@ -305,7 +313,7 @@ void process_fanjet_file(
     const bfs::path& dest*/)
 {
     try{
-        md::log::debug("parsing source: '{}'", src.string());
+        log()->debug("parsing source: '{}'", src.string());
         
         bfs::ifstream fin(src);
         std::ostringstream ostrm;
@@ -336,9 +344,11 @@ void process_fanjet_file(
         docs.emplace_back(doc);
         
     }catch(const md::error::stacked_error& serr){
-        md::log::error(
-            "{}\n{}\n{}:{}\n\nUsage: fanjet [options] src-path dest-path",
+        log()->error(
+            "{}\n\n{}\n\n{}\n{}:{}\n\n"
+            "Usage: fanjet [options] src-path dest-path",
             serr.what(),
+            src.string(),
             serr.func(), serr.file(), serr.line()
         );
         throw -1;
