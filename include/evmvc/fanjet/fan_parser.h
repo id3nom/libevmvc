@@ -38,10 +38,27 @@ class parser
     parser() = delete;
 public:
     
-    static ast::root_node parse(const std::string& text)
+    static ast::root_node parse(
+        const std::vector<std::string>& markup_langs,
+        const std::string& text)
     {
+        std::unordered_set<std::string> allowed_langs = {
+            "html", "htm",
+            "markdown", "md",
+            "tex",
+            "latex",
+            "wiki"
+        };
+        for(auto l : markup_langs)
+            if(allowed_langs.find(l) == allowed_langs.end())
+                throw MD_ERR(
+                    "Unsupported language '{}'\n"
+                    "Fanjet parser support the following markup languages:\n{}",
+                    l, md::join(allowed_langs, ", ")
+                );
+        
         ast::token root_token = ast::tokenizer::tokenize(text);
-        ast::root_node r = ast::parse(root_token);
+        ast::root_node r = ast::parse(markup_langs, root_token);
         
         md::log::debug(
             "debug ast output:\n{}",
@@ -58,6 +75,7 @@ public:
         bfs::path file_path,
         const std::string& ns,
         const std::string& view_path,
+        const std::vector<std::string>& markup_langs,
         const std::string& fan_src,
         bool dbg)
     {
@@ -69,7 +87,7 @@ public:
         if(*doc->dirname.rbegin() != '/')
             doc->dirname += "/";
         
-        doc->rn = parse(fan_src);
+        doc->rn = parse(markup_langs, fan_src);
         
         auto ln = doc->rn->first_child();
         if(!ln || ln->node_type() != ast::node_type::literal)

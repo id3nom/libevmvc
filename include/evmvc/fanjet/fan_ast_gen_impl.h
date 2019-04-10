@@ -424,13 +424,13 @@ inline std::string literal_node_t::gen_header_code(
     node n = 
         sec_type() == section_type::literal ? child(0) :
         sec_type() == section_type::markup_html ? child(1) :
-        sec_type() == section_type::markup_markdown ? child(1) :
+        sec_type() == section_type::markup_other ? child(1) :
             child(0);
     
     node ln = 
         sec_type() == section_type::literal ? nullptr :
         sec_type() == section_type::markup_html ? last_child() :
-        sec_type() == section_type::markup_markdown ? last_child() :
+        sec_type() == section_type::markup_other ? last_child() :
             nullptr;
     
     switch(sec_type()){
@@ -441,10 +441,10 @@ inline std::string literal_node_t::gen_header_code(
                 doc->self_name, "html"
             );
             break;
-        case section_type::markup_markdown:
+        case section_type::markup_other:
             s += fmt::format(
                 "{}->begin_write(\"{}\");",
-                doc->self_name, "md"
+                doc->self_name, this->markup_language
             );
             break;
         default:
@@ -469,10 +469,10 @@ inline std::string literal_node_t::gen_header_code(
                 doc->self_name, "html"
             );
             break;
-        case section_type::markup_markdown:
+        case section_type::markup_other:
             s += fmt::format(
                 "{}->commit_write(\"{}\");",
-                doc->self_name, "md"
+                doc->self_name, this->markup_language
             );
             break;
         default:

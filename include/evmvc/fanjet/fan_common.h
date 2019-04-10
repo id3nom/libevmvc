@@ -486,7 +486,7 @@ enum class section_type
     code_funa           = (1 << 25),    // @<type> func_name(args...);
     code_await          = (1 << 26),    // @await type r = async_func_name(params...);
     
-    markup_markdown     = (1 << 27),    // @(markdown){...} @(md){...}
+    markup_other        = (1 << 27),    // @(markdown){...} @(md){...}
     markup_html         = (1 << 28),    // @(html){...} @(htm){...}
     
     sub_section         = (1 << 29),    // 
@@ -601,8 +601,8 @@ inline md::string_view to_string(section_type t)
 
         case section_type::markup_html:
             return "markup_html";
-        case section_type::markup_markdown:
-            return "markup_markdown";
+        case section_type::markup_other:
+            return "markup_other";
 
         case section_type::sub_section:
             return "sub_section";

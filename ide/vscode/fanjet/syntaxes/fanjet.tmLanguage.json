@@ -20,6 +20,9 @@
 
                 {"include": "#fanjet-markup-html"},
                 {"include": "#fanjet-markup-markdown"},
+                {"include": "#fanjet-markup-tex"},
+                {"include": "#fanjet-markup-latex"},
+                {"include": "#fanjet-markup-wiki"},
                 
                 {"include": "#cpp-block"}
             ]
@@ -45,6 +48,9 @@
         {"include": "#fanjet-commands"},
         
         {"include": "#fanjet-markup-markdown"},
+        {"include": "#fanjet-markup-tex"},
+        {"include": "#fanjet-markup-latex"},
+        {"include": "#fanjet-markup-wiki"},
         {"include": "#fanjet-markup-html"},
         
         {"include": "#strings"}
@@ -147,6 +153,48 @@
         },
         "fanjet-markup-html": {
             "begin": "(@\\((html|htm)\\))(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.basic"}
+            ]
+        },
+        "fanjet-markup-tex": {
+            "begin": "(@\\((tex)\\))(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.tex"}
+            ]
+        },
+        "fanjet-markup-latex": {
+            "begin": "(@\\((latex)\\))(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.tex.latex"}
+            ]
+        },
+        "fanjet-markup-wiki": {
+            "begin": "(@\\((wiki)\\))(\\{)",
             "beginCaptures":{
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}

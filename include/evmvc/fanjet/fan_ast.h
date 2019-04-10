@@ -129,7 +129,7 @@ enum class node_type
         (int)(
             section_type::literal |
             section_type::markup_html |
-            section_type::markup_markdown
+            section_type::markup_other
         ),
     comment         =
         (int)(
@@ -1026,9 +1026,13 @@ class root_node_t
     : public node_t
 {
     friend root_node ast::parse(ast::token t);
-
-    root_node_t()
-        : node_t(ast::section_type::root, nullptr, nullptr)
+    friend bool open_fan_markup(ast::token& t, ast::node_t* pn);
+    
+    root_node_t(
+        const std::vector<std::string>& markup_langs
+    )
+        : node_t(ast::section_type::root, nullptr, nullptr),
+        _markup_langs(markup_langs)
     {
     }
     
@@ -1038,13 +1042,27 @@ public:
     bool next_sibling_allowed() const { return false;}
     
     EVMVC_FANJET_AST_NODE_IMPL_DECL
-
-private:
     
+    const std::vector<std::string>& markup_langs() const
+    {
+        return _markup_langs;
+    }
+    
+    bool support_markup_lang(const std::string& lng) const
+    {
+        return _markup_langs.find(lng) != _markup_langs.end();
+    }
+    
+private:
+    std::vector<std::string> _markup_langs;
 };
-inline root_node parse(ast::token t)
+inline root_node parse(
+    const std::vector<std::string>& markup_langs,
+    ast::token t)
 {
-    root_node r = root_node(new root_node_t());
+    root_node r = root_node(new root_node_t(
+        markup_langs
+    ));
     r->parse(t);
     return r;
 }
@@ -1262,18 +1280,47 @@ class literal_node_t
     EVMVC_FANJET_NODE_FRIENDS
 protected:
     literal_node_t(
+        const std::string& lng,
         ast::section_type t,
         node parent = nullptr,
         node prev = nullptr,
         node next = nullptr)
         : node_t(node_type::literal, t, parent, prev, next),
+        markup_language(lng),
         in_markdown_code("")
     {
     }
-
+    
     EVMVC_FANJET_AST_NODE_IMPL_DECL
-
-
+    
+    std::string markup_language;
+    
+    bool is_markdown() const
+    {
+        return
+            this->markup_language == "markdown" ||
+            this->markup_language == "md";
+    }
+    
+    bool is_tex() const
+    {
+        return
+            this->markup_language == "tex";
+    }
+    
+    bool is_latex() const
+    {
+        return
+            this->markup_language == "latex";
+    }
+    
+    bool is_wiki() const
+    {
+        return
+            this->markup_language == "wiki";
+    }
+    
+    
 private:
     std::string in_markdown_code;
 };

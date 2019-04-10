@@ -458,6 +458,7 @@ inline void response::render(
     const std::string& view_path, md::callback::async_cb cb)
 {
     auto self = this->shared_from_this();
+    
     view_engine::render(
     this->shared_from_this(), view_path,
     [self, cb](md::callback::cb_error err, std::string data){

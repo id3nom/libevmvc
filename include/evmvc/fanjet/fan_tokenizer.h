@@ -1173,7 +1173,7 @@ const char* tokenizer::s_tokens[] = {
     
     "@@",
     "@{",
-    "@}",
+    "@}", // escaping closing bracket
     "@**",
     "@*",
     "*@", // this one is special, must be verified for not to be *@@ literral

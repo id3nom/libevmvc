@@ -200,6 +200,27 @@ inline ssize_t find_eol(const char* data, size_t len, size_t start_pos)
     return -1;
 }
 
+inline std::string uri_encode(md::string_view s)
+{
+    char* r = evhttp_encode_uri(s.data());
+    std::string tmp(r);
+    free(r);
+    return tmp;
+}
+inline std::string uri_decode(md::string_view s)
+{
+    char* r = evhttp_decode_uri(s.data());
+    std::string tmp(r);
+    free(r);
+    return tmp;
+}
+inline std::string html_escape(md::string_view s)
+{
+    char* r = evhttp_htmlescape(s.data());
+    std::string tmp(r);
+    free(r);
+    return tmp;
+}
 
 
 } //ns evmvc

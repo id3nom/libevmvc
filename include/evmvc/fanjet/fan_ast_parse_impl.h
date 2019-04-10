@@ -52,6 +52,7 @@ inline void root_node_t::parse(ast::token t)
 {
     // first node is always a literal node;
     ast::literal_node l = literal_node(new literal_node_t(
+        "html",
         ast::section_type::literal
     ));
     this->add_child(l);
@@ -378,7 +379,9 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
         tl = tl->next();
     }
     md::trim(l);
-    if(l != "html" && l != "htm" && l != "markdown" && l != "md")
+    ast::root_node rn = std::static_pointer_cast<ast::root_node_t>(pn->root());
+    if(!rn->support_markup_lang(l))
+    //if(l != "html" && l != "htm" && l != "markdown" && l != "md")
         throw MD_ERR(
             "invalid literal language of '{}', line: '{}', col: '{}'\n"
             "available language are 'html, htm, markdown and md!'",
@@ -391,11 +394,10 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
         );
     
     ast::node n = literal_node(new literal_node_t(
+        l,
         l == "html" || l == "htm" ?
             ast::section_type::markup_html :
-        l == "markdown" || l == "md" ?
-            ast::section_type::markup_markdown :
-            ast::section_type::invalid
+            ast::section_type::markup_other
     ));
     while(tl && !tl->is_curly_brace_open()){
         ++end_hup;
@@ -489,246 +491,6 @@ inline bool open_tag(ast::token& t, ast::node_t* pn)
     return open_scope(t, pn, n);
 }
 
-/*
-inline bool open_scope(ast::token& t, ast::node_t* pn)
-{
-    if(t->is_fan_start_key() ||
-
-        t->is_fan_keyword() ||
-        t->is_fan_fn() ||
-        
-        t->is_double_quote() || t->is_single_quote() || t->is_backtick() ||
-        t->is_parenthesis_open() || t->is_curly_brace_open() ||
-        
-        t->is_cpp_try() || t->is_cpp_return() ||
-
-        t->is_cpp_if() || t->is_cpp_switch() ||
-        t->is_cpp_for() || t->is_cpp_do() || t->is_cpp_while()
-        
-    ){
-        size_t end_hup = 1;
-        ast::node n = nullptr;
-        if(t->is_fan_comment() || t->is_fan_region())
-            n = comment_node(new comment_node_t(
-                t->is_fan_line_comment() ?
-                    ast::section_type::comment_line :
-                t->is_fan_blk_comment_open() ?
-                    ast::section_type::comment_block :
-                    ast::section_type::region_start
-            ));
-        else if(t->is_fan_directive()){
-            if(pn->sec_type() != section_type::literal)
-                throw MD_ERR(
-                    "Directive can only be defined at the first scope level."
-                    " line: '{}', col: '{}', pos: '{}'",
-                    t->line(), t->col(), t->pos()
-                );
-            
-            n = directive_node(new directive_node_t(
-                t->is_fan_namespace() ?
-                    ast::section_type::dir_ns :
-                t->is_fan_path() ?
-                    ast::section_type::dir_path :
-                t->is_fan_name() ?
-                    ast::section_type::dir_name :
-                t->is_fan_layout() ?
-                    ast::section_type::dir_layout :
-                t->is_fan_include() ?
-                    ast::section_type::dir_include :
-                t->is_fan_header() ?
-                    ast::section_type::dir_header :
-                    ast::section_type::dir_inherits
-            ));
-        }
-        else if(t->is_fan_output())
-            n = output_node(new output_node_t(
-                t->is_fan_output_raw() ?
-                    ast::section_type::output_raw :
-                    ast::section_type::output_enc
-            ));
-        else if(t->is_fan_code_block())
-            n = code_block_node(new code_block_node_t());
-        else if(t->is_fan_control())
-            n = code_control_node(new code_control_node_t(
-                t->is_fan_if() ?
-                    ast::section_type::code_if :
-                t->is_fan_switch() ?
-                    ast::section_type::code_switch :
-                t->is_fan_while() ?
-                    ast::section_type::code_while :
-                t->is_fan_for() ?
-                    ast::section_type::code_for :
-                    ast::section_type::code_do
-            ));
-        else if(t->is_fan_try() || 
-            (t->is_cpp_try() && pn->node_type() != node_type::literal)
-        )
-            n = code_err_node(new code_err_node_t(
-                ast::section_type::code_try
-            ));
-        else if(t->is_fan_funi() || t->is_fan_func())
-            n = code_fun_node(new code_fun_node_t(
-                t->is_fan_funi() ?
-                    ast::section_type::code_funi :
-                    ast::section_type::code_func
-            ));
-        else if(t->is_fan_funa() || t->is_fan_await())
-            n = code_async_node(new code_async_node_t(
-                t->is_fan_funa() ?
-                    ast::section_type::code_funa :
-                    ast::section_type::code_await
-            ));
-            
-        else if(pn->node_type() != node_type::literal &&
-            (
-                t->is_cpp_if() ||
-                t->is_cpp_switch() ||
-                t->is_cpp_for() ||
-                t->is_cpp_do() ||
-                (t->is_cpp_while() && 
-                    pn->node_type() != node_type::code_control)
-            )
-        )
-            n = code_control_node(new code_control_node_t(
-                t->is_cpp_if() ?
-                    ast::section_type::code_if :
-                t->is_cpp_switch() ?
-                    ast::section_type::code_switch :
-                t->is_cpp_while() ?
-                    ast::section_type::code_while :
-                t->is_cpp_for() ?
-                    ast::section_type::code_for :
-                    ast::section_type::code_do
-            ));
-        
-        else if(t->is_parenthesis_open() &&
-            pn->node_type() != node_type::literal
-        )
-            n = expr_node(new expr_node_t(
-                expr_type::parens
-            ));
-        else if(pn->node_type() != node_type::literal &&
-            (
-                t->is_cpp_return() ||
-                t->is_cpp_throw()
-            )
-        )
-            n = expr_node(new expr_node_t(
-                expr_type::semicol
-            ));
-        
-        else if(t->is_curly_brace_open() &&
-            pn->node_type() != node_type::literal
-        )
-            n = code_block_node(new code_block_node_t());
-        
-        else if(t->is_fan_markup_open()){
-            // find lang
-            token tl = t->next();
-            std::string l;
-            while(tl && !tl->is_parenthesis_close()){
-                ++end_hup;
-                l += tl->text();
-                tl = tl->next();
-            }
-            md::trim(l);
-            if(l != "html" && l != "htm" && l != "markdown" && l != "md")
-                throw MD_ERR(
-                    "invalid literal language of '{}', line: '{}', col: '{}'\n"
-                    "available language are 'html, htm, markdown and md!'",
-                    md::replace_substring_copy(
-                        md::replace_substring_copy(
-                            l, "{", "{{"
-                        ), "}", "}}"
-                    ),
-                    t->line(), t->col()
-                );
-            n = literal_node(new literal_node_t(
-                l == "html" || l == "htm" ?
-                    ast::section_type::markup_html :
-                l == "markdown" || l == "md" ?
-                    ast::section_type::markup_markdown :
-                    ast::section_type::invalid
-            ));
-            while(tl && !tl->is_curly_brace_open()){
-                ++end_hup;
-                tl = tl->next();
-            }
-            ++end_hup;
-        }
-        
-        else if(t->is_fan_keyword()){
-            n = fan_key_node(new fan_key_node_t(
-                t->is_fan_body() ?
-                    ast::section_type::body :
-                t->is_fan_filename() ?
-                    ast::section_type::filename :
-                t->is_fan_dirname() ?
-                    ast::section_type::dirname :
-                    ast::section_type::invalid
-            ));
-            
-        }
-        else if(t->is_fan_fn()){
-            n = fan_fn_node(new fan_fn_node_t(
-                t->is_fan_render() ?
-                    ast::section_type::render :
-                t->is_fan_set() ?
-                    ast::section_type::set :
-                t->is_fan_get() ?
-                    ast::section_type::get :
-                t->is_fan_fmt() ?
-                    ast::section_type::fmt :
-                t->is_fan_get_raw() ?
-                    ast::section_type::get_raw :
-                t->is_fan_fmt_raw() ?
-                    ast::section_type::fmt_raw :
-                
-                    ast::section_type::invalid
-            ));
-        }
-        
-        else if(
-            pn->node_type() != node_type::literal &&
-            (t->is_double_quote() || t->is_single_quote() || t->is_backtick())
-        ){
-            // n = string_node(new string_node_t(
-            //     t->text()
-            // ));
-        }
-        
-        if(n){
-            token nt = t;
-            t = nt->snip();
-            pn->add_child(n);
-            if(t)
-                n->add_sibling_token(ast::sibling_pos::prev, t);
-            
-            // we don't want nt instance to be release
-            t = nt;
-            // hup
-            for(size_t i = 0; i < end_hup; ++i){
-                nt = nt->next();
-                if(!nt){
-                    throw MD_ERR(
-                        "Are you missing an open scope? line: '{}', col: '{}'",
-                        t->line(), t->col()
-                    );
-                }
-            }
-            
-            t = nt->snip();
-            if(t)
-                n->add_token(t);
-            
-            n->parse(nt);
-            return true;
-        }
-    }
-    return false;
-}
-*/
-
 inline void close_scope(ast::token& t, ast::node_t* pn, bool ff = true)
 {
     if(!ff){
@@ -793,9 +555,19 @@ inline void literal_node_t::parse(ast::token t)
                 }
                 break;
             }
-            case section_type::markup_markdown:{
-                if(open_markdown_string(t, this))
+            case section_type::markup_other:{
+                if(this->is_markdown() && open_markdown_string(t, this))
                     return;
+                
+                if(this->is_tex() || this->is_latex()){
+                    // escaped closing brace
+                    if(t->is_backslash()){
+                        if(auto nt = t->next()){
+                            if(nt->is_curly_brace_close())
+                                t = nt->next();
+                        }
+                    }
+                }
                 
                 if(t->is_curly_brace_close()){
                     close_scope(t, this);

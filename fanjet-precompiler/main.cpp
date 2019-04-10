@@ -32,6 +32,7 @@ namespace bfs = boost::filesystem;
 
 void march_dir(
     bool dbg,
+    const std::vector<std::string>& markup_langs,
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
@@ -41,6 +42,7 @@ void march_dir(
 
 void process_fanjet_file(
     bool dbg,
+    const std::vector<std::string>& markup_langs,
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
@@ -70,6 +72,10 @@ int main(int argc, char** argv)
     )
     ("debug",
         "generate non optimized debug output."
+    )
+    ("markup-language,l",
+        po::value<std::vector<std::string>>()->multitoken(),
+        "a list of supported markup languages."
     )
     ("namespace,n",
         po::value<std::string>()->required(),
@@ -118,6 +124,14 @@ int main(int argc, char** argv)
             }
         ))
             throw std::runtime_error("Invalid verbosity level");
+        
+        // parse markup-language options
+        std::vector<std::string> langs;
+        if(vm.count("markup-language"))
+            langs = vm["markup-language"].as<std::vector<std::string>>();
+        langs.emplace_back("html");
+        langs.emplace_back("htm");
+        
         // log level override
         int log_val = -1;
         int vvs = verbosity_values.size();
@@ -163,6 +177,7 @@ int main(int argc, char** argv)
         std::vector<evmvc::fanjet::ast::document> docs;
         march_dir(
             dbg,
+            langs,
             docs,
             vm["src"].as<std::string>(),
             vm["namespace"].as<std::string>(),
@@ -170,7 +185,6 @@ int main(int argc, char** argv)
             vm["dest"].as<std::string>()*/
         );
         
-
         auto now = std::chrono::system_clock::now();
         std::time_t now_time = std::chrono::system_clock::to_time_t(now);
         auto ct = std::ctime(&now_time);
@@ -240,6 +254,7 @@ int main(int argc, char** argv)
 
 void march_dir(
     bool dbg,
+    const std::vector<std::string>& markup_langs,
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
@@ -251,6 +266,7 @@ void march_dir(
             case bfs::file_type::directory_file:
                 march_dir(
                     dbg,
+                    markup_langs,
                     docs,
                     root,
                     ns,
@@ -262,6 +278,7 @@ void march_dir(
             case bfs::file_type::regular_file:
                 process_fanjet_file(
                     dbg,
+                    markup_langs,
                     docs,
                     root,
                     ns,
@@ -280,6 +297,7 @@ void march_dir(
 
 void process_fanjet_file(
     bool dbg,
+    const std::vector<std::string>& markup_langs,
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
@@ -311,6 +329,7 @@ void process_fanjet_file(
                 src,
                 ns,
                 view_path,
+                markup_langs,
                 fan_src,
                 dbg
             );

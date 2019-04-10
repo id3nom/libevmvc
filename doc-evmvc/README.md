@@ -124,14 +124,17 @@ until the view is found or the views 'root' directory is reached.
 | @<            | cpp-type> | create an async cpp function |
 | @await        |           | call an async cpp function |
 | @(lang){      | }         | start a markup block, lang can be 'htm' or 'md' |
-| @body         |           | render the view content in a layout |
-| @>            | ;         | render a partial view |
+| @this         |           | will be converted to view's generated instance variable name |
+| @cb           |           | will be converted to view's callback variable name |
+| @body         |           | render the view content in a layout, layout can also be included in layout |
+| @filename     |           | the fanjet filename with it's extension |
+| @directory    |           | the fanjet file parent directory |
+| @>            | ;         | render a partial view. when a view is rendered from that call, the layout directive will ignored |
 | @set(n,v)     |           | set key value pair, key is 'n' and value is 'v' |
 | @get(n,d)     |           | write encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
 | @fmt(f,v...)  |           | write encoded format output, 'f' is the format string and 'v...' is arguments |
 | @get-raw(n,d) |           | write non encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
 | @fmt-raw(f,v...) |        | write non encoded format output, 'f' is the format string and 'v...' is arguments |
-
 
 
 # benchmark
