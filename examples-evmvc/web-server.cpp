@@ -194,9 +194,13 @@ void register_app_cbs()
     examples::register_engine();
     
     
-    srv->get("/views/index-fail",
+    srv->get("/views/missing",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
-        res->render("examples::index", nxt);
+        res->render("examples::home/missing", nxt);
+    });
+    srv->get("/views/fail",
+    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->render("examples::home/fail", nxt);
     });
     srv->get("/views/index",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){

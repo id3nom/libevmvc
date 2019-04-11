@@ -74,22 +74,17 @@ function parse_tex(){
                 {generator: texgen}
             );
             
-            ifraDoc.body.appendChild(
+
+            ifraDoc.head.appendChild(
                 texgen.stylesAndScripts(
                     "https://cdn.jsdelivr.net/npm/latex.js@0.11.1/dist/"
                 )
             );
             v.remove();
-            //v.innerHTML = "";
             ifraDoc.body.appendChild(texgen.domFragment());
             
             setTimeout(() => {
                 resizeIframe(ifraEle);
-                $(ifraEle).resize(() => {
-                    setTimeout(() => {
-                        resizeIframe(ifraEle);
-                    }, 50);
-                });
             }, 10);
             
         }catch(err){
@@ -101,5 +96,31 @@ function parse_tex(){
 
 function resizeIframe(obj){
     obj.style.width = "100%";
-    obj.style.height = obj.contentWindow.document.body.scrollHeight + 'px';
+    obj.style.height = obj.contentDocument.body.scrollHeight + 'px';
+    
+    setTimeout(() => {
+        if(
+            !obj.contentDocument.body.querySelector("div[class='body']")
+        )
+            return setTimeout(() => {
+                resizeIframe(obj);
+            }, 50);
+            
+            obj.style.height = (obj
+                .contentDocument.body.querySelector("div[class='body']")
+                .scrollHeight) + 'px';
+
+        }, 1000);
+    // if(
+    //     !document.getElementsByTagName("IFRAME")[0] ||
+    //     !document.getElementsByTagName("IFRAME")[0]
+    //     .contentDocument.body.querySelector("div[class='body']")
+    // )
+    //     return setTimeout(() => {
+    //         resizeIframe(obj);
+    //     }, 50);
+    
+    // obj.style.height = document.getElementsByTagName("IFRAME")[0]
+    //     .contentDocument.body.querySelector("div[class='body']")
+    //     .scrollHeight + 'px';
 }

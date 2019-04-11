@@ -109,7 +109,21 @@ public:
                     "rendering view '{}'",
                     v->abs_path()
                 ));
-                v->render(v, ecb);
+                v->render(v, [v, ecb](const md::callback::cb_error& err){
+                    if(err){
+                        md::log::default_logger()->info(MD_ERR(
+                            "view '{}' rendering failed!{}",
+                            v->abs_path(),
+                            err
+                        ));
+                    }else{
+                        md::log::default_logger()->info(MD_ERR(
+                            "view '{}' rendering succeeded",
+                            v->abs_path()
+                        ));
+                    }
+                    ecb(err);
+                });
             }catch(const std::exception& err){
                 ecb(err);
             }
