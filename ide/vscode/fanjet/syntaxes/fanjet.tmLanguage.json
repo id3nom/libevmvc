@@ -51,9 +51,7 @@
         {"include": "#fanjet-markup-tex"},
         {"include": "#fanjet-markup-latex"},
         {"include": "#fanjet-markup-wiki"},
-        {"include": "#fanjet-markup-html"},
-        
-        {"include": "#strings"}
+        {"include": "#fanjet-markup-html"}
     ],
     "repository": {
         
