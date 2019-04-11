@@ -85,7 +85,7 @@
             "setupCommands": [
                 {
                     "description": "Enable pretty-printing for gdb",
-                    "text": "-enable-pretty-printing",
+                    "text": "-enable-pretty-printing -interpreter-exec console \"set print elements 0\"",
                     "ignoreFailures": true
                 }
             ]

@@ -226,7 +226,16 @@ public:
         return res->get_data(name, def_val);
     }
     
+    std::string fmt(md::string_view f)
+    {
+        return f.to_string();
+    }
     
+    template <typename... Args>
+    std::string fmt(md::string_view f, const Args&... args)
+    {
+        return fmt::format(f.data(), args...);
+    }
     
     // ================
     // ==  ==

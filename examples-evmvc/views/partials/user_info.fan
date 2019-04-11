@@ -38,15 +38,19 @@ SOFTWARE.
     };
     
 }<br/>
-it's something
+
+<hr/><h1>Start of user_info partial view</h1>
+
+<hr/><h1>Start Markdown section -A</h1>
 
 @(md){
-# header AAA
+# Markdown H1 header
 _italic text_
 
 ``` js
 var test = 0;
 ```
+
 @get("test", "blablbla")
 
 ``` sh
@@ -69,14 +73,16 @@ class test
 };
 ```
 
-# header BBB
-*_bold italic text_*
+## Markdown H2 header
+
+**_bold and italic text_**
+
 @} this must be inside markdown block
 }
-for(){
-    test
-}
+<h1>End Markdown section -A</h1><hr/>
 
+
+<hr/><h1>Start of latex section</h1>
 @(latex){
 \documentclass{article}
 \title{Cartesian closed categories and the price of eggs}
@@ -87,23 +93,26 @@ for(){
    Hello world!
 \end{document}
 }
+<h1>End of latex section</h1><hr/>
 
-@::"\\ \" \r \n \t \v " + 
-    @this->name().to_string() + 
-    @this->get<std::string>("\\ \" \r \n \t \v ")
+View name is: 
+@::
+    @this->name().to_string()
 ;
 
+<br/>
 
 @{
-    @this->write_enc("\\ \" \r \n \t \v");
-    
     std::string ts("tst");
-    @this->write_enc("<div></div>" + ts + "<div></div>");
+    @this->write_enc(
+        "@@this->write_enc() e.g.: <div></div>" + ts + "<div></div>");
     int i = 1;
+    @fmt-raw("<br/><br/>i is {0}<br/>listing number from {0} to 9.<br/>", i);
     for(; i < 10; ++i){
         @this->write_enc(i);
+        @this->write_raw("<br/>");
     }
-    
+    @(htm){testing value of i which is: '@:i;'<br/>}
     if(i == 1){
         @this->write_enc("i equals " + md::num_to_str(i, false));
     }else if(i > 1){
@@ -112,10 +121,16 @@ for(){
         @this->write_enc("than i must be lower than \"1\"");
     }
     
-    @(htm){<div id="@:"\"a\"";">@(md){_italic_ *bold*}</div>}
+    @(htm){
+        <br/>
+        <br/>
+        <div id="@:"\"a\"";">@(md){inlined markdown _italic_ *bold*.}</div>
+    }
 }<br/>
 
 <div>
+    test @@get and @@get-raw
+    <br/>
     username: @get("username", "abc")<br/>
     fullname: @get-raw("fullname", "def 123")<br/>
 </div>
@@ -125,14 +140,19 @@ for(){
 
 <br/>
 
-
-@(tex){
-\documentclass{article}
-\begin{document}
-    The quadratic formula is $-b \pm \sqrt{b^2 - 4ac} \over 2a$
-\end{document}
+<hr/><h1>Start of tex section printed 3 times</h1>
+@for(size_t i = 0; i < 3; ++i){
+    @(tex){
+        \documentclass{article}
+        \begin{document}
+            The quadratic formula is $-b \pm \sqrt{b^2 - 4ac} \over 2a$
+        \end{document}
+    }
 }
+<h1>End of tex section printed 3 times</h1><hr/>
 
+
+<hr/><h1>Start of latex section</h1>
 @(latex){
 \documentclass{article}
 
@@ -820,3 +840,7 @@ The source of \LaTeX.js is here on GitHub: \url{https://github.com/michael-brade
 \end{document}
 
 }
+
+<h1>End of latex section</h1><hr/>
+
+<h1>End of user_info partial view</h1><hr/>

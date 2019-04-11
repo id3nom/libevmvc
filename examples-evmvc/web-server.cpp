@@ -165,12 +165,24 @@ void register_app_cbs()
         str.insert(0, "<div data-markup=\"md\">");
         str.append("</div>");
     };
+    // auto tex_parse = [](std::string& str){
+    //     str = evmvc::html_escape(str);
+        
+    //     str.insert(0, "<div data-markup=\"tex\">");
+    //     str.append("</div>");
+    // };
     auto tex_parse = [](std::string& str){
         str = evmvc::html_escape(str);
         
-        str.insert(0, "<div data-markup=\"tex\">");
-        str.append("</div>");
+        str.insert(0, "<div><div data-markup=\"tex\">");
+        str.append(
+            "</div>"
+            "<iframe data-markup=\"tex\" "
+            "src=\"about:blank\" frameborder=\"0\" scrolling=\"no\" "
+            "onload=\"resizeIframe(this)\"></iframe></div>"
+        );
     };
+    
     // parse markdown markup
     evmvc::view_engine::register_language_parser("md", md_parse);
     evmvc::view_engine::register_language_parser("markdown", md_parse);

@@ -36,42 +36,14 @@ SOFTWARE.
     <link rel="stylesheet" href="/html/css/app.css" />
     
     <script src="/html/scripts/jquery-3.3.1.min.js"></script>
-    <script src="/html/scripts/markdown.js"></script>
+    
+    @*<link rel="stylesheet" href="https://cdn.jsdelivr.net/highlight.js/9.1.0/styles/github.min.css">*@
+    <script src="/html/scripts/markdown-it.js"></script>
     
     <script src="https://cdn.jsdelivr.net/npm/latex.js@0.11.1/dist/latex.min.js"></script>
-  
     
-    <script>
-    "use strict";
-    $(() => {
-        var mds = document.querySelectorAll("[data-markup=\"md\"]");
-        mds.forEach((v, i) => {
-            v.innerHTML = markdown.toHTML(unescape(v.innerHTML));
-        });
-        
-        var texs = document.querySelectorAll("[data-markup=\"tex\"]");
-        texs.forEach((v, i) => {
-            try{
-                var texgen = new latexjs.HtmlGenerator({hyphenate: false});
-                texgen = latexjs.parse(
-                    unescape(v.innerHTML),
-                    {generator: texgen}
-                );
-                
-                document.body.appendChild(
-                    texgen.stylesAndScripts(
-                        "https://cdn.jsdelivr.net/npm/latex.js@0.11.1/dist/"
-                    )
-                );
-                v.innerHTML = "";
-                v.appendChild(texgen.domFragment());
-                
-            }catch(err){
-                v.innerHTML = err.message;
-            }
-        });
-    });
-    </script>
+    <script src="/html/scripts/app.js"></script>
+    
 </head>
 <body>
     

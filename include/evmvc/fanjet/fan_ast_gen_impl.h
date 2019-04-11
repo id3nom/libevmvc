@@ -137,6 +137,32 @@ std::string write_tokens(
         replace_fan_keys(doc, suffix);
 }
 
+std::string write_tokens_limit(
+    document doc,
+    node& tok_node,
+    node& tok_limit,
+    escape_fn esc = nullptr,
+    const std::string& prefix = "@this->write_raw(",
+    const std::string& suffix = ");"
+    )
+{
+    std::string out;
+    node tn = tok_node;
+    while(tn && tn != tok_limit && tn->sec_type() == section_type::token){
+        tok_node = tn;
+        out += tn->token_text();
+        tn = tn->next();
+    }
+    
+    if(esc)
+        out = esc(out);
+    
+    return 
+        replace_fan_keys(doc, prefix) +
+        out +
+        replace_fan_keys(doc, suffix);
+}
+
 
 inline std::string gen_code_block(
     bool dbg, std::vector<document>& docs, document doc,
@@ -314,7 +340,6 @@ inline std::string root_node_t::gen_header_code(
                 doc->self_name, next_fn, doc->self_name,
                 doc->cb_name, doc->cb_name
             );
-            //cls_body += doc->cb_name + "(nullptr);";
             for(size_t i = 0; i < doc->scope_level; ++i)
                 cls_body += "});";
             cls_body += "}";
@@ -343,10 +368,6 @@ inline std::string root_node_t::gen_header_code(
                 "{}(nullptr);",
                 doc->self_name, doc->cb_name
             );
-            // cls_body += 
-            //     doc->self_name + "->commit_write(\"html\");"
-            //     "}}catch(const std::exception& __err){{ {}(__err);return;}}" +
-            //     doc->cb_name + "(nullptr);";
             
             for(size_t i = 0; i < doc->scope_level; ++i)
                 cls_body += fmt::format(
@@ -354,14 +375,12 @@ inline std::string root_node_t::gen_header_code(
                     "}});",
                     doc->cb_name
                 );
-                //cls_body += "});";
 
             cls_body += fmt::format(
                 "}}catch(const std::exception& __err){{ {}(__err);return;}}"
                 "}}",
                 doc->cb_name
             );
-            //cls_body += "}";
             
             cls_body +=
                 "\n\n// ===========================\n"
@@ -373,19 +392,8 @@ inline std::string root_node_t::gen_header_code(
         n = n->next();
     }
     
-    // cls_body = fmt::format(
-    //     "void __exec("
-    //     "std::shared_ptr<{}> {}, md::callback::async_cb {}"
-    //     "){{ {} ",
-    //     doc->cls_name,
-    //     doc->self_name,
-    //     doc->cb_name,
-    //     this->child(0)->gen_header_code(dbg, docs, doc)
-    // );
-    // cls_body += doc->cb_name + "(nullptr);";
-    // for(size_t i = 0; i < doc->scope_level; ++i)
-    //     cls_body += "});";
-    // cls_body += "}";
+    md::replace_substring(cls_body, "@}", "}");
+    md::replace_substring(cls_body, "@@", "@");
     
     return cls_head + cls_body + cls_foot;
 }
@@ -453,7 +461,7 @@ inline std::string literal_node_t::gen_header_code(
     
     while(n && n != ln){
         if(n->sec_type() == section_type::token)
-            s += write_tokens(doc, n, escape_cpp_source);
+            s += write_tokens_limit(doc, n, ln, escape_cpp_source);
         
         else if(n->node_type() != ast::node_type::directive)
             s += n->gen_header_code(dbg, docs, doc);
@@ -828,13 +836,13 @@ inline std::string fan_fn_node_t::gen_header_code(
             doc->self_name + "->get<std::string>";
     else if(tt == "@fmt")
         s += doc->self_name + "->write_enc(" +
-            doc->self_name + "->fmt<std::string>";
+            doc->self_name + "->fmt";
     else if(tt == "@get-raw")
         s += doc->self_name + "->write_raw(" +
             doc->self_name + "->get<std::string>";
     else if(tt == "@fmt-raw")
         s += doc->self_name + "->write_raw(" +
-            doc->self_name + "->fmt<std::string>";
+            doc->self_name + "->fmt";
     
     auto cns = this->childs(1);
     return s + gen_code_block(dbg, docs, doc, cns) +
