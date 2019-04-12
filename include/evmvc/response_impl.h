@@ -265,6 +265,15 @@ inline void response::_prepare_headers()
     
     for(auto& it : *_headers->_hdrs.get()){
         for(auto& itv : it.second){
+            if(it.first.size() + itv.size() + 5 > EVMVC_MAX_RES_HEADER_LINE_LEN)
+                throw MD_ERR(
+                    "Header line is larger than the allowed maximum!\n"
+                    "Max: '{}', Current: '{}'\nHeader line value: '{}'",
+                    EVMVC_MAX_RES_HEADER_LINE_LEN,
+                    it.first.size() + itv.size() + 5,
+                    itv.c_str()
+                );
+            
             memcpy(hl, it.first.c_str(), it.first.size());
             hl[it.first.size()] = ':';
             hl[it.first.size()+1] = ' ';
@@ -285,6 +294,15 @@ inline void response::_prepare_headers()
     // write cookies headers
     for(auto& it : *_cookies->_out_hdrs.get()){
         for(auto& itv : it.second){
+            if(it.first.size() + itv.size() + 5 > EVMVC_MAX_RES_HEADER_LINE_LEN)
+                throw MD_ERR(
+                    "Header line is larger than the allowed maximum!\n"
+                    "Max: '{}', Current: '{}'\nHeader line value: '{}'",
+                    EVMVC_MAX_RES_HEADER_LINE_LEN,
+                    it.first.size() + itv.size() + 5,
+                    itv.c_str()
+                );
+            
             memcpy(hl, it.first.c_str(), it.first.size());
             hl[it.first.size()] = ':';
             hl[it.first.size()+1] = ' ';
