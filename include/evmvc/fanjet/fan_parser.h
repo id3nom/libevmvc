@@ -259,6 +259,8 @@ public:
         std::string inc_ns_open, inc_ns_close("\n");
         boost::split(ns_vals, ns, boost::is_any_of(":"));
         for(auto ns_v : ns_vals){
+            if(ns_v.empty())
+                continue;
             inc_ns_open += "namespace " + ns_v + "{ ";
             inc_ns_close += "}";
         }
@@ -301,6 +303,8 @@ public:
             std::string ns_open, ns_close("\n");
             boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
             for(auto ns_v : ns_vals){
+                if(ns_v.empty())
+                    continue;
                 ns_open += "namespace " + ns_v + "{ ";
                 ns_close += "}";
             }

@@ -195,6 +195,8 @@ inline std::string root_node_t::gen_header_code(
     std::string ns_open, ns_close;
     boost::split(ns_vals, doc->ns, boost::is_any_of(":"));
     for(auto ns_v : ns_vals){
+        if(ns_v.empty())
+            continue;
         ns_open += "namespace " + ns_v + "{ ";
         ns_close += "}";
     }
