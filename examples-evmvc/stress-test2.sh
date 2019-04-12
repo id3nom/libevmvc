@@ -4,10 +4,10 @@ agent_count=50
 load_count=10
 for ((i=1; i<=agent_count; i++))
 do
-  curl -s "http://localhost:8080/html/index.html?[1-$load_count]" \
-    "http://localhost:8080/html/css/uikit.min.css?[1-$load_count]" \
-    "http://localhost:8080/html/css/app.css?[1-$load_count]" \
-    "http://localhost:8080/html/images/login-logo.jpg?[1-$load_count]" \
+  curl -s "http://127.0.0.1:8080/html/index.html?[1-$load_count]" \
+    "http://127.0.0.1:8080/html/css/uikit.min.css?[1-$load_count]" \
+    "http://127.0.0.1:8080/html/css/app.css?[1-$load_count]" \
+    "http://127.0.0.1:8080/html/images/login-logo.jpg?[1-$load_count]" \
     >/dev/null &
   pidlist="$pidlist $!" 
 done
