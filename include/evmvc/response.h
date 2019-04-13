@@ -59,82 +59,82 @@ SOFTWARE.
 
 namespace evmvc {
 
-class view_data_t
-{
-public:
-    view_data_t(const std::string& v)
-        : _v(v)
-    {
-    }
+// class view_data_t
+// {
+// public:
+//     view_data_t(const std::string& v)
+//         : _v(v)
+//     {
+//     }
     
-    template<typename T,
-        typename std::enable_if<
-            !(std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+//     template<typename T,
+//         typename std::enable_if<
+//             !(std::is_same<int16_t, T>::value ||
+//             std::is_same<int32_t, T>::value ||
+//             std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
+//             std::is_same<uint16_t, T>::value ||
+//             std::is_same<uint32_t, T>::value ||
+//             std::is_same<uint64_t, T>::value ||
             
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value)
-        , int32_t>::type = -1
-    >
-    T get() const
-    {
-        std::stringstream ss;
-        ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
-        throw MD_ERR(ss.str());
-    }
+//             std::is_same<float, T>::value ||
+//             std::is_same<double, T>::value)
+//         , int32_t>::type = -1
+//     >
+//     T get() const
+//     {
+//         std::stringstream ss;
+//         ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
+//         throw MD_ERR(ss.str());
+//     }
     
-    template<
-        typename T,
-        typename std::enable_if<
-            std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+//     template<
+//         typename T,
+//         typename std::enable_if<
+//             std::is_same<int16_t, T>::value ||
+//             std::is_same<int32_t, T>::value ||
+//             std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
+//             std::is_same<uint16_t, T>::value ||
+//             std::is_same<uint32_t, T>::value ||
+//             std::is_same<uint64_t, T>::value ||
 
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value
-        , int32_t>::type = -1
-    >
-    T get() const
-    {
-        return md::str_to_num<T>(_v);
-    }
+//             std::is_same<float, T>::value ||
+//             std::is_same<double, T>::value
+//         , int32_t>::type = -1
+//     >
+//     T get() const
+//     {
+//         return md::str_to_num<T>(_v);
+//     }
     
-    template<typename T>
-    operator T() const
-    {
-        return get<T>();
-    }
+//     template<typename T>
+//     operator T() const
+//     {
+//         return get<T>();
+//     }
     
-private:
-    std::string _v;
-};
-template<>
-inline std::string evmvc::view_data_t::get<std::string, -1>() const
-{
-    return _v;
-}
-template<>
-inline const char* evmvc::view_data_t::get<const char*, -1>() const
-{
-    return _v.c_str();
-}
-template<>
-inline md::string_view evmvc::view_data_t::get<md::string_view, -1>() const
-{
-    return _v.c_str();
-}
-typedef std::shared_ptr<view_data_t> view_data;
-typedef std::unordered_map<std::string, view_data> view_data_map_t;
-typedef std::shared_ptr<view_data_map_t> view_data_map;
+// private:
+//     std::string _v;
+// };
+// template<>
+// inline std::string evmvc::view_data_t::get<std::string, -1>() const
+// {
+//     return _v;
+// }
+// template<>
+// inline const char* evmvc::view_data_t::get<const char*, -1>() const
+// {
+//     return _v.c_str();
+// }
+// template<>
+// inline md::string_view evmvc::view_data_t::get<md::string_view, -1>() const
+// {
+//     return _v.c_str();
+// }
+// typedef std::shared_ptr<view_data_t> view_data;
+// typedef std::unordered_map<std::string, view_data> view_data_map_t;
+// typedef std::shared_ptr<view_data_map_t> view_data_map;
 
 
 class response
@@ -166,7 +166,7 @@ public:
         _status(-1), _type(""), _enc(""),
         _paused(false),
         _resuming(false),
-        _view_data(std::make_shared<evmvc::view_data_map_t>()),
+        //_view_data(std::make_shared<evmvc::view_data_map_t>()),
         _res_data(std::make_shared<evmvc::response_data_map_t>())
     {
         EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
@@ -467,95 +467,85 @@ public:
     }
     
     
-    template<typename T,
-        typename std::enable_if<
-            !(std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+    // template<typename T,
+    //     typename std::enable_if<
+    //         !(std::is_same<int16_t, T>::value ||
+    //         std::is_same<int32_t, T>::value ||
+    //         std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
+    //         std::is_same<uint16_t, T>::value ||
+    //         std::is_same<uint32_t, T>::value ||
+    //         std::is_same<uint64_t, T>::value ||
             
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value)
-        , int32_t>::type = -1
-    >
-    void set_data(md::string_view name, T data)
-    {
-        std::stringstream ss;
-        ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
-        throw MD_ERR(ss.str());
-    }
-    template<
-        typename T,
-        typename std::enable_if<
-            std::is_same<int16_t, T>::value ||
-            std::is_same<int32_t, T>::value ||
-            std::is_same<int64_t, T>::value ||
+    //         std::is_same<float, T>::value ||
+    //         std::is_same<double, T>::value)
+    //     , int32_t>::type = -1
+    // >
+    // void set_data(md::string_view name, T data)
+    // {
+    //     std::stringstream ss;
+    //     ss << "Unsupported type:\n" << __PRETTY_FUNCTION__;
+    //     throw MD_ERR(ss.str());
+    // }
+    // template<
+    //     typename T,
+    //     typename std::enable_if<
+    //         std::is_same<int16_t, T>::value ||
+    //         std::is_same<int32_t, T>::value ||
+    //         std::is_same<int64_t, T>::value ||
 
-            std::is_same<uint16_t, T>::value ||
-            std::is_same<uint32_t, T>::value ||
-            std::is_same<uint64_t, T>::value ||
+    //         std::is_same<uint16_t, T>::value ||
+    //         std::is_same<uint32_t, T>::value ||
+    //         std::is_same<uint64_t, T>::value ||
 
-            std::is_same<float, T>::value ||
-            std::is_same<double, T>::value
-        , int32_t>::type = -1
-    >
-    void set_data(md::string_view name, T data)
-    {
-        std::string sdata = md::num_to_str(data);
-        auto it = _view_data->find(name.to_string());
-        if(it == _view_data->end())
-            _view_data->emplace(
-                std::make_pair(
-                    name.to_string(), 
-                    view_data(
-                        new view_data_t(sdata)
-                    )
-                )
-            );
-        else
-            it->second = view_data(
-                new view_data_t(sdata)
-            );
-    }
-    EVMVC_RES_VIEW_DATA_SET_TYPE(
-        const char*,
-        std::string(data)
-    )
-    EVMVC_RES_VIEW_DATA_SET_TYPE(
-        const std::string&,
-        data
-    )
+    //         std::is_same<float, T>::value ||
+    //         std::is_same<double, T>::value
+    //     , int32_t>::type = -1
+    // >
+    // void set_data(md::string_view name, T data)
+    // {
+    //     std::string sdata = md::num_to_str(data);
+    //     auto it = _view_data->find(name.to_string());
+    //     if(it == _view_data->end())
+    //         _view_data->emplace(
+    //             std::make_pair(
+    //                 name.to_string(), 
+    //                 view_data(
+    //                     new view_data_t(sdata)
+    //                 )
+    //             )
+    //         );
+    //     else
+    //         it->second = view_data(
+    //             new view_data_t(sdata)
+    //         );
+    // }
+    // EVMVC_RES_VIEW_DATA_SET_TYPE(
+    //     const char*,
+    //     std::string(data)
+    // )
+    // EVMVC_RES_VIEW_DATA_SET_TYPE(
+    //     const std::string&,
+    //     data
+    // )
     
     
-    view_data get_data(md::string_view name) const
-    {
-        auto it = _view_data->find(name.to_string());
-        if(it == _view_data->end())
-            return nullptr;
-        return *it->second;
-    }
+    // view_data get_data(md::string_view name) const
+    // {
+    //     auto it = _view_data->find(name.to_string());
+    //     if(it == _view_data->end())
+    //         return nullptr;
+    //     return *it->second;
+    // }
     
     // template<typename T>
-    // T operator()(
-    //     md::string_view name, T def_val = T()) const
+    // T get_data(md::string_view name, T def_val = T()) const
     // {
-    //     auto it = _view_data.find(name.to_string());
-    //     if(it == _view_data.end())
+    //     auto it = _view_data->find(name.to_string());
+    //     if(it == _view_data->end())
     //         return def_val;
     //     return it->second->get<T>();
     // }
-    
-    template<typename T>
-    T get_data(md::string_view name, T def_val = T()) const
-    {
-        auto it = _view_data->find(name.to_string());
-        if(it == _view_data->end())
-            return def_val;
-        return it->second->get<T>();
-    }
     
     void render(const std::string& view_path, md::callback::async_cb cb);
     
@@ -616,7 +606,7 @@ private:
     bool _resuming;
     md::callback::async_cb _resume_cb;
     
-    evmvc::view_data_map _view_data;
+    //evmvc::view_data_map _view_data;
     evmvc::response_data_map _res_data;
 };
 
