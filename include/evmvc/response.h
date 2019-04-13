@@ -34,6 +34,7 @@ SOFTWARE.
 #include "mime.h"
 #include "cookies.h"
 #include "request.h"
+#include "response_data.h"
 
 #include <boost/filesystem.hpp>
 
@@ -136,68 +137,6 @@ typedef std::unordered_map<std::string, view_data> view_data_map_t;
 typedef std::shared_ptr<view_data_map_t> view_data_map;
 
 
-class response_data_base_t
-{
-public:
-    //virtual std::string to_string() const = 0;
-};
-typedef std::shared_ptr<response_data_base_t> response_data_base;
-
-template<typename T>
-class response_data_t
-    : public response_data_base_t
-{
-public:
-    response_data_t(const T& v)
-        : _v(v)
-    {
-    }
-    
-    const T& value() const
-    {
-        return _v;
-    }
-
-    T value() const
-    {
-        return _v;
-    }
-    
-    template<
-        typename U,
-        typename TT = T,
-        typename std::enable_if<
-            std::is_convertible<TT, U>::value
-        , int32_t>::type = -1
-    >
-    U value() const
-    {
-        return (U)_v;
-    }
-    
-    std::string to_string() const
-    {
-        throw MD_ERR(
-            "Unsupported type:\n" __PRETTY_FUNCTION__
-        );
-    }
-
-    template<typename U>
-    operator U() const
-    {
-        return value<U>();
-    }
-
-    
-private:
-    T _v;
-};
-template<T>
-using response_data = std::shared_ptr<response_data_t<T>>;
-typedef std::unordered_map<std::string, response_data_base> response_data_map_t;
-typedef std::shared_ptr<response_data_map_t> response_data_map;
-
-
 class response
     : public std::enable_shared_from_this<response>
 {
@@ -228,7 +167,7 @@ public:
         _paused(false),
         _resuming(false),
         _view_data(std::make_shared<evmvc::view_data_map_t>()),
-        _res_data(std::make_shared<evmvc::response_data_t>())
+        _res_data(std::make_shared<evmvc::response_data_map_t>())
     {
         EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
     }
@@ -472,15 +411,15 @@ public:
     template<typename T>
     void set_res_data(md::string_view name, T data)
     {
-        auto it = _res_data.find(name.to_string());
-        if(it == _res_data.end()){
-            _res_data.emplace(
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end()){
+            _res_data->emplace(
                 std::make_pair(
                     name.to_string(),
                     response_data<T>(
                         new response_data_t<T>(data)
                     )
-                );
+                )
             );
         }else{
             it->second = response_data<T>(
@@ -492,19 +431,42 @@ public:
     template<typename T>
     T get_res_data(md::string_view name, const T& def_val)
     {
-        auto it = _res_data.find(name.to_string());
-        if(it == _res_data.end())
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end())
             return def_val;
-        return (*it->second)->value<T>();
+        return std::static_pointer_cast<response_data_t<T>>(
+            it->second
+        )->value();
     }
-
+    
     template<typename T>
     T get_res_data(md::string_view name)
     {
-        
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end())
+            throw MD_ERR("Data '{}' not found!", name);
+        return std::static_pointer_cast<response_data_t<T>>(
+            it->second
+        )->value();
     }
-
-
+    
+    std::string get_res_data(md::string_view name, const std::string& def_val)
+    {
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end())
+            return def_val;
+        return it->second->to_string();
+    }
+    
+    std::string get_res_data(md::string_view name)
+    {
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end())
+            throw MD_ERR("Data '{}' not found!", name);
+        return it->second->to_string();
+    }
+    
+    
     template<typename T,
         typename std::enable_if<
             !(std::is_same<int16_t, T>::value ||

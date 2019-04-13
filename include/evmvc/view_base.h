@@ -205,25 +205,31 @@ public:
     template<typename T>
     void set(md::string_view name, T data)
     {
-        res->set_data(name, data);
+        //res->set_data(name, data);
+        res->set_res_data(name, data);
     }
     
-    view_data get(md::string_view name) const
+    template<typename T>
+    //view_data get(md::string_view name) const
+    T get(md::string_view name) const
     {
-        return res->get_data(name);
+        //return res->get_data(name);
+        return res->get_res_data<T>(name);
     }
     
     template<typename T>
     T operator()(
         md::string_view name, T def_val = T()) const
     {
-        return res->get_data(name, def_val);
+        //return res->get_data(name, def_val);
+        return res->get_res_data<T>(name, def_val);
     }
     
     template<typename T>
     T get(md::string_view name, T def_val = T()) const
     {
-        return res->get_data(name, def_val);
+        //return res->get_data(name, def_val);
+        return res->get_res_data<T>(name, def_val);
     }
     
     std::string fmt(md::string_view f)
