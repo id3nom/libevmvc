@@ -206,7 +206,7 @@ public:
     void set(md::string_view name, T data)
     {
         //res->set_data(name, data);
-        res->set_res_data(name, data);
+        res->set_data(name, data);
     }
     
     template<typename T>
@@ -214,7 +214,7 @@ public:
     T get(md::string_view name) const
     {
         //return res->get_data(name);
-        return res->get_res_data<T>(name);
+        return res->get_data<T>(name);
     }
     
     template<typename T>
@@ -222,14 +222,14 @@ public:
         md::string_view name, T def_val = T()) const
     {
         //return res->get_data(name, def_val);
-        return res->get_res_data<T>(name, def_val);
+        return res->get_data<T>(name, def_val);
     }
     
     template<typename T>
     T get(md::string_view name, T def_val = T()) const
     {
         //return res->get_data(name, def_val);
-        return res->get_res_data<T>(name, def_val);
+        return res->get_data<T>(name, def_val);
     }
     
     std::string fmt(md::string_view f)

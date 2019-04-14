@@ -695,15 +695,17 @@ public:
         
         if(e < 0){
             e = cs - 1 + e;
-            if(e < s)
-                e = s;
+            // if(e < s)
+            //     e = s;
         }
-
+        
+        std::vector<node> r;
         if(s > e)
-            throw MD_ERR(
-                "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
-                s, e
-            );
+            return r;
+            // throw MD_ERR(
+            //     "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
+            //     s, e
+            // );
         
         if(s < 0 || e > cs -1)
             throw MD_ERR(
@@ -711,7 +713,6 @@ public:
                 s, e, _childs.size()
             );
         
-        std::vector<node> r;
         for(ssize_t i = s; i <= e; ++i)
             if(ts.empty() ||
                 std::any_of(
@@ -770,15 +771,16 @@ public:
         
         if(e < 0){
             e = cs - 1 + e;
-            if(e < s)
-                e = s;
+            // if(e < s)
+            //     e = s;
         }
         
         if(s > e)
-            throw MD_ERR(
-                "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
-                s, e
-            );
+            return "";
+            // throw MD_ERR(
+            //     "'s' must be lower or equal to 'e', s: '{}', e: '{}'",
+            //     s, e
+            // );
         
         if(s < 0 || e > cs -1)
             throw MD_ERR(
