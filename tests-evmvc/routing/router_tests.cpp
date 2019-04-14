@@ -180,7 +180,7 @@ TEST_F(router_test, routes)
             rr
         );
         
-        rr->execute(res,
+        rr->execute(rr, res,
         [r, &conn, &hdrs, &rr, &rt_val](auto error){
             ASSERT_EQ(rt_val, "abc-c");
             
@@ -199,7 +199,7 @@ TEST_F(router_test, routes)
                 hdrs,
                 rr
             );
-            rr->execute(res,
+            rr->execute(rr, res,
             [r, &rr, &rt_val](auto error){
                 
                 ASSERT_EQ(rt_val, "abc-g");

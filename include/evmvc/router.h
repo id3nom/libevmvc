@@ -64,7 +64,9 @@ public:
     
     md::log::sp_logger log();
     
-    virtual void execute(evmvc::sp_response res, md::callback::async_cb cb);
+    virtual void execute(
+        sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb
+    );
     virtual void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb);
@@ -223,7 +225,7 @@ protected:
                 cb(err);
                 return;
             }
-            if(++hidx == self->_handlers.size()){
+            if(++hidx == self->_handlers.size() || res->ended()){
                 cb(nullptr);
                 return;
             }
@@ -405,7 +407,11 @@ protected:
     pcre_extra* _re_study;
 };
 
-
+enum class use_handler_position
+{
+    before  = 1,
+    after   = 2
+};
 
 class router
     : public std::enable_shared_from_this<router>
@@ -489,34 +495,6 @@ public:
         const md::string_view& method,
         const md::string_view& url)
     {
-        // std::string local_url = 
-        //     std::string(url).substr(_path.size());
-        
-        // // verify if child router match path
-        // for(auto it = _routers.begin(); it != _routers.end(); ++it)
-        //     if(local_url.size() > it->first.size() &&
-        //         !std::strncmp(local_url.data(),
-        //             it->first.c_str(), it->first.size()
-        //         )
-        //     )
-        //         return it->second->resolve_url(
-        //             method,
-        //             local_url
-        //         );
-        
-        // auto rm = _verbs.find(std::string(method));
-        // if(rm != _verbs.end())
-        //     for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
-        //         if(it->second->has_callbacks()){
-        //             sp_route_result rr = it->second->match(local_url);
-        //             if(rr)
-        //                 return rr;
-        //         }
-        //     }
-        
-        // if(std::string(method) != "ALL")
-        //     return resolve_url("ALL", url);
-        
         // return nullptr;
         md::string_view local_url = url.substr(_path.size());
         
@@ -549,7 +527,20 @@ public:
         return nullptr;
     }
     
-    
+    virtual sp_router use(
+        use_handler_position pos,
+        route_handler_cb cb)
+    {
+        if(cb == nullptr)
+            return this->shared_from_this();
+        
+        if(pos == use_handler_position::before)
+            _pre_handlers.emplace_back(cb);
+        else
+            _post_handlers.emplace_back(cb);
+        
+        return this->shared_from_this();
+    }
     
     virtual sp_router all(
         const md::string_view& route_path, route_handler_cb cb,
@@ -685,13 +676,54 @@ public:
         return this->shared_from_this();
     }
     
+    
+    void run_pre_handlers(
+        evmvc::sp_request req, evmvc::sp_response res,
+        md::callback::async_cb cb)
+    {
+        if(_parent)
+            return _parent->run_pre_handlers(req, res,
+            [self = this->shared_from_this(), req, res, cb]
+            (const md::callback::cb_error& err){
+                if(err)
+                    return cb(err);
+                if(self->_pre_handlers.empty())
+                    return cb(nullptr);
+                self->_run_pre_handlers(req, res, 0, cb);
+            });
+        if(_pre_handlers.empty())
+            return cb(nullptr);
+        _run_pre_handlers(req, res, 0, cb);
+    }
+
+    void run_post_handlers(
+        evmvc::sp_request req, evmvc::sp_response res,
+        md::callback::async_cb cb)
+    {
+        if(_parent)
+            return _parent->run_post_handlers(req, res,
+            [self = this->shared_from_this(), req, res, cb]
+            (const md::callback::cb_error& err){
+                if(err)
+                    return cb(err);
+                if(self->_post_handlers.empty())
+                    return cb(nullptr);
+                self->_run_post_handlers(req, res, 0, cb);
+            });
+        if(_post_handlers.empty())
+            return cb(nullptr);
+        _run_post_handlers(req, res, 0, cb);
+    }
+
+    
     void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
     {
         if(_parent)
             return _parent->validate_access(ctx,
-            [self = this->shared_from_this(), ctx, cb](const md::callback::cb_error& err){
+            [self = this->shared_from_this(), ctx, cb]
+            (const md::callback::cb_error& err){
                 if(err)
                     return cb(err);
                 
@@ -708,6 +740,48 @@ public:
     }
     
 protected:
+    
+    void _run_pre_handlers(
+        evmvc::sp_request req, evmvc::sp_response res,
+        size_t hidx, md::callback::async_cb cb)
+    {
+        _pre_handlers[hidx](
+            req, res,
+        [self = this->shared_from_this(), &req, &res, hidx, cb]
+        (md::callback::cb_error err) mutable {
+            if(err){
+                cb(err);
+                return;
+            }
+            if(++hidx == self->_pre_handlers.size() || res->ended()){
+                cb(nullptr);
+                return;
+            }
+            
+            self->_run_pre_handlers(req, res, hidx, cb);
+        });
+    }
+    void _run_post_handlers(
+        evmvc::sp_request req, evmvc::sp_response res,
+        size_t hidx, md::callback::async_cb cb)
+    {
+        _post_handlers[hidx](
+            req, res,
+        [self = this->shared_from_this(), &req, &res, hidx, cb]
+        (md::callback::cb_error err) mutable {
+            if(err){
+                cb(err);
+                return;
+            }
+            if(++hidx == self->_post_handlers.size() || res->ended()){
+                cb(nullptr);
+                return;
+            }
+            
+            self->_run_post_handlers(req, res, hidx, cb);
+        });
+    }
+
     
     static std::string _norm_path(const md::string_view& path)
     {
@@ -825,6 +899,9 @@ protected:
     
     verb_map _verbs;
     router_map _routers;
+    
+    std::vector<route_handler_cb> _pre_handlers;
+    std::vector<route_handler_cb> _post_handlers;
     
 };// class router
 

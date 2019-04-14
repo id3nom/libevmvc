@@ -36,9 +36,28 @@ inline md::log::sp_logger route_result::log()
 }
 
 inline void route_result::execute(
-    evmvc::sp_response res, md::callback::async_cb cb)
+    sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb)
 {
-    _route->_exec(res->req(), res, 0, cb);
+    rr->_route->get_router()->run_pre_handlers(res->req(), res,
+    [rr, res, cb](const md::callback::cb_error& err){
+        if(err)
+            return cb(err);
+        
+        if(res->ended())
+            return cb(nullptr);
+        
+        rr->_route->_exec(res->req(), res, 0, 
+        [rr, res, cb](const md::callback::cb_error& err){
+            if(err)
+                return cb(err);
+            
+            if(res->ended())
+                return cb(nullptr);
+            
+            rr->_route->get_router()->run_post_handlers(res->req(), res, cb);
+        });
+    });
+    
 }
 
 
