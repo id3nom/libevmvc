@@ -50,7 +50,8 @@ public:
         : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
         _router(),
-        _ev_verif_childs(nullptr)
+        _ev_verif_childs(nullptr),
+        _app_data(std::make_shared<evmvc::response_data_map_t>())
     {
         // force get_field_table initialization
         evmvc::detail::get_field_table();
@@ -347,6 +348,69 @@ public:
         // }, 50);
     }
     
+    // ==============
+    // == app data ==
+    // ==============
+    
+    evmvc::response_data_map app_data() const
+    {
+        return _app_data;
+    }
+    
+    void clear_data(md::string_view name)
+    {
+        auto it = _app_data->find(name.to_string());
+        if(it == _app_data->end())
+            return;
+        _app_data->erase(it);
+    }
+    
+    template<typename T>
+    void set_data(md::string_view name, T data)
+    {
+        auto it = _app_data->find(name.to_string());
+        if(it == _app_data->end()){
+            _app_data->emplace(
+                std::make_pair(
+                    name.to_string(),
+                    response_data<T>(
+                        new response_data_t<T>(data)
+                    )
+                )
+            );
+        }else{
+            it->second = response_data<T>(
+                new response_data_t<T>(data)
+            );
+        }
+    }
+    
+    template<typename T>
+    T get_data(md::string_view name, const T& def_val)
+    {
+        auto it = _app_data->find(name.to_string());
+        if(it == _app_data->end())
+            return def_val;
+        return std::static_pointer_cast<response_data_t<T>>(
+            it->second
+        )->value();
+    }
+    
+    template<typename T>
+    T get_data(md::string_view name)
+    {
+        auto it = _app_data->find(name.to_string());
+        if(it == _app_data->end())
+            throw MD_ERR("Data '{}' not found!", name);
+        return std::static_pointer_cast<response_data_t<T>>(
+            it->second
+        )->value();
+    }
+    
+    // ====================
+    // == default router ==
+    // ====================
+    
     sp_router find_router(md::string_view route)
     {
         if(!_init_rtr)
@@ -628,8 +692,11 @@ private:
     md::callback::value_cb<evmvc::process_type> _stopped_cb;
     
     event* _ev_verif_childs;
+    evmvc::response_data_map _app_data;
+
     int _argc;
     char** _argv;
+    
     
 };//evmvc::app
 

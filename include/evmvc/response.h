@@ -38,27 +38,7 @@ SOFTWARE.
 
 #include <boost/filesystem.hpp>
 
-#define EVMVC_RES_VIEW_DATA_SET_TYPE(T, tos_data) \
-    void set_data(md::string_view name, T data) \
-    { \
-        auto it = _view_data->find(name.to_string()); \
-        if(it == _view_data->end()) \
-            _view_data->emplace( \
-                std::make_pair( \
-                    name.to_string(), \
-                    view_data( \
-                        new view_data_t(tos_data) \
-                    ) \
-                ) \
-            ); \
-        else \
-            it->second = view_data( \
-                new view_data_t(tos_data) \
-            ); \
-    }
-
 namespace evmvc {
-
 
 class response
     : public std::enable_shared_from_this<response>
@@ -75,25 +55,8 @@ public:
         md::log::sp_logger log,
         const sp_route& rt,
         url uri,
-        const sp_http_cookies& http_cookies)
-        : _id(id),
-        _req(req),
-        _conn(conn),
-        _log(log->add_child(
-            "res-" + md::num_to_str(id, false) + uri.path()
-        )),
-        _rt(rt),
-        _headers(std::make_shared<response_headers>()),
-        _cookies(http_cookies),
-        _started(false), _ended(false),
-        _status(-1), _type(""), _enc(""),
-        _paused(false),
-        _resuming(false),
-        _res_data(std::make_shared<evmvc::response_data_map_t>()),
-        _err(nullptr), _err_status(evmvc::status::ok)
-    {
-        EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
-    }
+        const sp_http_cookies& http_cookies
+    );
     
     ~response()
     {

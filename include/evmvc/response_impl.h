@@ -35,6 +35,39 @@ SOFTWARE.
 
 namespace evmvc {
 
+inline response::response(
+    uint64_t id,
+    sp_request req,
+    wp_connection conn,
+    md::log::sp_logger log,
+    const sp_route& rt,
+    url uri,
+    const sp_http_cookies& http_cookies)
+    : _id(id),
+    _req(req),
+    _conn(conn),
+    _log(log->add_child(
+        "res-" + md::num_to_str(id, false) + uri.path()
+    )),
+    _rt(rt),
+    _headers(std::make_shared<response_headers>()),
+    _cookies(http_cookies),
+    _started(false), _ended(false),
+    _status(-1), _type(""), _enc(""),
+    _paused(false),
+    _resuming(false),
+    _res_data(std::make_shared<evmvc::response_data_map_t>()),
+    _err(nullptr), _err_status(evmvc::status::ok)
+{
+    EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
+    
+    evmvc::sp_app sa = this->get_app();
+    for(auto mit : *sa->app_data()){
+        _res_data->emplace(mit);
+    }
+}
+
+
 static char* status_line_buf()
 {
     static char sl[EVMVC_MAX_RES_STATUS_LINE_LEN]{
