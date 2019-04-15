@@ -355,9 +355,14 @@ public:
     {
         std::string tok = _get_jwt(ctx->req);
         if(tok.empty()){
-            cb(
-                MD_ERR("Unable to find a valid JSON Web Token!")
-            );
+            if(_jwcb)
+                _jwcb(
+                    MD_ERR("Unable to find a valid JSON Web Token!"), ctx, cb
+                );
+            else
+                cb(
+                    MD_ERR("Unable to find a valid JSON Web Token!")
+                );
             return;
         }
         
