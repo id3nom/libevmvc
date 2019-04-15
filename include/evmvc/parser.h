@@ -341,7 +341,8 @@ private:
         return line_len;
     }
     
-    size_t parse_headers(const char* line, size_t line_len, md::callback::cb_error& ec)
+    size_t parse_headers(
+        const char* line, size_t line_len, md::callback::cb_error& ec)
     {
         // if header section has ended.
         if(line_len == 0){

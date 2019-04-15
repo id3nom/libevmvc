@@ -69,7 +69,8 @@ public:
     );
     virtual void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
-        evmvc::policies::validation_cb cb);
+        evmvc::policies::validation_cb cb
+    );
     
     sp_route _route;
     std::vector<std::shared_ptr<evmvc::http_param>> params;
@@ -209,7 +210,8 @@ public:
     
     void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
-        evmvc::policies::validation_cb cb);
+        evmvc::policies::validation_cb cb
+    );
     
 protected:
     
@@ -719,7 +721,6 @@ public:
             return cb(nullptr);
         _run_post_handlers(req, res, 0, cb);
     }
-
     
     void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
@@ -936,7 +937,8 @@ inline void route::validate_access(
     evmvc::policies::validation_cb cb)
 {
     get_router()->validate_access(ctx,
-    [self = this->shared_from_this(), ctx, cb](const md::callback::cb_error& err){
+    [self = this->shared_from_this(), ctx, cb]
+    (const md::callback::cb_error& err){
         if(err)
             return cb(err);
         
