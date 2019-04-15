@@ -750,30 +750,45 @@ protected:
         evmvc::sp_request req, evmvc::sp_response res,
         size_t hidx, md::callback::async_cb cb)
     {
+        bool cb_called = false;
         _pre_handlers[hidx](
             req, res,
-        [self = this->shared_from_this(), &req, &res, hidx, cb]
+        [self = this->shared_from_this(), &req, &res, &cb_called, hidx, cb]
         (md::callback::cb_error err) mutable {
+            if(cb_called)
+                return cb(MD_ERR("Callback already called!"));
+            cb_called = true;
             if(err){
                 cb(err);
                 return;
             }
-            if(++hidx == self->_pre_handlers.size() || res->ended()){
+            if(++hidx == self->_pre_handlers.size() || res->started()){
                 cb(nullptr);
                 return;
             }
             
             self->_run_pre_handlers(req, res, hidx, cb);
         });
+        
+        if(cb_called)
+            return;
+        if(res->started())
+            cb_called = true;
+        cb(nullptr);
     }
     void _run_post_handlers(
         evmvc::sp_request req, evmvc::sp_response res,
         size_t hidx, md::callback::async_cb cb)
     {
+        bool cb_called = false;
         _post_handlers[hidx](
             req, res,
-        [self = this->shared_from_this(), &req, &res, hidx, cb]
+        [self = this->shared_from_this(), &req, &res, &cb_called, hidx, cb]
         (md::callback::cb_error err) mutable {
+            if(cb_called)
+                return cb(MD_ERR("Callback already called!"));
+            cb_called = true;
+            
             if(err){
                 cb(err);
                 return;
@@ -785,6 +800,12 @@ protected:
             
             self->_run_post_handlers(req, res, hidx, cb);
         });
+        
+        if(cb_called)
+            return;
+        if(res->started())
+            cb_called = true;
+        cb(nullptr);
     }
 
     
