@@ -487,6 +487,27 @@ inline void response::render(
     });
 }
 
+template<>
+inline std::string response::get_data<std::string>(
+    md::string_view name, const std::string& def_val)
+{
+    if(name == "_evmvc_version")
+        return evmvc::html_version();
+    
+    auto it = _res_data->find(name.to_string());
+    if(it == _res_data->end())
+        return def_val;
+    return it->second->to_string();
+}
+
+template<>
+inline std::string response::get_data<std::string>(md::string_view name)
+{
+    auto it = _res_data->find(name.to_string());
+    if(it == _res_data->end())
+        throw MD_ERR("Data '{}' not found!", name);
+    return it->second->to_string();
+}
 
 
 

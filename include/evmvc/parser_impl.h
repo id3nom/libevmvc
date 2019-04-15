@@ -47,6 +47,13 @@ inline void http_parser::exec()
                 );
                 return;
             }
+            
+            if(!res->started()){
+                if(!res->has_error())
+                    return res->send_status(evmvc::status::no_content);
+                
+                res->send_error();
+            }
         });
         _rr.reset();
     }catch(const std::exception& err){

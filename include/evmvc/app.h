@@ -357,6 +357,12 @@ public:
         return _router->find_router(route);
     }
     
+    sp_router use(use_handler_when w, route_handler_cb cb)
+    {
+        this->_init_router();
+        return _router->use(w, cb);
+    }
+    
     sp_router all(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())

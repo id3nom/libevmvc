@@ -217,6 +217,11 @@ protected:
         evmvc::sp_request req, evmvc::sp_response res,
         size_t hidx, md::callback::async_cb cb)
     {
+        if(hidx >= _handlers.size())
+            return cb(MD_ERR(
+                "Executing a route without any handler!"
+            ));
+        
         _handlers[hidx](
             req, res,
         [self = this->shared_from_this(), &req, &res, hidx, cb]
@@ -407,11 +412,13 @@ protected:
     pcre_extra* _re_study;
 };
 
-enum class use_handler_position
+enum class use_handler_when
 {
-    before  = 1,
-    after   = 2
+    before              = 1,
+    after               = 2,
+    before_and_after    = 3
 };
+MD_ENUM_FLAGS(evmvc::use_handler_when)
 
 class router
     : public std::enable_shared_from_this<router>
@@ -527,16 +534,14 @@ public:
         return nullptr;
     }
     
-    virtual sp_router use(
-        use_handler_position pos,
-        route_handler_cb cb)
+    virtual sp_router use(use_handler_when w, route_handler_cb cb)
     {
         if(cb == nullptr)
             return this->shared_from_this();
         
-        if(pos == use_handler_position::before)
+        if(MD_TEST_FLAG(w, use_handler_when::before))
             _pre_handlers.emplace_back(cb);
-        else
+        else if(MD_TEST_FLAG(w, use_handler_when::after))
             _post_handlers.emplace_back(cb);
         
         return this->shared_from_this();
@@ -926,18 +931,10 @@ inline void route_result::validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
 {
-    // first validate router access
     auto rt = this->_route;
     auto rtr = rt->get_router();
     
     rt->validate_access(ctx, cb);
-    
-    // rt->validate_access(ctx, 
-    // [rt, rtr](const md::callback::cb_error& err){
-    //     if(err)
-    //         return cb(err);
-    //         
-    // });
 }
 
 
@@ -968,19 +965,59 @@ public:
     
 protected:
     void execute(
-        evmvc::sp_response res, md::callback::async_cb cb)
+        sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb)
     {
-        auto rt = sp_route( new route(_rtr));
-        rt->_rp = _rtr->path().to_string() + "/" + _local_url;
+        std::shared_ptr<file_route_result> frr = 
+            std::static_pointer_cast<file_route_result>(rr);
         
-        if(_not_found){
-            res->error(evmvc::status::not_found, MD_ERR(""));
-            if(cb)
-                cb(nullptr);
-            return;
-        }
+        _rtr->run_pre_handlers(res->req(), res,
+        [frr, rr, res, cb](const md::callback::cb_error& err){
+            if(err)
+                return cb(err);
+            
+            if(res->started())
+                return cb(nullptr);
+            
+            auto rt = sp_route( new route(frr->_rtr));
+            rt->_rp = frr->_rtr->path().to_string() + "/" + frr->_local_url;
+            
+            if(frr->_not_found){
+                res->set_error(
+                    MD_ERR(
+                        evmvc::statuses::status(evmvc::status::not_found)
+                    ),
+                    evmvc::status::not_found
+                );
+                return frr->_rtr->run_post_handlers(res->req(), res, cb);
+                // res->error(evmvc::status::not_found, MD_ERR(""));
+                // return cb(nullptr);
+            }
+            
+            res->send_file(frr->_filepath, "utf-8",
+            [frr, rr, res, cb](const md::callback::cb_error& err){
+                if(err)
+                    res->set_error(err);
+                    //return cb(err);
+                
+                // if(res->ended())
+                //     return cb(nullptr);
+                
+                frr->_rtr->run_post_handlers(res->req(), res, cb);
+            });
+        });
         
-        res->send_file(_filepath, "utf-8", cb);
+        
+        // auto rt = sp_route( new route(_rtr));
+        // rt->_rp = _rtr->path().to_string() + "/" + _local_url;
+        
+        // if(_not_found){
+        //     res->error(evmvc::status::not_found, MD_ERR(""));
+        //     if(cb)
+        //         cb(nullptr);
+        //     return;
+        // }
+        
+        // res->send_file(_filepath, "utf-8", cb);
     }
     
     evmvc::sp_router _rtr;

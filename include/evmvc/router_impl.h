@@ -43,21 +43,21 @@ inline void route_result::execute(
         if(err)
             return cb(err);
         
-        if(res->ended())
+        if(res->started())
             return cb(nullptr);
         
         rr->_route->_exec(res->req(), res, 0, 
         [rr, res, cb](const md::callback::cb_error& err){
             if(err)
-                return cb(err);
+                res->set_error(err);
+                //return cb(err);
             
-            if(res->ended())
-                return cb(nullptr);
+            // if(res->ended())
+            //     return cb(nullptr);
             
             rr->_route->get_router()->run_post_handlers(res->req(), res, cb);
         });
     });
-    
 }
 
 

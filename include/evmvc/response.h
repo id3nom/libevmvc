@@ -89,8 +89,8 @@ public:
         _status(-1), _type(""), _enc(""),
         _paused(false),
         _resuming(false),
-        //_view_data(std::make_shared<evmvc::view_data_map_t>()),
-        _res_data(std::make_shared<evmvc::response_data_map_t>())
+        _res_data(std::make_shared<evmvc::response_data_map_t>()),
+        _err(nullptr), _err_status(evmvc::status::ok)
     {
         EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
     }
@@ -146,7 +146,6 @@ public:
         this->_reply_end();
     }
     
-
     
     int16_t get_status()
     {
@@ -327,10 +326,91 @@ public:
         }
     }
 
-
+    bool has_error() const
+    {
+        return (bool)_err;
+    }
+    const md::callback::cb_error& get_error() const
+    {
+        return _err;
+    }
+    evmvc::status get_error_status() const
+    {
+        return _err_status;
+    }
+    void set_error(
+        const md::callback::cb_error& err,
+        evmvc::status status_code = evmvc::status::internal_server_error)
+    {
+        if(_err)
+            this->_log->warn(
+                "Overriding current error: '{}' with error: '{}'",
+                _err, err
+            );
+        if(!err)
+            return clear_error();
+        
+        _err = err;
+        _err_status = status_code;
+        
+        evmvc::sp_app a = this->get_route()->get_router()->get_app();
+        set_data("_err_status", (uint16_t)_err_status);
+        set_data("_err_status_desc", evmvc::statuses::status(_err_status));
+        set_data("_err_message", std::string(_err.c_str()));
+        
+        if(a->options().stack_trace_enabled && _err.has_stack()){
+            set_data("_err_has_stack",true);
+            set_data(
+                "_err_stack",
+                fmt::format(
+                    "\n\n{}:{}\n{}\n\n{}",
+                    evmvc::html_escape(_err.file()),
+                    _err.line(),
+                    evmvc::html_escape(_err.func()),
+                    evmvc::html_escape(_err.stack())
+                )
+            );
+        }else{
+            set_data("_err_has_stack",false);
+        }
+    }
+    void clear_error()
+    {
+        if(!_err)
+            return;
+        
+        this->_log->info(
+            "Clearing current error: '{}'",
+            _err
+        );
+        _err = nullptr;
+        _err_status = evmvc::status::ok;
+        
+        clear_data("_err_status");
+        clear_data("_err_status_desc");
+        clear_data("_err_message");
+        clear_data("_err_has_stack");
+        clear_data("_err_stack");
+    }
+    void send_error()
+    {
+        if(!has_error())
+            throw MD_ERR("No error was set!");
+        this->error((evmvc::status)_err_status, _err);
+    }
+    
     // ===========
     // == views ==
     // ===========
+    
+    void clear_data(md::string_view name)
+    {
+        auto it = _res_data->find(name.to_string());
+        if(it == _res_data->end())
+            return;
+        _res_data->erase(it);
+    }
+    
     template<typename T>
     void set_data(md::string_view name, T data)
     {
@@ -373,26 +453,8 @@ public:
         )->value();
     }
     
-    std::string get_data(md::string_view name, const std::string& def_val)
-    {
-        auto it = _res_data->find(name.to_string());
-        if(it == _res_data->end())
-            return def_val;
-        return it->second->to_string();
-    }
-    
-    std::string get_data(md::string_view name)
-    {
-        auto it = _res_data->find(name.to_string());
-        if(it == _res_data->end())
-            throw MD_ERR("Data '{}' not found!", name);
-        return it->second->to_string();
-    }
-    
     
     void render(const std::string& view_path, md::callback::async_cb cb);
-    
-    
     
 private:
     
@@ -450,6 +512,9 @@ private:
     md::callback::async_cb _resume_cb;
     
     evmvc::response_data_map _res_data;
+    
+    md::callback::cb_error _err;
+    evmvc::status _err_status;
 };
 
 
