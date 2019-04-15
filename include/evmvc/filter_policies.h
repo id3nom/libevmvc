@@ -324,7 +324,10 @@ typedef std::shared_ptr<file_filter_rule_t> file_filter_rule;
 
 
 typedef std::function<
-    void(const jwt::decoded_jwt& tok, validation_cb cb)
+    void(
+        const md::callback::cb_error& err,
+        const jwt::decoded_jwt& tok, validation_cb cb
+        )
     > jwt_validation_cb;
 class jwt_filter_rule_t
     : public filter_rule_t
@@ -365,12 +368,15 @@ public:
             ctx->req->_token = jwt::decoded_jwt(std::move(decoded));
             
             if(_jwcb)
-                _jwcb(ctx->req->_token, cb);
+                _jwcb(nullptr, ctx->req->_token, cb);
             else
                 cb(nullptr);
             
         }catch(const std::exception& err){
-            cb(err);
+            if(_jwcb)
+                _jwcb(err, ctx->req->_token, cb);
+            else
+                cb(err);
         }
     }
     
