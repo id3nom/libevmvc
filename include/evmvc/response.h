@@ -340,40 +340,8 @@ public:
     }
     void set_error(
         const md::callback::cb_error& err,
-        evmvc::status status_code = evmvc::status::internal_server_error)
-    {
-        if(_err)
-            this->_log->warn(
-                "Overriding current error: '{}' with error: '{}'",
-                _err, err
-            );
-        if(!err)
-            return clear_error();
-        
-        _err = err;
-        _err_status = status_code;
-        
-        evmvc::sp_app a = this->get_route()->get_router()->get_app();
-        set_data("_err_status", (uint16_t)_err_status);
-        set_data("_err_status_desc", evmvc::statuses::status(_err_status));
-        set_data("_err_message", std::string(_err.c_str()));
-        
-        if(a->options().stack_trace_enabled && _err.has_stack()){
-            set_data("_err_has_stack",true);
-            set_data(
-                "_err_stack",
-                fmt::format(
-                    "\n\n{}:{}\n{}\n\n{}",
-                    evmvc::html_escape(_err.file()),
-                    _err.line(),
-                    evmvc::html_escape(_err.func()),
-                    evmvc::html_escape(_err.stack())
-                )
-            );
-        }else{
-            set_data("_err_has_stack",false);
-        }
-    }
+        evmvc::status status_code = evmvc::status::internal_server_error
+    );
     void clear_error()
     {
         if(!_err)
