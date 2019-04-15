@@ -226,7 +226,7 @@ public:
     }
     
     template<typename T>
-    T get(md::string_view name, T def_val = T()) const
+    T get(md::string_view name, T def_val) const
     {
         //return res->get_data(name, def_val);
         return res->get_data<T>(name, def_val);
