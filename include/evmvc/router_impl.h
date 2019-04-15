@@ -96,21 +96,32 @@ inline router::router(evmvc::wp_app app, const md::string_view& path)
     EVMVC_DEF_TRACE("router {:p} created", (void*)this);
 }
 
-inline sp_route& route::null(wp_app a)
+inline sp_route route::null(wp_app a)
 {
-    static sp_route rt = std::make_shared<route>(
+    sp_route rt = std::make_shared<route>(
         router::null(a), "null"
     );
     
     return rt;
 }
 
-inline sp_router& router::null(wp_app a)
+inline sp_router router::null(wp_app a)
 {
     static sp_router rtr = std::make_shared<router>(
         a.lock(), "null"
     );
+    auto sa = a.lock();
+    auto root_rtr = sa->find_router("/");
+    rtr->_policies.clear();
+    // rtr->_pre_handlers.clear();
+    // rtr->_post_handlers.clear();
     
+    for(auto p : root_rtr->_policies)
+        rtr->_policies.emplace_back(p);
+    // for(auto h : root_rtr->_pre_handlers)
+    //     rtr->_pre_handlers.emplace_back(h);
+    // for(auto h : root_rtr->_post_handlers)
+    //     rtr->_post_handlers.emplace_back(h);
     return rtr;
 }
 

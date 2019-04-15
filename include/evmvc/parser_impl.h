@@ -107,18 +107,49 @@ inline void http_parser::validate_headers()
         
         _status = parser_state::error;
         
+        _rr = std::make_shared<route_result>(route::null(a));
         _res = _internal::create_http_response(
             _conn, _http_ver, _uri, _hdrs,
-            std::make_shared<route_result>(route::null(a))
+            _rr // std::make_shared<route_result>(route::null(a))
         );
         
-        _res->error(
-            evmvc::status::not_found,
-            MD_ERR(
-                "Unable to find ressource at '{}'",
-                _uri.to_string()
-            )
-        );
+        // create validation context
+        evmvc::policies::filter_rule_ctx ctx = 
+            evmvc::policies::new_context(_res);
+        
+        _res->pause();
+        _rr->validate_access(
+            ctx,
+        [self = this->shared_from_this(), a, rr = _rr, res = _res, uri = _uri]
+        (const md::callback::cb_error& err){
+            if(err)
+                self->_log->fail("Access Denied!\n{}", err.c_str());
+            
+            res->resume([a, /*_rr = rr, */res, v_err = err, uri]
+            (const md::callback::cb_error& err){
+                if(err)
+                    return res->error(
+                        evmvc::status::unauthorized,
+                        err
+                    );
+                
+                if(v_err)
+                    return res->error(
+                        evmvc::status::unauthorized,
+                        v_err
+                    );
+                
+                if(!res->started())
+                    res->error(
+                        evmvc::status::not_found,
+                        MD_ERR(
+                            "Unable to find ressource at '{}'",
+                            uri.to_string()
+                        )
+                    );
+            });
+        });
+        
         return;
     }
     

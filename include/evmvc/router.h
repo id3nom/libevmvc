@@ -117,7 +117,7 @@ public:
         EVMVC_DEF_TRACE("route {:p} released", (void*)this);
     }
     
-    static sp_route& null(wp_app a);
+    static sp_route null(wp_app a);
     
     evmvc::sp_router get_router() const { return _rtr.lock();}
     md::log::sp_logger log() const;
@@ -440,7 +440,7 @@ public:
         EVMVC_DEF_TRACE("router {:p} released", (void*)this);
     }
     
-    static sp_router& null(wp_app a);
+    static sp_router null(wp_app a);
     
     evmvc::sp_app get_app() const { return _app.lock();}
     md::log::sp_logger log() const { return _log;}
