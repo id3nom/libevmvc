@@ -461,18 +461,39 @@ public:
             return this->_path;
     }
     
-    sp_router find_router(md::string_view path)
+    sp_router find_router(md::string_view path, bool partial_path = false)
     {
-        if(!strcasecmp(this->full_path().c_str(), path.data()))
-            return this->shared_from_this();
+        if(partial_path){
+            if(!strcasecmp(this->full_path().c_str(), path.data()))
+                return this->shared_from_this();
+            
+        }else{
+            std::string fp = this->full_path();
+            if(
+                fp.size() == path.size() &&
+                !strcasecmp(this->full_path().c_str(), path.data())
+            )
+                return this->shared_from_this();
+        }
         
         for(auto it = _routers.begin(); it != _routers.end(); ++it){
-            sp_router rtr = it->second->find_router(path);
+            sp_router rtr = it->second->find_router(path, partial_path);
             if(rtr)
                 return rtr;
         }
         
         return nullptr;
+        
+        // if(!strcasecmp(this->full_path().c_str(), path.data()))
+        //     return this->shared_from_this();
+        
+        // for(auto it = _routers.begin(); it != _routers.end(); ++it){
+        //     sp_router rtr = it->second->find_router(path);
+        //     if(rtr)
+        //         return rtr;
+        // }
+        
+        // return nullptr;
     }
     
     sp_route resolve_route(

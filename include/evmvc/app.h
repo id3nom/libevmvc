@@ -411,14 +411,14 @@ public:
     // == default router ==
     // ====================
     
-    sp_router find_router(md::string_view route)
+    sp_router find_router(md::string_view route, bool partial_path = false)
     {
         if(!_init_rtr)
             throw MD_ERR(
                 "evmvc::app must be initialized by calling "
                 "initialize() method first!"
             );
-        return _router->find_router(route);
+        return _router->find_router(route, partial_path);
     }
     
     sp_router use(use_handler_when w, route_handler_cb cb)
