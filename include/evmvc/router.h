@@ -447,11 +447,17 @@ public:
     
     md::string_view path() const { return _path;}
     
+    evmvc::sp_router parent() const
+    {
+        return this->_parent.lock();
+    }
+    
     std::string full_path() const
     {
-        if(this->_parent)
-            return this->_parent->full_path() + this->_path;
-        else
+        auto p = this->parent();
+        if(p){
+            return p->full_path() + this->_path;
+        }else
             return this->_path;
     }
     
@@ -507,17 +513,30 @@ public:
         // return nullptr;
         md::string_view local_url = url.substr(_path.size());
         
-        // verify if child router match path
-        for(auto it = _routers.begin(); it != _routers.end(); ++it)
-            if(local_url.size() > it->first.size() &&
-                !std::strncmp(local_url.data(),
-                    it->first.c_str(), it->first.size()
-                )
-            )
+        // verify if child router match path in insertion order
+        for(auto rp : _router_paths){
+            if(
+                local_url.size() > rp.size() && 
+                !std::strncmp(local_url.data(), rp.c_str(), rp.size())
+            ){
+                auto it = _routers.find(rp);
                 return it->second->resolve_url(
                     method,
                     local_url
                 );
+            }
+        }
+        
+        // for(auto it = _routers.begin(); it != _routers.end(); ++it)
+        //     if(local_url.size() > it->first.size() &&
+        //         !std::strncmp(local_url.data(),
+        //             it->first.c_str(), it->first.size()
+        //         )
+        //     )
+        //         return it->second->resolve_url(
+        //             method,
+        //             local_url
+        //         );
         
         local_url = url.substr(_path.size() -1);
         auto rm = _verbs.find(std::string(method));
@@ -631,10 +650,27 @@ public:
             router->_path
         );
         
+        // remove router from previous parent if needed
+        auto p = router->parent();
+        if(p){
+            for(auto rp_it = p->_router_paths.begin(); 
+                rp_it != p->_router_paths.end();
+                ++rp_it
+            ){
+                if(*rp_it == router->_path){
+                    p->_router_paths.erase(rp_it);
+                    break;
+                }
+            }
+            p->_routers.erase(router->_path);
+        }
+        
+        // finaly register the router with the current parent
         router->_app = this->_app;
         router->_parent = this->shared_from_this();
         router->_log = this->_log->add_child(router->_path);
         
+        _router_paths.emplace_back(router->_path);
         _routers.emplace(std::make_pair(router->_path, router));
         return this->shared_from_this();
     }
@@ -688,8 +724,9 @@ public:
         evmvc::sp_request req, evmvc::sp_response res,
         md::callback::async_cb cb)
     {
-        if(_parent)
-            return _parent->run_pre_handlers(req, res,
+        auto p = this->parent();
+        if(p)
+            return p->run_pre_handlers(req, res,
             [self = this->shared_from_this(), req, res, cb]
             (const md::callback::cb_error& err){
                 if(err)
@@ -707,8 +744,9 @@ public:
         evmvc::sp_request req, evmvc::sp_response res,
         md::callback::async_cb cb)
     {
-        if(_parent)
-            return _parent->run_post_handlers(req, res,
+        auto p = this->parent();
+        if(p)
+            return p->run_post_handlers(req, res,
             [self = this->shared_from_this(), req, res, cb]
             (const md::callback::cb_error& err){
                 if(err)
@@ -726,8 +764,9 @@ public:
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
     {
-        if(_parent)
-            return _parent->validate_access(ctx,
+        auto p = this->parent();
+        if(p)
+            return p->validate_access(ctx,
             [self = this->shared_from_this(), ctx, cb]
             (const md::callback::cb_error& err){
                 if(err)
@@ -911,7 +950,8 @@ protected:
     evmvc::wp_app _app;
     std::string _path;
     mutable md::log::sp_logger _log;
-    sp_router _parent;
+    //sp_router _parent;
+    std::weak_ptr<router> _parent;
     
     std::vector<policies::filter_policy> _policies;
     
@@ -925,6 +965,9 @@ protected:
     // boost::tribool _match_case;
     
     verb_map _verbs;
+    
+    // use to keep router registration order
+    std::vector<std::string> _router_paths;
     router_map _routers;
     
     std::vector<route_handler_cb> _pre_handlers;
