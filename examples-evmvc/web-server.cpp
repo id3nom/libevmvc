@@ -204,6 +204,7 @@ void register_app_cbs()
     });
     srv->get("/views/index",
     [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+        res->set_data("msg", "bonjour");
         res->render("examples::home/index", nxt);
     });
     

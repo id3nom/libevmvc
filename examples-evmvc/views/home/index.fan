@@ -32,6 +32,8 @@ SOFTWARE.
 
 In index.fan page <br/>
 
+Message: @get("msg")
+<br/>
 
 @{
     @utils::util_func01();
