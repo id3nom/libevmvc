@@ -295,7 +295,8 @@ public:
     void exec();
     
 private:
-    size_t parse_req_line(const char* line, size_t line_len, md::callback::cb_error& ec)
+    size_t parse_req_line(
+        const char* line, size_t line_len, md::callback::cb_error& ec)
     {
         if(line_len == 0){
             _status = parser_state::error;
@@ -436,7 +437,8 @@ private:
         _status = parser_state::ready_to_exec;
     }
     
-    size_t parse_body(const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    size_t parse_body(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
@@ -457,12 +459,14 @@ private:
     
     void init_multip();
     
-    size_t parse_form_urlenc(const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    size_t parse_form_urlenc(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
     
-    size_t parse_form_txtpln(const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    size_t parse_form_txtpln(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         return 0;
     }
@@ -685,7 +689,9 @@ private:
         if(line != nullptr){
             EVMVC_TRACE(_log, "recv: '{}'\n", line);
             bool ended = false;
-            md::callback::cb_error cberr = _mp_parse_end_of_section(ended, line);
+            md::callback::cb_error cberr = _mp_parse_end_of_section(
+                ended, line
+            );
             if(cberr || ended){
                 if(mf->fd != -1){
                     if(close(mf->fd) < 0){
@@ -759,7 +765,8 @@ private:
     }
     
     //void _mp_on_read_multipart_data(evbuffer* buf, void *arg)
-    size_t parse_form_multip(const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    size_t parse_form_multip(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
         //auto mp = (evmvc::multip::multipart_parser*)arg;
         if(_mp_state == multip::multipart_parser_state::failed)

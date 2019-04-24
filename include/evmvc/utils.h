@@ -223,6 +223,71 @@ inline std::string html_escape(md::string_view s)
 }
 
 
+
+
+/* Generate the human-readable hex representation of an apr_uint64_t
+* (basically a faster version of 'sprintf("%llx")')
+*/
+#define HEX_DIGITS "0123456789abcdef"
+static char *etag_uint64_to_hex(char *next, uint64_t u)
+{
+    int printing = 0;
+    int shift = sizeof(uint64_t) * 8 - 4;
+    do {
+        unsigned short next_digit =
+            (unsigned short)((u >> shift) & (uint64_t)0xf);
+        
+        if (next_digit) {
+            *next++ = HEX_DIGITS[next_digit];
+            printing = 1;
+        
+        } else if (printing) {
+            *next++ = HEX_DIGITS[next_digit];
+        }
+        
+        shift -= 4;
+        
+    } while (shift);
+    
+    *next++ = HEX_DIGITS[u & (uint64_t)0xf];
+    
+    return next;
+}
+
+void get_etag(const struct stat& file_stat, std::string& str_etag);
+inline void get_etag(const char* filename, std::string& str_etag)
+{
+    struct stat file_stat;
+    stat(filename, &file_stat);
+    get_etag(file_stat, str_etag);
+}
+
+constexpr size_t CHARS_PER_UINT64 = (sizeof(uint64_t) * 2);
+constexpr size_t CHARS_PER_ETAG = (3 * CHARS_PER_UINT64 + 1 + sizeof("--"));
+
+inline void get_etag(const struct stat& file_stat, std::string& str_etag)
+{
+    //char *etag = new char[3 * CHARS_PER_UINT64 + 1 + sizeof("\"--\"")];
+    //char *etag = new char[3 * CHARS_PER_UINT64 + 1 + sizeof("--")];
+    char *etag = new char[CHARS_PER_ETAG];
+    char *next = etag;
+
+    //*next++ = '"';
+    next = etag_uint64_to_hex( next, file_stat.st_ino);
+    *next++ = '-';
+    next = etag_uint64_to_hex( next, file_stat.st_size);
+    *next++ = '-';
+    next = etag_uint64_to_hex( next, file_stat.st_mtime);
+    //*next++ = '"';
+    *next = '\0';
+    
+    str_etag.append(etag);
+    
+    delete[] etag;
+}
+
+
+
 } //ns evmvc
 
 #endif //_boost_beast_mvc_utils_h

@@ -29,6 +29,9 @@ SOFTWARE.
 
 #include "view_engine.h"
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+
+
 #define EVMVC_MAX_RES_STATUS_LINE_LEN 47
 // max header field size is 8KiB
 #define EVMVC_MAX_RES_HEADER_LINE_LEN 8192
@@ -428,6 +431,28 @@ inline void response::send_file(
     const md::string_view& enc, 
     md::callback::async_cb cb)
 {
+    static std::locale out_loc = std::locale(
+        std::locale::classic(),
+        new boost::posix_time::time_facet(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+    );
+    static std::locale in_loc = std::locale(
+        std::locale::classic(),
+        new boost::posix_time::time_input_facet(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
+    );
+    
+    // static boost::posix_time::time_facet* tout_facet =
+    //     new boost::posix_time::time_facet(
+    //         "%a, %d %b %Y %H:%M:%S GMT"
+    //     );
+    // static boost::posix_time::time_input_facet* tin_facet =
+    //     new boost::posix_time::time_input_facet(
+    //         "%a, %d %b %Y %H:%M:%S GMT"
+    //     );
+    
     auto c = this->_conn.lock();
     if(!c){
         if(cb)
@@ -458,6 +483,55 @@ inline void response::send_file(
         this->send_status(evmvc::status::bad_request);
         return;
     }
+    
+    boost::posix_time::ptime fmtime;
+    std::string fetag;
+    //size_t fsize;
+    {
+        struct stat fstat;
+        stat(filepath.c_str(), &fstat);
+        fmtime = boost::posix_time::from_time_t(fstat.st_mtime);
+        evmvc::get_etag(fstat, fetag);
+        //fsize = fstat.st_size;
+    }
+    
+    if(_req->headers().exists(evmvc::field::if_none_match)){
+        std::string retag = _req->headers().get(
+            evmvc::field::if_none_match
+            )->value();
+        md::trim(retag);
+        
+        if(_req->headers().exists(evmvc::field::if_modified_since)){
+            boost::posix_time::ptime rmtime;
+            
+            std::string srmtime = _req->headers().get(
+                evmvc::field::if_modified_since
+            )->value();
+            
+            std::stringstream ss;
+            ss.write(srmtime.c_str(), srmtime.size());
+            //ss.imbue(std::locale(std::locale::classic(), tin_facet));
+            ss.imbue(in_loc);
+            ss >> rmtime;
+            
+            if(
+                retag == fetag &&
+                !rmtime.is_not_a_date_time() &&
+                rmtime == fmtime
+            ){
+                return this->send_status(evmvc::status::not_modified);
+            }
+        }
+    }
+    
+    std::stringstream ss;
+    //ss.imbue(std::locale(ss.getloc(), tout_facet));
+    ss.imbue(out_loc);
+    ss << fmtime;
+    
+    this->_headers->set(evmvc::field::last_modified, ss.str());
+    this->_headers->set(evmvc::field::etag, fetag);
+    this->_headers->set(evmvc::field::cache_control, "max-age=2592000");
     
     FILE* file_desc = fopen(filepath.c_str(), "r");
     if(!file_desc){
