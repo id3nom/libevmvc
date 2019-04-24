@@ -268,6 +268,32 @@ public:
         );
     }
     
+    bool is_json() const
+    {
+        auto h = this->_headers->get(evmvc::field::content_type);
+        if(!h)
+            return false;
+        return h->flag("application/json");
+    }
+    
+    std::string raw_body() const
+    {
+        auto p = _body_params->get("");
+        if(!p)
+            return "";
+        return p->get<std::string>();
+    }
+    
+    nlohmann::json json_body() const
+    {
+        auto p = _body_params->get("");
+        if(!p)
+            return nlohmann::json();
+        return p->get<nlohmann::json>();
+    }
+    
+    
+    
     const jwt::decoded_jwt& token() const
     {
         return _token;
@@ -275,9 +301,16 @@ public:
 
     
 protected:
-
+    
     void _load_multipart_params(
-        std::shared_ptr<multip::multipart_subcontent> ms);
+        std::shared_ptr<multip::multipart_subcontent> ms
+    );
+    
+    void _set_body_params(
+        evmvc::http_params& body_params)
+    {
+        _body_params = std::move(body_params);
+    }
     
     uint64_t _id;
     http_version _version;
@@ -294,6 +327,7 @@ protected:
     evmvc::http_params _rt_params;
     evmvc::http_params _qry_params;
     evmvc::http_params _body_params;
+    
     evmvc::sp_http_files _files;
     jwt::decoded_jwt _token;
 };

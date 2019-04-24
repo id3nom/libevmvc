@@ -125,46 +125,89 @@ public:
         return default_val.to_string();
     }
     
-    bool flag(md::string_view name,
-        const char& attr_sep = ';',
-        const char& val_sep = '=') const
+    bool flag(md::string_view name, const std::string& attr_sep = ";=") const
     {
-        size_t attr_start = 0;
-        for(size_t i = 0; i < _hdr_value.size(); ++i){
-            if(_hdr_value.data()[i] == attr_sep || i == _hdr_value.size() -1){
-                // remove spaces
-                while(attr_start < i && isspace(_hdr_value.data()[attr_start]))
-                    ++attr_start;
-                // look for val_sep
-                size_t attr_val_start = i;
-                for(size_t j = attr_start; j <= i; ++j)
-                    if(_hdr_value[j] == val_sep){
-                        attr_val_start = j+1;
-                        break;
-                    }
+        ssize_t vsize = (ssize_t)_hdr_value.size();
+        ssize_t nsize = (ssize_t)name.size();
+        ssize_t vs = 0;
+        for(ssize_t i = 0; i < vsize; ++i){
+            char c = _hdr_value[i];
+            if(
+                attr_sep.find(c) != std::string::npos ||
+                //c == attr_sep || c == val_sep ||
+                i == vsize -1
+            ){
+                if(i == vsize -1)
+                    ++i;
                 
-                size_t attr_name_end = attr_val_start -2;
-                while(attr_name_end > attr_start &&
-                    isspace(_hdr_value.data()[attr_name_end]))
-                    --attr_name_end;
+                // trim start value
+                while(vs < i && isspace(_hdr_value[vs]))
+                    ++vs;
+                if(vs == i && nsize == 0)
+                    return true;
                 
-                size_t len = attr_name_end - attr_start;
-                if(len != name.size() ||
-                    strncasecmp(
-                        _hdr_value.data() + attr_start,
-                        name.data(),
-                        name.size()
-                    ) != 0
-                ){
-                    attr_start = i+1;
+                // trim end
+                ssize_t ve = i-1;
+                while(ve > vs && isspace(_hdr_value[ve]))
+                    --ve;
+                
+                // if(vs > ve && nsize == 0)
+                //     return true;
+                
+                // ve is inclusive
+                if(nsize != (ve-vs)+1){
+                    vs = i+1;
                     continue;
                 }
                 
-                return true;
+                if(!strncasecmp(
+                    _hdr_value.data() + vs,
+                    name.data(),
+                    nsize
+                ))
+                    return true;
+                vs = i+1;
             }
+            
         }
-        
         return false;
+        
+        // size_t attr_start = 0;
+        // for(size_t i = 0; i < _hdr_value.size(); ++i){
+        //     if(_hdr_value.data()[i] == attr_sep || i == _hdr_value.size() -1){
+        //         // remove spaces
+        //         while(attr_start < i && isspace(_hdr_value.data()[attr_start]))
+        //             ++attr_start;
+        //         // look for val_sep
+        //         size_t attr_val_start = i;
+        //         for(size_t j = attr_start; j <= i; ++j)
+        //             if(_hdr_value[j] == val_sep){
+        //                 attr_val_start = j+1;
+        //                 break;
+        //             }
+                
+        //         size_t attr_name_end = attr_val_start -2;
+        //         while(attr_name_end > attr_start &&
+        //             isspace(_hdr_value.data()[attr_name_end]))
+        //             --attr_name_end;
+                
+        //         size_t len = attr_name_end - attr_start;
+        //         if(len != name.size() ||
+        //             strncasecmp(
+        //                 _hdr_value.data() + attr_start,
+        //                 name.data(),
+        //                 name.size()
+        //             ) != 0
+        //         ){
+        //             attr_start = i+1;
+        //             continue;
+        //         }
+                
+        //         return true;
+        //     }
+        // }
+        
+        // return false;
     }
     
     std::vector<accept_encoding> accept_encodings() const

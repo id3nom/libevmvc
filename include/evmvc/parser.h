@@ -120,7 +120,8 @@ class http_parser
     friend class connection;
 public:
     http_parser(wp_connection conn, const md::log::sp_logger& log)
-        : _conn(conn), _log(log->add_child("parser"))
+        : _conn(conn),
+        _log(log->add_child("parser"))
     {
         EVMVC_DEF_TRACE("http_parser {:p} created", (void*)this);
     }
@@ -206,6 +207,7 @@ public:
         _res.reset();
         _rr.reset();
         
+        reset_body();
         reset_multip();
     }
     
@@ -364,16 +366,28 @@ private:
         //     "Inserting header, name: '{}', value: '{}'",
         //     hn, data_substring(line, sep+1, line_len)
         // );
+        
+        // move offset to start of text
+        ++sep;
+        while(sep < (ssize_t)line_len && line[sep] == ' '){
+            ++sep;
+        }
+        std::string val;
+        if(sep < (ssize_t)line_len)
+            val = data_substring(line, sep, line_len);
+        
         auto it = _hdrs->find(hn);
         if(it != _hdrs->end())
             it->second.emplace_back(
-                data_substring(line, sep+1, line_len)
+                //data_substring(line, sep+1, line_len)
+                val
             );
         else
             _hdrs->emplace(std::make_pair(
                 std::move(hn),
                 std::vector<std::string>{
-                    data_substring(line, sep+1, line_len)
+                    //data_substring(line, sep+1, line_len)
+                    val
                 }
             ));
         
@@ -431,16 +445,140 @@ private:
                     break;
                 }
             }
+            if(_status != parser_state::parse_form_multipart)
+                init_body();
             return;
         }
         
         _status = parser_state::ready_to_exec;
     }
     
+    void init_body()
+    {
+        _mp_uploaded_size = 0;
+        _mp_buf = evbuffer_new();
+        _mp_completed = false;
+    }
+    void reset_body()
+    {
+        _mp_uploaded_size = 0;
+        if(_mp_buf)
+            evbuffer_free(_mp_buf);
+        _mp_buf = nullptr;
+        _mp_completed = false;
+    }
+    
+    size_t read_body(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    {
+        if(_mp_state == multip::multipart_parser_state::failed)
+            return 0;
+        
+        //size_t blen = evbuffer_get_length(buf);
+        
+        EVMVC_TRACE(_log,
+            "on_read_multipart_data received '{}' bytes", in_len
+        );
+        
+        if(_mp_uploaded_size + in_len > _body_size)
+            in_len = _body_size - _mp_uploaded_size;
+        
+        _mp_uploaded_size += in_len;
+        evbuffer_add(_mp_buf, in_data, in_len);
+        
+        if(_mp_uploaded_size >= _body_size)
+            _mp_completed = true;
+        
+        return in_len;
+    }
+    
     size_t parse_body(
         const char* in_data, size_t in_len, md::callback::cb_error& ec)
     {
-        return 0;
+        size_t r = read_body(in_data, in_len, ec);
+        
+        if(_mp_completed){
+            std::string sbody(
+                (const char*)evbuffer_pullup(_mp_buf, _body_size),
+                _body_size
+            );
+            _res->_req->_body_params->emplace_back(
+                std::make_shared<http_param>(
+                    "", sbody
+                )
+            );
+            reset_body();
+            _status = parser_state::ready_to_exec;
+        }
+        
+        return r;
+    }
+    
+    size_t parse_form_urlenc(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    {
+        size_t r = read_body(in_data, in_len, ec);
+        
+        if(_mp_completed){
+            evmvc::http_params body_params = std::make_unique<http_params_t>();
+            std::string sbody(
+                (const char*)evbuffer_pullup(_mp_buf, _body_size),
+                _body_size
+            );
+            // replace '+' with ' '
+            md::replace_substring(sbody, "+", " ");
+            
+            // true = key, false = value
+            bool tkfv = true;
+            std::string k;
+            std::string v;
+            for(auto c : sbody){
+                if(c == '=')
+                    tkfv = false;
+                else if(c == '&'){
+                    _res->_req->_body_params->emplace_back(
+                        std::make_shared<http_param>(
+                            evmvc::uri_decode(k),
+                            evmvc::uri_decode(v)
+                        )
+                    );
+                    
+                    tkfv = true;
+                    k.clear();
+                    v.clear();
+                    
+                }else if(tkfv)
+                    k += c;
+                else
+                    v += c;
+            }
+            if(!k.empty() || !v.empty())
+                _res->_req->_body_params->emplace_back(
+                    std::make_shared<http_param>(
+                        evmvc::uri_decode(k),
+                        evmvc::uri_decode(v)
+                    )
+                );
+            
+            reset_body();
+            _status = parser_state::ready_to_exec;
+        }
+        
+        return r;
+    }
+    
+    size_t parse_form_txtpln(
+        const char* in_data, size_t in_len, md::callback::cb_error& ec)
+    {
+        size_t r = read_body(in_data, in_len, ec);
+        
+        if(_mp_completed){
+            //evmvc::http_params _urlencoded_params;
+            reset_body();
+            _status = parser_state::ready_to_exec;
+        }
+        
+        return r;
     }
     
     void reset_multip()
@@ -458,20 +596,6 @@ private:
     }
     
     void init_multip();
-    
-    size_t parse_form_urlenc(
-        const char* in_data, size_t in_len, md::callback::cb_error& ec)
-    {
-        return 0;
-    }
-    
-    size_t parse_form_txtpln(
-        const char* in_data, size_t in_len, md::callback::cb_error& ec)
-    {
-        return 0;
-    }
-    
-    
     
     bool _mp_parse_boundary_header(char* hdr)
     {
@@ -955,6 +1079,9 @@ private:
     std::shared_ptr<header_map> _hdrs;
     sp_response _res;
     sp_route_result _rr;
+    
+    // body data
+    std::string _body_data;
     
     // multipart data
     multip::multipart_parser_state _mp_state =

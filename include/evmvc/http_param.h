@@ -55,8 +55,8 @@ public:
     ParamType get() const
     {
         std::stringstream ss;
-        ss << "Parsing from url_value to " << typeid(ParamType).name()
-            << " is not supported";
+        ss << "Parsing from url_value to '" << __PRETTY_FUNCTION__
+            << "' is not supported";
         throw std::runtime_error(ss.str().c_str());
     }
     
@@ -101,10 +101,15 @@ inline const char* evmvc::http_param::get<const char*, -1>() const
 {
     return _param_value.c_str();
 }
+// template<>
+// inline md::string_view evmvc::http_param::get<md::string_view, -1>() const
+// {
+//     return _param_value.c_str();
+// }
 template<>
-inline md::string_view evmvc::http_param::get<md::string_view, -1>() const
+inline nlohmann::json evmvc::http_param::get<nlohmann::json, -1>() const
 {
-    return _param_value.c_str();
+    return nlohmann::json::parse(_param_value);
 }
 
 
