@@ -204,12 +204,14 @@ public:
         std::string err;
         if(!ast::validate_vname(err, doc->ns, false, ":"))
             throw MD_ERR("Invalid namespace value '{}'\n{}", doc->ns, err);
-        if(!ast::validate_vname(err, doc->path, false, "/"))
+        if(doc->path != "/" && !ast::validate_vname(err, doc->path, false, "/"))
             throw MD_ERR("Invalid path value '{}'\n{}", doc->path, err);
         if(!ast::validate_vname(err, doc->name, false, ""))
             throw MD_ERR("Invalid name value '{}'\n{}", doc->name, err);
         
-        doc->abs_path = doc->ns + "::" + doc->path + doc->name;
+        doc->abs_path = doc->ns + "::" +
+            (doc->path == "/" ? "" : doc->path) +
+            doc->name;
         
         doc->cls_name = ast::norm_vname(doc->path + doc->name, "_");
         doc->nscls_name = doc->ns + "::" + doc->cls_name;
@@ -362,6 +364,10 @@ public:
                 doc->i_filename
             );
             
+            std::string doc_path = doc->path;
+            if(doc_path == "/")
+                doc_path = "";
+            
             if(doc->type != ast::doc_type::helper)
                 inc_src_gens += fmt::format(
                     "    fjv->register_view_generator( \"{}\", \n"
@@ -372,7 +378,7 @@ public:
                     "            new {}(engine, res)\n"
                     "        );\n"
                     "    }});\n",
-                    doc->path + doc->name,
+                    doc_path + doc->name,
                     doc->cls_name,
                     doc->cls_name
                 );

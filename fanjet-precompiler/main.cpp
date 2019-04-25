@@ -321,10 +321,16 @@ void process_fanjet_file(
         std::string fan_src = ostrm.str();
         fin.close();
         
-        std::string view_path = 
-            src.parent_path().string().substr(
-                root.size()
-            );
+        std::string view_path = src.parent_path().string();
+        if(view_path.size() > root.size())
+            view_path = view_path.substr(root.size());
+        else
+            view_path = "";
+        
+        // std::string view_path = 
+        //     src.parent_path().string().substr(
+        //         root.size()
+        //     );
         if(*(view_path.crend()) != '/')
             view_path += "/";
         view_path += 

@@ -48,8 +48,11 @@ class http_cookies
     friend class request;
     friend class response;
     
+    // typedef std::map<
+    //     md::string_view, md::string_view, md::string_view_cmp
+    //     > cookie_map;
     typedef std::map<
-        md::string_view, md::string_view, md::string_view_cmp
+        std::string, std::string
         > cookie_map;
     
 public:
@@ -128,7 +131,7 @@ public:
     bool exists(md::string_view name) const
     {
         _init_get();
-        auto it = _cookies.find(name);
+        auto it = _cookies.find(name.to_string());
         return it != _cookies.end();
     }
     
@@ -378,11 +381,11 @@ private:
         const http_cookies::options& opts)
     {
         std::string cv = name.to_string() + "=";
-        md::string_view enc_v = 
+        std::string enc_v = 
             (opts.enc == encoding::base64 ?
                 md::base64_encode(val) : 
-                val);
-        cv += std::string(enc_v.data(), enc_v.size()) + "; ";
+                val.to_string());
+        cv += enc_v + "; ";
         
         if(opts.max_age < 0 && opts.expires){
             auto daypoint = date::floor<date::days>(*opts.expires);
@@ -495,7 +498,7 @@ private:
         md::string_view name, http_cookies::encoding enc) const
     {
         _init_get();
-        const auto it = _cookies.find(name);
+        const auto it = _cookies.find(name.to_string());
         if(it == _cookies.end())
             throw MD_ERR(
                 "Cookie '{0}' was not found!", name.data()

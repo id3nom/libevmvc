@@ -298,7 +298,7 @@ inline std::string root_node_t::gen_header_code(
         doc->cls_name,
         inherit_cstr,
         doc->ns,
-        doc->path,
+        doc->path == "/" ? "" : doc->path,
         doc->name,
         doc->abs_path,
         doc->layout,

@@ -1739,13 +1739,21 @@ struct ps512 : public pss {
             // for (auto& e : header_claims) {
             //     obj_header.insert({ e.first, e.second.to_json() });
             // }
-            evmvc::json obj_header(header_claims);
+            
+            //evmvc::json obj_header(header_claims);
+            evmvc::json obj_header;
+            for(auto& e : header_claims)
+                obj_header[e.first] = e.second.to_json();
             
             // picojson::object obj_payload;
             // for (auto& e : payload_claims) {
             //     obj_payload.insert({ e.first, e.second.to_json() });
             // }
-            evmvc::json obj_payload(payload_claims);
+
+            //evmvc::json obj_payload(payload_claims);
+            evmvc::json obj_payload;
+            for(auto& e : payload_claims)
+                obj_payload[e.first] = e.second.to_json();
             
             auto encode = [](const std::string& data) {
                 auto base = base::encode<alphabet::base64url>(data);
