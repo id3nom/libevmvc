@@ -37,6 +37,8 @@ SOFTWARE.
 #define EVMVC_PIPE_WRITE_FD 1
 #define EVMVC_PIPE_READ_FD 0
 
+#define EVMVC_MAX_SSL_DATA_LEN 1024
+
 namespace evmvc {
 
 enum class channel_type
@@ -809,6 +811,17 @@ private:
 
 namespace _internal {
     
+    // struct shared_ssl_sess
+    // {
+    //     //struct ebmb_node key;
+    //     unsigned char key_data[SSL_MAX_SSL_SESSION_ID_LENGTH];
+    //     int data_len;
+    //     unsigned char data[EVMVC_MAX_SSL_DATA_LEN];
+        
+    //     struct shared_ssl_sess* p;
+    //     struct shared_ssl_sess* n;
+    // };
+    
     inline int _ssl_sni_servername(SSL* s, int *al, void *arg)
     {
         const char* name = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
@@ -859,9 +872,18 @@ namespace _internal {
     // {
     // }
 
-    inline int _ssl_new_cache_entry(SSL* /*ssl*/, SSL_SESSION* /*sess*/)
+    inline int _ssl_new_cache_entry(SSL* /*ssl*/, SSL_SESSION* sess)
     {
         //TODO: implement shared mem
+        // int len = i2d_SSL_SESSION(sess, NULL);
+        // unsigned char* buf = new unsigned char[len];
+        // unsigned char* p = buf;
+        // const unsigned char* cp = buf;
+        // len = i2d_SSL_SESSION(sess, &p);
+        
+        // unsigned int sid_len;
+        // const unsigned char* sid = SSL_SESSION_get_id(sess, &sid_len);
+        
         return 0;
     }
     

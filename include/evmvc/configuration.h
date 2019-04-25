@@ -448,7 +448,8 @@ public:
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false),
-        worker_count(get_nprocs_conf())
+        worker_count(get_nprocs_conf()),
+        worker_shmsize(1)
     {
     }
 
@@ -467,7 +468,8 @@ public:
         log_file_max_size(1048576 * 5),
         log_file_max_files(7),
         stack_trace_enabled(false),
-        worker_count(get_nprocs_conf())
+        worker_count(get_nprocs_conf()),
+        worker_shmsize(1)
     {
     }
     
@@ -487,6 +489,7 @@ public:
         log_file_max_files(other.log_file_max_files),
         stack_trace_enabled(other.stack_trace_enabled),
         worker_count(other.worker_count),
+        worker_shmsize(other.worker_shmsize),
         servers(other.servers)
     {
     }
@@ -507,6 +510,7 @@ public:
         log_file_max_files(other.log_file_max_files),
         stack_trace_enabled(other.stack_trace_enabled),
         worker_count(other.worker_count),
+        worker_shmsize(other.worker_shmsize),
         servers(std::move(other.servers))
     {
         other.use_default_logger = true;
@@ -517,6 +521,7 @@ public:
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
         other.worker_count = get_nprocs_conf();
+        other.worker_shmsize = 1;
     }
     
     app_options& operator=(const app_options& other)
@@ -536,6 +541,7 @@ public:
         log_file_max_files = other.log_file_max_files;
         stack_trace_enabled = other.stack_trace_enabled;
         worker_count = other.worker_count;
+        worker_shmsize = other.worker_shmsize;
         servers = other.servers;
         
         return *this;
@@ -558,6 +564,7 @@ public:
         log_file_max_files = other.log_file_max_files;
         stack_trace_enabled = other.stack_trace_enabled;
         worker_count = other.worker_count;
+        worker_shmsize = other.worker_shmsize;
         
         servers = std::move(other.servers);
         
@@ -569,6 +576,7 @@ public:
         other.log_file_max_files = 7;
         other.stack_trace_enabled = false;
         other.worker_count = get_nprocs_conf();
+        other.worker_shmsize = 1;
         
         return *this;
     }
@@ -591,6 +599,7 @@ public:
     
     bool stack_trace_enabled;
     size_t worker_count;
+    size_t worker_shmsize;
     
     std::vector<server_options> servers;
 };
