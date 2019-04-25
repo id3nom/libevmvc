@@ -135,173 +135,186 @@ public:
         return it != _cookies.end();
     }
     
-    template<typename CookieType,
-        typename std::enable_if<
-            !(std::is_same<int16_t, CookieType>::value ||
-            std::is_same<int32_t, CookieType>::value ||
-            std::is_same<int64_t, CookieType>::value ||
-
-            std::is_same<float, CookieType>::value ||
-            std::is_same<double, CookieType>::value)
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
+    
+    template<typename CookieType>
+    CookieType get(
         md::string_view name,
-        http_cookies::encoding /*enc = http_cookies::encoding::base64*/) const
+        http_cookies::encoding enc = http_cookies::encoding::base64) const
     {
         std::stringstream ss;
         ss << "Parsing from cookie '" << name.data()
-            << "' value to " << typeid(CookieType).name()
+            << "' value to " << __PRETTY_FUNCTION__
             << " is not supported";
         throw std::runtime_error(ss.str().c_str());
     }
     
-    template<typename CookieType,
-        typename std::enable_if<
-            !(std::is_same<int16_t, CookieType>::value ||
-            std::is_same<int32_t, CookieType>::value ||
-            std::is_same<int64_t, CookieType>::value ||
+    // template<typename CookieType,
+    //     typename std::enable_if<
+    //         !(std::is_same<int16_t, CookieType>::value ||
+    //         std::is_same<int32_t, CookieType>::value ||
+    //         std::is_same<int64_t, CookieType>::value ||
 
-            std::is_same<float, CookieType>::value ||
-            std::is_same<double, CookieType>::value)
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        const CookieType& def_val,
-        http_cookies::encoding /*enc = http_cookies::encoding::clear*/) const
-    {
-        std::stringstream ss;
-        ss << "Parsing from cookie '" << name.data()
-            << "' value to " << typeid(CookieType).name()
-            << " is not supported";
-        throw std::runtime_error(ss.str().c_str());
-    }
+    //         std::is_same<float, CookieType>::value ||
+    //         std::is_same<double, CookieType>::value)
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     http_cookies::encoding /*enc = http_cookies::encoding::base64*/) const
+    // {
+    //     std::stringstream ss;
+    //     ss << "Parsing from cookie '" << name.data()
+    //         << "' value to " << typeid(CookieType).name()
+    //         << " is not supported";
+    //     throw std::runtime_error(ss.str().c_str());
+    // }
     
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<int16_t, CookieType>::value ||
-            std::is_same<int32_t, CookieType>::value ||
-            std::is_same<int64_t, CookieType>::value ||
+    // template<typename CookieType,
+    //     typename std::enable_if<
+    //         !(std::is_same<int16_t, CookieType>::value ||
+    //         std::is_same<int32_t, CookieType>::value ||
+    //         std::is_same<int64_t, CookieType>::value ||
 
-            std::is_same<float, CookieType>::value ||
-            std::is_same<double, CookieType>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return md::str_to_num<CookieType>(
-            _get_raw(name, enc)
-        );
-    }
+    //         std::is_same<float, CookieType>::value ||
+    //         std::is_same<double, CookieType>::value)
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     const CookieType& def_val,
+    //     http_cookies::encoding /*enc = http_cookies::encoding::clear*/) const
+    // {
+    //     std::stringstream ss;
+    //     ss << "Parsing from cookie '" << name.data()
+    //         << "' value to " << typeid(CookieType).name()
+    //         << " is not supported";
+    //     throw std::runtime_error(ss.str().c_str());
+    // }
+    
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<int16_t, CookieType>::value ||
+    //         std::is_same<int32_t, CookieType>::value ||
+    //         std::is_same<int64_t, CookieType>::value ||
 
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<int16_t, CookieType>::value ||
-            std::is_same<int32_t, CookieType>::value ||
-            std::is_same<int64_t, CookieType>::value ||
+    //         std::is_same<float, CookieType>::value ||
+    //         std::is_same<double, CookieType>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return md::str_to_num<CookieType>(
+    //         _get_raw(name, enc)
+    //     );
+    // }
 
-            std::is_same<float, CookieType>::value ||
-            std::is_same<double, CookieType>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        const CookieType& def_val,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        if(!exists(name))
-            return def_val;
-        return md::str_to_num<CookieType>(
-            _get_raw(name, enc)
-        );
-    }
-    
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_convertible<CookieType, md::string_view>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return _get_raw(name, enc);
-    }
-    
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_convertible<CookieType, md::string_view>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        const CookieType& def_val,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return exists(name) ? _get_raw(name, enc) : def_val;
-    }
-    
-    
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<bool, CookieType>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return md::to_bool(_get_raw(name, enc));
-    }
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<int16_t, CookieType>::value ||
+    //         std::is_same<int32_t, CookieType>::value ||
+    //         std::is_same<int64_t, CookieType>::value ||
 
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<bool, CookieType>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        const CookieType& def_val,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return exists(name) ? md::to_bool(_get_raw(name, enc)) : def_val;
-    }
+    //         std::is_same<float, CookieType>::value ||
+    //         std::is_same<double, CookieType>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     const CookieType& def_val,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     if(!exists(name))
+    //         return def_val;
+    //     return md::str_to_num<CookieType>(
+    //         _get_raw(name, enc)
+    //     );
+    // }
     
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<CookieType, evmvc::json>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return evmvc::json::parse(_get_raw(name, enc));
-    }
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_convertible<CookieType, md::string_view>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return _get_raw(name, enc);
+    // }
     
-    template<
-        typename CookieType,
-        typename std::enable_if<
-            std::is_same<CookieType, evmvc::json>::value
-        , int32_t>::type = -1
-    >
-    inline CookieType get(
-        md::string_view name,
-        const CookieType& def_val,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
-    {
-        return exists(name) ? evmvc::json::parse(_get_raw(name, enc)) : def_val;
-    }
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_convertible<CookieType, md::string_view>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     const CookieType& def_val,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return exists(name) ? _get_raw(name, enc) : def_val;
+    // }
+    
+    
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<bool, CookieType>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return md::to_bool(_get_raw(name, enc));
+    // }
+
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<bool, CookieType>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     const CookieType& def_val,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return exists(name) ? md::to_bool(_get_raw(name, enc)) : def_val;
+    // }
+    
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<CookieType, evmvc::json>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return evmvc::json::parse(_get_raw(name, enc));
+    // }
+    
+    // template<
+    //     typename CookieType,
+    //     typename std::enable_if<
+    //         std::is_same<CookieType, evmvc::json>::value
+    //     , int32_t>::type = -1
+    // >
+    // inline CookieType get(
+    //     md::string_view name,
+    //     const CookieType& def_val,
+    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    // {
+    //     return exists(name) ? evmvc::json::parse(_get_raw(name, enc)) : def_val;
+    // }
     
     template<
         typename CookieType,
@@ -405,18 +418,18 @@ private:
         }
         
         if(opts.max_age > -1)
-            cv += fmt::format("Max-Age={0}; ", opts.max_age);
+            cv += fmt::format("Max-Age={}; ", opts.max_age);
         if(opts.domain.size() > 0)
-            cv += fmt::format("Domain={0}; ", opts.domain.data());
+            cv += fmt::format("Domain={}; ", opts.domain.data());
         if(opts.path.size() > 0)
-            cv += fmt::format("Path={0}; ", opts.path.data());
+            cv += fmt::format("Path={}; ", opts.path.data());
         if(opts.secure)
             cv += "Secure; ";
         if(opts.http_only)
             cv += "HttpOnly; ";
         if(opts.site != same_site::none)
             cv += fmt::format(
-                "SameSite={0}; ",
+                "SameSite={}; ",
                 opts.site == same_site::strict ? "Strict" : "Lax"
             );
         
@@ -526,6 +539,46 @@ private:
     mutable cookie_map _cookies;
     bool _locked;
 };
+
+template<>
+inline std::string http_cookies::get<std::string>(
+    md::string_view name, http_cookies::encoding enc
+    ) const
+{
+    return _get_raw(name, enc);
+}
+
+template<>
+inline int16_t http_cookies::get<int16_t>(
+    md::string_view name, http_cookies::encoding enc
+    ) const
+{
+    return md::str_to_num<int16_t>(_get_raw(name, enc));
+}
+template<>
+inline int32_t http_cookies::get<int32_t>(
+    md::string_view name, http_cookies::encoding enc
+    ) const
+{
+    return md::str_to_num<int32_t>(_get_raw(name, enc));
+}
+template<>
+inline int64_t http_cookies::get<int64_t>(
+    md::string_view name, http_cookies::encoding enc
+    ) const
+{
+    return md::str_to_num<int64_t>(_get_raw(name, enc));
+}
+
+template<>
+inline nlohmann::json http_cookies::get<nlohmann::json>(
+    md::string_view name, http_cookies::encoding enc
+    ) const
+{
+    return nlohmann::json::parse(_get_raw(name, enc));
+}
+
+
 
 } //ns evmvc
 #endif //_libevmvc_cookies_h

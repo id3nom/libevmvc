@@ -400,7 +400,9 @@ private:
         }
         
         if(req->cookies().exists("token"))
-            return req->cookies().get<std::string>("token");
+            return req->cookies().get<std::string>(
+                "token", http_cookies::encoding::clear
+            );
             
         return req->query("token", "");
     }
