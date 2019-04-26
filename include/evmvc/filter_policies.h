@@ -353,6 +353,9 @@ public:
     
     void validate(filter_rule_ctx ctx, validation_cb cb)
     {
+        if(ctx->res->get_status() == 404)
+            return cb(nullptr);
+        
         std::string tok = _get_jwt(ctx->req);
         if(tok.empty()){
             if(_jwcb)

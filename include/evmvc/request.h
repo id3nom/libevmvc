@@ -286,10 +286,18 @@ public:
     
     nlohmann::json json_body() const
     {
-        auto p = _body_params->get("");
-        if(!p)
+        try{
+            auto p = _body_params->get("");
+            if(!p)
+                return nlohmann::json();
+            return p->get<nlohmann::json>();
+        }catch(const std::exception& err){
+            _log->error(
+                "Body is not a valid JSON!\n{}",
+                err.what()
+            );
             return nlohmann::json();
-        return p->get<nlohmann::json>();
+        }
     }
     
     

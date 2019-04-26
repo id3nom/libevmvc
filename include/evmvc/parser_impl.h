@@ -112,7 +112,7 @@ inline void http_parser::validate_headers()
             _conn, _http_ver, _uri, _hdrs,
             _rr // std::make_shared<route_result>(route::null(a))
         );
-        
+        _res->status(404);
         // create validation context
         evmvc::policies::filter_rule_ctx ctx = 
             evmvc::policies::new_context(_res);
