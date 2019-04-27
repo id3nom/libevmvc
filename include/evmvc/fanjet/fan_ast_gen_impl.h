@@ -551,7 +551,8 @@ inline std::string string_node_t::gen_header_code(
         }
         
     }else if(this->is_cpp_ctx()){
-        s += "\"";
+        std::string ch = child(0)->token_text();
+        s += ch;// "\"";
         auto ns = childs(1, -1);
         for(auto n : ns){
             if(n->sec_type() == section_type::token)
@@ -560,7 +561,7 @@ inline std::string string_node_t::gen_header_code(
             else if(n->node_type() != ast::node_type::directive)
                 s += n->gen_header_code(dbg, docs, doc);
         }
-        s += "\"";
+        s += ch;//"\"";
     }
     
     return s;
@@ -741,6 +742,15 @@ inline std::string fan_key_node_t::gen_header_code(
         s += doc->self_name + "->write_body();";
         return s;
     }
+
+    else if(tt == "@scripts"){
+        s += doc->self_name + "->write_scripts();";
+        return s;
+    }
+    else if(tt == "@styles"){
+        s += doc->self_name + "->write_styles();";
+        return s;
+    }
     
     // if(wrd == "@this"){
     //     wrd = doc->self_name;
@@ -777,8 +787,14 @@ inline std::string fan_fn_node_t::gen_header_code(
         tt != "@set" &&
         tt != "@get" &&
         tt != "@fmt" &&
+
         tt != "@get-raw" &&
-        tt != "@fmt-raw"
+        tt != "@fmt-raw" &&
+
+        tt != "@script" &&
+        tt != "@style" &&
+        
+        tt != "@import"
     )
         throw MD_ERR("Unknown fanjet function: '{}'", fn->token_text());
     
@@ -827,6 +843,36 @@ inline std::string fan_fn_node_t::gen_header_code(
         return s;
     }
     
+    if(tt == "@import"){
+        
+        auto cns = this->childs(1);
+        std::string src = gen_code_block(dbg, docs, doc, cns);
+        src = src.substr(2, src.size() -4);
+        
+        if(!bfs::exists(src)){
+            throw MD_ERR(
+                "Unknown file name for @import!\n"
+                "line: {}, col: {}\n{}",
+                this->_dbg_line, this->_dbg_col, doc->filename
+            );
+        }
+        
+        bfs::ifstream fin(src);
+        
+        s += doc->self_name + "->write_raw(";
+        
+        std::string line;
+        while(std::getline(fin, line)){
+            md::replace_substring(line, "\"", "\\\"");
+            s += "\"" + line + "\"\n";
+        }
+        fin.close();
+        
+        s += ");";
+        return s;
+    }
+    
+    
     bool close_parens = true;
     if(tt == "@set"){
         s += doc->self_name + "->set";
@@ -845,6 +891,15 @@ inline std::string fan_fn_node_t::gen_header_code(
     else if(tt == "@fmt-raw")
         s += doc->self_name + "->write_raw(" +
             doc->self_name + "->fmt";
+    
+    else if(tt == "@script"){
+        s += doc->self_name + "->add_script";
+        close_parens = false;
+    }
+    else if(tt == "@style"){
+        s += doc->self_name + "->add_style";
+        close_parens = false;
+    }
     
     auto cns = this->childs(1);
     return s + gen_code_block(dbg, docs, doc, cns) +

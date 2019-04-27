@@ -243,10 +243,9 @@ public:
         return fmt::format(f.data(), args...);
     }
     
-    // ================
-    // ==  ==
-    // ================
-    
+    // ==============================
+    // == body, scripts and styles ==
+    // ==============================
     
     void set_body(std::shared_ptr<view_base> body)
     {
@@ -260,6 +259,43 @@ public:
         this->commit_write("html");
     }
     void render_view(md::string_view path, md::callback::async_cb cb);
+    
+    void add_script(const std::string& src)
+    {
+        res->scripts().emplace_back(src);
+    }
+    void add_style(const std::string& src)
+    {
+        res->styles().emplace_back(src);
+    }
+    
+    void write_scripts()
+    {
+        this->begin_write("html");
+        std::string scripts = "\n";
+        for(auto& s : res->scripts()){
+            scripts += fmt::format(
+                "<script type=\"text/javascript\" src=\"{}\"></script>\n",
+                s
+            );
+        }
+        this->write_raw(scripts);
+        this->commit_write("html");
+    }
+    
+    void write_styles()
+    {
+        this->begin_write("html");
+        std::string styles = "\n";
+        for(auto& s : res->styles()){
+            styles += fmt::format(
+                "<link rel=\"stylesheet\" type=\"text/css\" href=\"{}\">\n",
+                s
+            );
+        }
+        this->write_raw(styles);
+        this->commit_write("html");
+    }
     
     const std::string& buffer() const
     {

@@ -80,6 +80,7 @@ public:
         bool dbg)
     {
         ast::document doc = ast::document(new ast::document_t());
+        doc->skip_gen = false;
         
         file_path = bfs::absolute(file_path);
         doc->filename = file_path.string();
@@ -314,50 +315,52 @@ public:
                 ns_close += " // " + ns_open;
             ns_open += "\n";
             ns_close += "\n";
+
+            if(!doc->skip_gen){
             
-            std::string pre_inc = doc->pre_inc_header ? 
-                doc->pre_inc_header->gen_header_code(dbg, docs, doc) : "";
-            std::string post_inc = doc->post_inc_header ? 
-                doc->post_inc_header->gen_header_code(dbg, docs, doc) : "";
-            
-            if(!pre_inc.empty())
-                pre_inc = ns_open + pre_inc + ns_close;
-            if(!post_inc.empty())
-                post_inc = ns_open + post_inc + ns_close;
-            
-            
-            doc->i_src = fmt::format(
-                "/*\n"
-                // generation notice
-                "  {0}"
-                "*/\n"
-                "\n"
-                "#ifndef {1}\n"
-                "#define {1}\n"
-                // include the fanjet base class
-                "#include \"evmvc/fanjet/fan_view_base.h\"\n"
-                // includes
-                "{2} \n"
-                // pre inc
-                "{3} \n"
-                // include view header
-                "#include \"{4}\"\n"
-                // post inc
-                "{5} \n"
+                std::string pre_inc = doc->pre_inc_header ? 
+                    doc->pre_inc_header->gen_header_code(dbg, docs, doc) : "";
+                std::string post_inc = doc->post_inc_header ? 
+                    doc->post_inc_header->gen_header_code(dbg, docs, doc) : "";
                 
-                "#endif // {1}\n",
-                gen_notice,
-                inc_guards,
-                includes,
-                pre_inc,
-                doc->h_filename,
-                post_inc
-            );
-            
-            
-            doc->h_src =
-                doc->rn->gen_header_code(dbg, docs, doc) +
-                "\n/*\n" + gen_notice + " */\n";
+                if(!pre_inc.empty())
+                    pre_inc = ns_open + pre_inc + ns_close;
+                if(!post_inc.empty())
+                    post_inc = ns_open + post_inc + ns_close;
+                
+                doc->i_src = fmt::format(
+                    "/*\n"
+                    // generation notice
+                    "  {0}"
+                    "*/\n"
+                    "\n"
+                    "#ifndef {1}\n"
+                    "#define {1}\n"
+                    // include the fanjet base class
+                    "#include \"evmvc/fanjet/fan_view_base.h\"\n"
+                    // includes
+                    "{2} \n"
+                    // pre inc
+                    "{3} \n"
+                    // include view header
+                    "#include \"{4}\"\n"
+                    // post inc
+                    "{5} \n"
+                    
+                    "#endif // {1}\n",
+                    gen_notice,
+                    inc_guards,
+                    includes,
+                    pre_inc,
+                    doc->h_filename,
+                    post_inc
+                );
+                
+                
+                doc->h_src =
+                    doc->rn->gen_header_code(dbg, docs, doc) +
+                    "\n/*\n" + gen_notice + " */\n";
+            }
             
             inc_src_incs += fmt::format(
                 "#include \"{}\"\n",

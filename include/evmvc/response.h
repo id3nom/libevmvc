@@ -288,7 +288,16 @@ public:
                 );
         }
     }
-
+    
+    std::vector<std::string>& styles()
+    {
+        return _styles;
+    }
+    std::vector<std::string>& scripts()
+    {
+        return _scripts;
+    }
+    
     bool has_error() const
     {
         return (bool)_err;
@@ -446,6 +455,9 @@ private:
     
     md::callback::cb_error _err;
     evmvc::status _err_status;
+    
+    std::vector<std::string> _styles;
+    std::vector<std::string> _scripts;
 };
 
 

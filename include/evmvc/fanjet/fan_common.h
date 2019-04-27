@@ -180,6 +180,7 @@ class document_t
     }
     
 public:
+    bool skip_gen;
     std::string dirname;
     std::string filename;
     
@@ -445,6 +446,13 @@ enum class section_type
     dirname             = INT_MIN +14,  // @dirname
     
     tag                 = INT_MIN +15,  // <tag/><tag></tag><void tag>
+
+    script              = INT_MIN +16,
+    scripts             = INT_MIN +17,
+    style               = INT_MIN +18,
+    styles              = INT_MIN +19,
+
+    import              = INT_MIN +20,
     
     dir_ns              = 1,            // @namespace ...
     dir_name            = (1 << 1),     // @name ...
@@ -530,6 +538,18 @@ inline md::string_view to_string(section_type t)
             return "filename";
         case section_type::dirname:
             return "dirname";
+
+        case section_type::script:
+            return "script";
+        case section_type::style:
+            return "style";
+        case section_type::scripts:
+            return "scripts";
+        case section_type::styles:
+            return "styles";
+
+        case section_type::import:
+            return "import";
 
         case section_type::dir_ns:
             return "dir_ns";

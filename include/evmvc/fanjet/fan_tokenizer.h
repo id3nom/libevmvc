@@ -202,10 +202,15 @@ public:
         return
             is_fan_filename() ||
             is_fan_dirname() ||
-            is_fan_body();
+            is_fan_body() ||
+            is_fan_scripts() ||
+            is_fan_styles()
+            ;
     }
     
     bool is_fan_body() const { return _text == "@body";}
+    bool is_fan_scripts() const { return _text == "@scripts";}
+    bool is_fan_styles() const { return _text == "@styles";}
     bool is_fan_filename() const { return _text == "@filename";}
     bool is_fan_dirname() const { return _text == "@dirname";}
     
@@ -219,7 +224,13 @@ public:
             is_fan_get() ||
             is_fan_fmt() ||
             is_fan_get_raw() ||
-            is_fan_fmt_raw();
+            is_fan_fmt_raw() ||
+            
+            is_fan_import() ||
+            
+            is_fan_script() ||
+            is_fan_style()
+            ;
     }
     
     bool is_fan_render() const { return _text == "@>";}
@@ -228,6 +239,11 @@ public:
     bool is_fan_fmt() const { return _text == "@fmt";}
     bool is_fan_get_raw() const { return _text == "@get-raw";}
     bool is_fan_fmt_raw() const { return _text == "@fmt-raw";}
+    
+    bool is_fan_import() const { return _text == "@import";}
+    
+    bool is_fan_script() const { return _text == "@script";}
+    bool is_fan_style() const { return _text == "@style";}
     
     bool is_fan_key() const
     {
@@ -1208,6 +1224,8 @@ const char* tokenizer::s_tokens[] = {
     "@this",
     "@filename",
     "@dirname",
+    "@scripts",
+    "@styles",
     
     "@(",
     "@>",
@@ -1216,6 +1234,11 @@ const char* tokenizer::s_tokens[] = {
     "@fmt",
     "@get-raw",
     "@fmt-raw",
+    
+    "@import",
+    
+    "@script",
+    "@style",
     
     // "\n``````````", "\n`````````", "\n````````", "\n```````", "\n``````", 
     // "\n`````", "\n````", "\n```", "\n``",

@@ -114,6 +114,12 @@ enum class node_type
     dirname         = INT_MIN +14,
     tag             = INT_MIN +15,
     
+    script          = INT_MIN +16,
+    scripts         = INT_MIN +17,
+    style           = INT_MIN +18,
+    styles          = INT_MIN +19,
+    
+    import          = INT_MIN +20,
     
     directive       =
         (int)(
@@ -208,6 +214,18 @@ inline md::string_view to_string(node_type t)
             return "filename";
         case node_type::dirname:
             return "dirname";
+
+        case node_type::script:
+            return "script";
+        case node_type::style:
+            return "style";
+        case node_type::scripts:
+            return "scripts";
+        case node_type::styles:
+            return "styles";
+
+        case node_type::import:
+            return "import";
 
         case node_type::directive:
             return "directive";
@@ -423,7 +441,13 @@ public:
             this->node_type() == ast::node_type::get ||
             this->node_type() == ast::node_type::fmt ||
             this->node_type() == ast::node_type::get_raw ||
-            this->node_type() == ast::node_type::fmt_raw
+            this->node_type() == ast::node_type::fmt_raw ||
+            
+            this->node_type() == ast::node_type::script ||
+            this->node_type() == ast::node_type::style ||
+            
+            this->node_type() == ast::node_type::import
+            
             ;
     }
     

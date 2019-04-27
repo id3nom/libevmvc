@@ -435,6 +435,12 @@ inline bool open_fan_key(ast::token& t, ast::node_t* pn)
     ast::node n = fan_key_node(new fan_key_node_t(
         t->is_fan_body() ?
             ast::section_type::body :
+
+        t->is_fan_scripts() ?
+            ast::section_type::scripts :
+        t->is_fan_styles() ?
+            ast::section_type::styles :
+
         t->is_fan_filename() ?
             ast::section_type::filename :
         t->is_fan_dirname() ?
@@ -462,6 +468,14 @@ inline bool open_fan_fn(ast::token& t, ast::node_t* pn)
             ast::section_type::get_raw :
         t->is_fan_fmt_raw() ?
             ast::section_type::fmt_raw :
+        
+        t->is_fan_script() ?
+            ast::section_type::script :
+        t->is_fan_style() ?
+            ast::section_type::style :
+
+        t->is_fan_import() ?
+            ast::section_type::import :
         
             ast::section_type::invalid
     ));
@@ -1552,6 +1566,12 @@ inline void fan_fn_node_t::parse(ast::token t)
             case ast::section_type::fmt:
             case ast::section_type::get_raw:
             case ast::section_type::fmt_raw:
+            
+            case ast::section_type::script:
+            case ast::section_type::style:
+            
+            case ast::section_type::import:
+            
                 if(!t->is_whitespace()){
                     if(t->is_parenthesis_open()){
                         _done = true;

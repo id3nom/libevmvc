@@ -36,8 +36,8 @@ void march_dir(
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src/*,
-    const bfs::path& dest*/
+    const bfs::path& src,
+    const bfs::path& dest
 );
 
 void process_fanjet_file(
@@ -46,8 +46,8 @@ void process_fanjet_file(
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src/*,
-    const bfs::path& dest*/
+    const bfs::path& src,
+    const bfs::path& dest
 );
 
 void save_docs(
@@ -189,8 +189,8 @@ int main(int argc, char** argv)
             docs,
             vm["src"].as<std::string>(),
             vm["namespace"].as<std::string>(),
-            vm["src"].as<std::string>()/*,
-            vm["dest"].as<std::string>()*/
+            vm["src"].as<std::string>(),
+            vm["dest"].as<std::string>()
         );
         
         auto now = std::chrono::system_clock::now();
@@ -266,8 +266,8 @@ void march_dir(
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src/*,
-    const bfs::path& dest*/)
+    const bfs::path& src,
+    const bfs::path& dest)
 {
     for(bfs::directory_entry& x : bfs::directory_iterator(src)){
         switch(x.status().type()){
@@ -278,8 +278,8 @@ void march_dir(
                     docs,
                     root,
                     ns,
-                    x.path()/*,
-                    dest / *x.path().rbegin()*/
+                    x.path(),
+                    dest
                 );
                 break;
                 
@@ -290,8 +290,8 @@ void march_dir(
                     docs,
                     root,
                     ns,
-                    x.path()/*,
-                    dest / x.path().filename()*/
+                    x.path(),
+                    dest
                 );
                 break;
                 
@@ -309,11 +309,14 @@ void process_fanjet_file(
     std::vector<evmvc::fanjet::ast::document>& docs,
     const bfs::path& root,
     const std::string& ns,
-    const bfs::path& src/*,
-    const bfs::path& dest*/)
+    const bfs::path& src,
+    const bfs::path& dest)
 {
     try{
         log()->debug("parsing source: '{}'", src.string());
+        
+        if(src.extension() != ".fan")
+            return;
         
         bfs::ifstream fin(src);
         std::ostringstream ostrm;
@@ -347,6 +350,18 @@ void process_fanjet_file(
                 fan_src,
                 dbg
             );
+        
+        bfs::path dest_fn = dest / doc->i_filename;
+        if(bfs::exists(dest_fn)){
+            struct stat src_stat;
+            stat(src.c_str(), &src_stat);
+            struct stat dest_stat;
+            stat(dest_fn.c_str(), &dest_stat);
+            
+            if(std::difftime(src_stat.st_mtime, dest_stat.st_mtime) < 0)
+                doc->skip_gen = true;
+        }
+        
         docs.emplace_back(doc);
         
     }catch(const md::error::stacked_error& serr){
@@ -386,6 +401,8 @@ void save_docs(
     fout.close();
     
     for(auto d : docs){
+        if(d->skip_gen)
+            continue;
         
         fn = dest / d->i_filename;
         if(bfs::exists(fn))
