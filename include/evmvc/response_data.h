@@ -29,6 +29,22 @@ SOFTWARE.
 
 namespace evmvc {
 
+// struct sfinae_base {
+//     typedef char yes[1];
+//     typedef char no[2];
+// };
+
+// template<typename T>
+// struct has_insertion_operator : sfinae_base {
+//     template<typename U> static yes& test( U& );
+//     template<typename U> static no& test(...);
+
+//     static std::ostream &s;
+//     static T const &t;
+
+//     static bool const value = sizeof( test( s << t ) ) == sizeof( yes );
+// };
+
 class response_data_base_t
 {
 public:
@@ -63,12 +79,28 @@ public:
         return (U)_v;
     }
     
+    // std::string to_string() const
+    // {
+    //     std::stringstream ss;
+    //     ss << _v;
+    //     return ss.str();
+    // }
     std::string to_string() const
     {
-        std::stringstream ss;
-        ss << _v;
-        return ss.str();
+        throw MD_ERR("Not implemented!");
     }
+    
+    // template<
+    //     typename U = T,
+    //     typename std::enable_if<
+    //         !has_insertion_operator<U>::value, int
+    //     >::type = -1
+    // >
+    // std::string to_string() const
+    // {
+    //     throw MD_ERR("Not implemented!");
+    // }
+
     
     template<typename U>
     operator U() const
