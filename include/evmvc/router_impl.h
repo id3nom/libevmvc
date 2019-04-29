@@ -72,7 +72,8 @@ inline router::router(evmvc::wp_app app)
     : _app(app), 
     _path(_norm_path("")),
     _log(_app.lock()->log()->add_child(_path)),
-    _parent()
+    _parent(),
+    _router_index("/index.html")
     /*,
     _match_first(boost::indeterminate),
     _match_strict(boost::indeterminate),
@@ -86,7 +87,8 @@ inline router::router(evmvc::wp_app app, const md::string_view& path)
     : _app(app),
     _path(_norm_path(path)),
     _log(_app.lock()->log()->add_child(_path)),
-    _parent()
+    _parent(),
+    _router_index("/index.html")
     /*,
     _match_first(boost::indeterminate),
     _match_strict(boost::indeterminate),

@@ -461,6 +461,17 @@ public:
             return this->_path;
     }
     
+    const std::string& router_index() const
+    {
+        return _router_index;
+    }
+    void router_index(const std::string& new_index)
+    {
+        _router_index = new_index;
+        if(*_router_index.rbegin() != '/')
+            _router_index.insert(0, "/");
+    }
+    
     sp_router find_router(md::string_view path, bool partial_path = false)
     {
         if(partial_path){
@@ -535,31 +546,24 @@ public:
         md::string_view local_url = url.substr(_path.size());
         
         // verify if child router match path in insertion order
-        for(auto rp : _router_paths){
-            if(
-                local_url.size() > rp.size() && 
-                !std::strncmp(local_url.data(), rp.c_str(), rp.size())
-            ){
-                auto it = _routers.find(rp);
-                return it->second->resolve_url(
-                    method,
-                    local_url
-                );
+        if(local_url.size() > 0)
+            for(auto rp : _router_paths){
+                if(
+                    local_url.size() > rp.size() && 
+                    !std::strncmp(local_url.data(), rp.c_str(), rp.size())
+                ){
+                    auto it = _routers.find(rp);
+                    return it->second->resolve_url(
+                        method,
+                        local_url
+                    );
+                }
             }
-        }
-        
-        // for(auto it = _routers.begin(); it != _routers.end(); ++it)
-        //     if(local_url.size() > it->first.size() &&
-        //         !std::strncmp(local_url.data(),
-        //             it->first.c_str(), it->first.size()
-        //         )
-        //     )
-        //         return it->second->resolve_url(
-        //             method,
-        //             local_url
-        //         );
         
         local_url = url.substr(_path.size() -1);
+        if(local_url.size() == 1)
+            local_url = _router_index;
+        
         auto rm = _verbs.find(std::string(method));
         if(rm != _verbs.end())
             for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
@@ -993,6 +997,8 @@ protected:
     
     std::vector<route_handler_cb> _pre_handlers;
     std::vector<route_handler_cb> _post_handlers;
+    
+    std::string _router_index;
     
 };// class router
 

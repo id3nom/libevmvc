@@ -82,7 +82,7 @@ public:
         
         std::shared_ptr<evmvc::view_base> tv = v;
         while(tv && !tv->layout().empty()){
-            std::string s = v->layout().to_string();
+            std::string s = tv->layout().to_string();
             if(s.find("::") == std::string::npos)
                 tv = this->get_view(res, s);
             else
