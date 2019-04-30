@@ -254,6 +254,9 @@ public:
     
     void write_body()
     {
+        if(!_body)
+            return;
+        
         this->begin_write("html");
         this->write_raw(_body->buffer());
         this->commit_write("html");
