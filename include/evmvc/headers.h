@@ -357,6 +357,11 @@ public:
         return strcasecmp(hdr->value(), val.data()) == 0;
     }
     
+    sp_header_map data()
+    {
+        return _hdrs;
+    }
+    
     std::vector<evmvc::sp_header> list(evmvc::field header_name) const
     {
         return list(to_string(header_name));
