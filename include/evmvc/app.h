@@ -158,8 +158,8 @@ public:
     }
     
     void set_callbacks(
-        md::callback::value_cb<evmvc::process_type> started_cb, 
-        md::callback::value_cb<evmvc::process_type> stopped_cb)
+        md::callback::async_item_cb<evmvc::process_type> started_cb, 
+        md::callback::async_item_cb<evmvc::process_type> stopped_cb)
     {
         _started_cb = started_cb;
         _stopped_cb = stopped_cb;
@@ -254,9 +254,16 @@ public:
         timeval tv = md::date::ms_to_timeval(1000);
         event_add(_ev_verif_childs, &tv);
         
+        
         if(_started_cb)
             set_timeout([self = this->shared_from_this()](auto ew){
-                self->_started_cb(nullptr, process_type::master);
+                self->_started_cb(process_type::master,
+                [self](const md::callback::cb_error& err){
+                    if(err){
+                        self->log()->error(err);
+                        return;
+                    }
+                });
             }, 0);
         
         if(start_event_loop){
@@ -305,47 +312,13 @@ public:
         this->_status = running_state::stopped;
         
         if(_stopped_cb)
-            _stopped_cb(nullptr, process_type::master);
-        
-        if(cb)
+            _stopped_cb(process_type::master,
+            [cb](const md::callback::cb_error& err){
+                if(cb)
+                    cb(nullptr);
+            });
+        else if(cb)
             cb(nullptr);
-        
-        // struct timeval tvn;
-        // gettimeofday(&tvn, nullptr);
-        // auto to = ms_to_timeval(3000 + timeval_to_ms(tvn));
-        // set_interval(
-        // [self = this->shared_from_this(), cb, free_ev_base, to]
-        // (auto ev){
-        //     bool stopped = true;
-        //     for(auto w : self->_workers)
-        //         if(!w->stopped())
-        //             stopped = false;
-        //    
-        //     struct timeval tvn;
-        //     gettimeofday(&tvn, nullptr);
-        //     if(!stopped && timercmp(&tvn, &to, <))
-        //         return;
-        //    
-        //     clear_timeout(ev);
-        //    
-        //     for(auto w : self->_workers)
-        //         if(!w->stopped())
-        //             kill(w->pid(), SIGKILL);
-        //    
-        //     self->_workers.clear();
-        //     self->_servers.clear();
-        //    
-        //     if(free_ev_base)
-        //         event_base_free(global::ev_base());
-        //    
-        //     std::clog << "Service stopped" << std::endl;
-        //     self->_log->info("Service stopped");
-        //    
-        //     self->_status = running_state::stopped;
-        //    
-        //     if(cb)
-        //         cb(nullptr);
-        // }, 50);
     }
     
     // ==============
@@ -688,8 +661,8 @@ private:
     std::vector<evmvc::sp_worker> _workers;
     std::vector<evmvc::sp_master_server> _servers;
     
-    md::callback::value_cb<evmvc::process_type> _started_cb; 
-    md::callback::value_cb<evmvc::process_type> _stopped_cb;
+    md::callback::async_item_cb<evmvc::process_type> _started_cb; 
+    md::callback::async_item_cb<evmvc::process_type> _stopped_cb;
     
     event* _ev_verif_childs;
     evmvc::response_data_map _app_data;

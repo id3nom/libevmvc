@@ -381,8 +381,8 @@ public:
     bool is_child() const { return _ptype == process_type::child;}
     
     void set_callbacks(
-        md::callback::value_cb<evmvc::process_type> started_cb, 
-        md::callback::value_cb<evmvc::process_type> stopped_cb)
+        md::callback::async_item_cb<evmvc::process_type> started_cb, 
+        md::callback::async_item_cb<evmvc::process_type> stopped_cb)
     {
         _started_cb = started_cb;
         _stopped_cb = stopped_cb;
@@ -429,9 +429,8 @@ public:
             size_t pname_size = strlen(argv[0]);
             strncpy(argv[0], pname.c_str(), pname_size);
             
-            auto c_sink = std::make_shared<evmvc::sinks::child_sink>(
-                this->shared_from_this()
-            );
+            auto self = this->shared_from_this();
+            auto c_sink = std::make_shared<evmvc::sinks::child_sink>(self);
             c_sink->set_level(_log->level());
             _log->replace_sink(c_sink);
             
@@ -443,8 +442,15 @@ public:
             global::ev_base(event_base_new(), false, true);
             
             if(_started_cb)
-                set_timeout([self = this->shared_from_this()](auto ew){
-                    self->_started_cb(nullptr, process_type::child);
+                set_timeout([self](auto ew){
+                    self->_started_cb(process_type::child,
+                    [self](const md::callback::cb_error& err){
+                        if(err){
+                            self->log()->error(err);
+                            self->stop();
+                            return;
+                        }
+                    });
                 }, 0);
         }
         
@@ -468,13 +474,27 @@ public:
             // closing worker on the master process
             //_channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
             _channel.release();
-            if(force)
-                event_base_loopbreak(global::ev_base());
-            else
-                event_base_loopexit(global::ev_base(), nullptr);
+            
+            auto stop_evbase_loop = [force]() -> void{
+                if(force)
+                    event_base_loopbreak(global::ev_base());
+                else
+                    event_base_loopexit(global::ev_base(), nullptr);
+            };
             
             if(_stopped_cb)
-                _stopped_cb(nullptr, process_type::child);
+                _stopped_cb(process_type::child,
+                [stop_evbase_loop](const md::callback::cb_error& err)->void{
+                    if(err){
+                        std::cerr << fmt::format(
+                            "{}",
+                            err.c_str()
+                        );
+                    }
+                    stop_evbase_loop();
+                });
+            else
+                stop_evbase_loop();
             
             return;
         }
@@ -577,8 +597,8 @@ protected:
     process_type _ptype;
     std::unique_ptr<evmvc::channel> _channel;
 
-    md::callback::value_cb<evmvc::process_type> _started_cb;
-    md::callback::value_cb<evmvc::process_type> _stopped_cb;
+    md::callback::async_item_cb<evmvc::process_type> _started_cb;
+    md::callback::async_item_cb<evmvc::process_type> _stopped_cb;
     
     std::vector<cmd_parser_fn> _cmd_parsers;
 };
