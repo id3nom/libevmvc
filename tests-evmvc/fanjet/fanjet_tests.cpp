@@ -29,13 +29,13 @@ SOFTWARE.
 namespace evmvc { namespace tests {
 
 
-class jetfan_test: public testing::Test
+class fanjet_test: public testing::Test
 {
 public:
 };
 
 
-TEST_F(jetfan_test, ast_test)
+TEST_F(fanjet_test, ast_test)
 {
     try{
         std::string fan_str(
@@ -360,7 +360,7 @@ TEST_F(jetfan_test, ast_test)
 }
 
 
-TEST_F(jetfan_test, ast_parser)
+TEST_F(fanjet_test, ast_parser)
 {
     try{
         // std::string fan_str(
