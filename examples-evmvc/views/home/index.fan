@@ -37,10 +37,13 @@ Message: @get("msg")
 
 @{
     @utils::util_func01();
+    std::string attr_tst("data-test-a=\"attribute test\"");
+    std::string attr_val_tst("attribute value");
 }
 
-<a href="/test">test</a><br/>
-<a href="/html/login.html">login</a><br/>
+
+<a href="/test" @::attr_tst;>test</a><br/>
+<a href="/html/login.html" data-value="@:attr_val_tst;">login</a><br/>
 <a href="/download-file/">/download-file/:[filename]</a><br/>
 <a href="/echo/blabla">/echo/:val</a><br/>
 <a href="/send-json">/send-json</a><br/>
