@@ -108,6 +108,7 @@ until the view is found or the views 'root' directory is reached.
 | @name         | \n        | view name to use the filename without it's extension let the directive empty |
 | @layout       | \n        | layout used with that view, to use the default layout let the directive empty |
 | @header       | ;         | view header definition |
+| @import       | ;         | inline the specified document |
 | @inherits     | ;         | view inherits override settings |
 | @region       | \n        | foldable region start |
 | @endregion    | \n        | foldable region end |
@@ -135,6 +136,8 @@ until the view is found or the views 'root' directory is reached.
 | @fmt(f,v...)  |           | write encoded format output, 'f' is the format string and 'v...' is arguments |
 | @get-raw(n,d) |           | write non encoded value matching key 'n' from store, if not found 'd' is returned, 'd' is optional |
 | @fmt-raw(f,v...) |        | write non encoded format output, 'f' is the format string and 'v...' is arguments |
+| @style(style-filename, attr...) |  | a style file that will be append to the 'evmvc::response' list of styles which can be output with the @styles tag |
+| @script(javascript-filename) |  | a javascript file that will be append to the 'evmvc::response' list of scripts which can be output with the @scripts tag |
 
 
 # benchmark
