@@ -313,9 +313,14 @@ void register_app_cbs()
         res->status(evmvc::status::ok).send(
             fmt::format("route: {}\ncookie-a: {}, {}: {}", 
                 "/cookies/get/:[name]",
-                res->cookies().get<std::string>("cookie-a"),
+                // res->cookies().get<std::string>("cookie-a"),
+                req->cookies<std::string>("cookie-a"),
                 req->params("name", "cookie-b"),
-                res->cookies().get<std::string>(
+                // res->cookies().get<std::string>(
+                //     req->params("name", "cookie-b"),
+                //     "do not exists!"
+                // )
+                req->cookies(
                     req->params("name", "cookie-b"),
                     "do not exists!"
                 )

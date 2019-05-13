@@ -205,6 +205,20 @@ public:
     
     evmvc::request_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
+    
+    template<typename COOKIE_T>
+    COOKIE_T cookies(md::string_view name, COOKIE_T def_val) const
+    {
+        if(_cookies->exists(name))
+            return _cookies->get<COOKIE_T>(name);
+        return def_val;
+    }
+    template<typename COOKIE_T>
+    COOKIE_T cookies(md::string_view name) const
+    {
+        return _cookies->get<COOKIE_T>(name);
+    }
+    
     http_files& files() const { return *(_files.get());}
     
     http_params_t& params() const { return *(_rt_params.get());}
