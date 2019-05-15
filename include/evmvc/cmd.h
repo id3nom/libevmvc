@@ -71,6 +71,10 @@ public:
         return _id;
     }
     
+    evbuffer* buffer()
+    {
+        return _buf;
+    }
     const char* data() const
     {
         if(size() == 0)
