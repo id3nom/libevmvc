@@ -470,11 +470,12 @@ inline void clear_interval(std::shared_ptr<_internal::event_wrapper_base> ev)
     ev->stop();
 }
 
-inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+typedef std::shared_ptr<_internal::event_wrapper<void>> timer_ev_wrapper;
+inline timer_ev_wrapper set_timeout(
     md::string_view name,
     int fd, event_type et,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
+        timer_ev_wrapper, int, event_type)
         > _cb,
     size_t ms
 )
@@ -482,7 +483,7 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
-    auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
+    auto ev = timer_ev_wrapper(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
             evmvc::global::ev_base(), fd, et, nullptr, nullptr, _cb
@@ -500,10 +501,10 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     _internal::register_event(ev);
     return ev;
 }
-inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline timer_ev_wrapper set_timeout(
     int fd, event_type et,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
+        timer_ev_wrapper, int, event_type)
         > _cb,
     size_t ms
 )
@@ -512,10 +513,10 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 }
 
 
-inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline timer_ev_wrapper set_timeout(
     md::string_view name,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>)
+        timer_ev_wrapper)
         > _cb,
     size_t ms
 )
@@ -523,7 +524,7 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
-    auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
+    auto ev = timer_ev_wrapper(
         new _internal::event_wrapper<void>(
             "to:" + name.to_string(),
             evmvc::global::ev_base(), -1, event_type::none, nullptr, nullptr, 
@@ -544,9 +545,9 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
     _internal::register_event(ev);
     return ev;
 }
-inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
+inline timer_ev_wrapper set_timeout(
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>)
+        timer_ev_wrapper)
         > _cb,
     size_t ms
 )
@@ -556,11 +557,11 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_timeout(
 
 
 
-inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline timer_ev_wrapper set_interval(
     md::string_view name,
     int fd, event_type et,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
+        timer_ev_wrapper, int, event_type)
         > _cb,
     size_t ms
 )
@@ -568,7 +569,7 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
-    auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
+    auto ev = timer_ev_wrapper(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
             evmvc::global::ev_base(), fd, et | event_type::persist,
@@ -587,10 +588,10 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     _internal::register_event(ev);
     return ev;
 }
-inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline timer_ev_wrapper set_interval(
     int fd, event_type et,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>, int, event_type)
+        timer_ev_wrapper, int, event_type)
         > _cb,
     size_t ms
 )
@@ -598,10 +599,10 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     return set_interval(_internal::next_event_name(), fd, et, _cb, ms);
 }
 
-inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline timer_ev_wrapper set_interval(
     md::string_view name,
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>)
+        timer_ev_wrapper)
         > _cb,
     size_t ms
 )
@@ -609,7 +610,7 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     if(evmvc::global::ev_base() == nullptr)
         return nullptr;
     
-    auto ev = std::shared_ptr<_internal::event_wrapper<void>>(
+    auto ev = timer_ev_wrapper(
         new _internal::event_wrapper<void>(
             "iv:" + name.to_string(),
             evmvc::global::ev_base(), -1, event_type::persist,
@@ -631,9 +632,9 @@ inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
     _internal::register_event(ev);
     return ev;
 }
-inline std::shared_ptr<_internal::event_wrapper<void>> set_interval(
+inline timer_ev_wrapper set_interval(
     std::function<void(
-        std::shared_ptr<_internal::event_wrapper<void>>)
+        timer_ev_wrapper)
         > _cb,
     size_t ms
 )

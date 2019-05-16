@@ -71,7 +71,7 @@ public:
         return _id;
     }
     
-    evbuffer* buffer()
+    evbuffer* buffer() const
     {
         return _buf;
     }
@@ -209,7 +209,7 @@ inline evmvc::json command::read<evmvc::json>()
 }
 
 template<>
-inline std::string command::peak(size_t offset) const
+inline std::string command::peak<std::string>(size_t offset) const
 {
     size_t l = peak<size_t>(offset);
     offset += sizeof(size_t);

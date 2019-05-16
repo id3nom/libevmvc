@@ -159,10 +159,14 @@ public:
     
     void set_callbacks(
         md::callback::async_item_cb<evmvc::process_type> started_cb, 
-        md::callback::async_item_cb<evmvc::process_type> stopped_cb)
+        md::callback::async_item_cb<evmvc::process_type> stopped_cb,
+        std::function<void(evmvc::sp_worker)> worker_created_cb,
+        std::function<void(evmvc::sp_worker)> worker_deleted_cb)
     {
         _started_cb = started_cb;
         _stopped_cb = stopped_cb;
+        _worker_created_cb = worker_created_cb;
+        _worker_deleted_cb = worker_deleted_cb;
     }
     
     void initialize()
@@ -188,6 +192,8 @@ public:
             sp_http_worker w = std::make_shared<evmvc::http_worker>(
                 this->shared_from_this(), _options, this->_log
             );
+            if(_worker_created_cb)
+                _worker_created_cb(w);
             
             int pid = fork();
             if(pid == -1){// fork failed
@@ -295,9 +301,13 @@ public:
         std::clog << "Stopping service" << std::endl;
         _log->info("Stopping service");
         
-        for(auto w : _workers)
-            if(w->running())
+        for(auto w : _workers){
+            if(_worker_deleted_cb)
+                _worker_deleted_cb(w);
+            if(w->running()){
                 w->stop();
+            }
+        }
         
         this->_workers.clear();
         this->_servers.clear();
@@ -551,12 +561,18 @@ private:
         for(auto it = self->_workers.begin(); it != self->_workers.end(); ++it){
             if((*it)->pid() == p){
                 //evmvc::sp_worker w = *it;
+                if(self->_worker_deleted_cb)
+                    self->_worker_deleted_cb(*it);
+                
                 (*it)->stop(true);
                 self->_workers.erase(it);
                 
                 evmvc::sp_worker w = std::make_shared<evmvc::http_worker>(
                     self->shared_from_this(), self->_options, self->_log
                 );
+                
+                if(self->_worker_created_cb)
+                    self->_worker_created_cb(w);
                 
                 // restart child proc
                 int pid = fork();
@@ -663,6 +679,10 @@ private:
     
     md::callback::async_item_cb<evmvc::process_type> _started_cb; 
     md::callback::async_item_cb<evmvc::process_type> _stopped_cb;
+    
+    std::function<void(evmvc::sp_worker)> _worker_created_cb; 
+    std::function<void(evmvc::sp_worker)> _worker_deleted_cb;
+    
     
     event* _ev_verif_childs;
     evmvc::response_data_map _app_data;
