@@ -50,12 +50,13 @@ class command
 public:
     command(int id)
         : _id(id),
-        _buf(evbuffer_new())
+        _buf(evbuffer_new()),
+        _rpos(0)
     {
     }
     
     command(int id, const char* payload, size_t payload_len)
-        : _id(id), _buf(evbuffer_new())
+        : _id(id), _buf(evbuffer_new()), _rpos(0)
     {
         evbuffer_add(_buf, payload, payload_len);
     }
@@ -85,6 +86,12 @@ public:
     size_t size() const
     {
         return evbuffer_get_length(_buf);
+    }
+    
+    size_t read_pos() const {return _rpos;}
+    void reset_read_pos(size_t p = 0)
+    {
+        _rpos = p;
     }
     
     template<typename T>
@@ -147,6 +154,18 @@ public:
         evbuffer_drain(_buf, n);
     }
     
+    void resize(size_t n)
+    {
+        if(n < size()){
+            evbuffer* b = evbuffer_new();
+            evbuffer_remove_buffer(_buf, b, n);
+            evbuffer_free(_buf);
+            _buf = b;
+        }else if(n > size()){
+            evbuffer_expand(_buf, n);
+        }
+    }
+    
 private:
     void _write(const char* d, size_t l)
     {
@@ -156,24 +175,21 @@ private:
     
     void _peak(char* d, size_t l, size_t offset = 0) const
     {
-        size_t os = l + offset;
-        unsigned char* s = evbuffer_pullup(_buf, os);
+        unsigned char* s = evbuffer_pullup(_buf, evbuffer_get_length(_buf));
         if(s == nullptr)
             throw MD_ERR("Invalid buffer length");
-        memcpy(d, s + offset, l);
+        memcpy(d, s + (_rpos + offset), l);
     }
     
     void _read(char* d, size_t l)
     {
-        unsigned char* s = evbuffer_pullup(_buf, l);
-        if(s == nullptr)
-            throw MD_ERR("Invalid buffer length");
-        memcpy(d, s, l);
-        evbuffer_drain(_buf, l);
+        _peak(d, l);
+        _rpos += l;
     }
     
     int _id;
     evbuffer* _buf;
+    size_t _rpos;
 };
 
 
