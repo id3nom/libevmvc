@@ -149,6 +149,17 @@ public:
         }
     }
     
+    bool empty() const
+    {
+        return size() == 0;
+    }
+    
+    void drain()
+    {
+        drain(_rpos);
+        _rpos = 0;
+    }
+    
     void drain(size_t n)
     {
         evbuffer_drain(_buf, n);
