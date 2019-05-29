@@ -480,6 +480,7 @@ public:
                     event_base_loopbreak(global::ev_base());
                 else
                     event_base_loopexit(global::ev_base(), nullptr);
+                exit(0);
             };
             
             if(_stopped_cb)
@@ -495,7 +496,6 @@ public:
                 });
             else
                 stop_evbase_loop();
-            
             return;
         }
         
@@ -506,8 +506,6 @@ public:
                 _channel->sendcmd(
                     command(evmvc::CMD_CLOSE)
                 );
-                _channel->close_channels();
-                _channel.release();
                 this->_status = running_state::stopped;
                 return;
             }catch(const std::exception& err){
@@ -516,7 +514,7 @@ public:
         }
         if(!force)
             _log->warn(
-                "Sending close message faied! closing channels"
+                "Sending close message failed! closing channels"
             );
         
         _channel->close_channels();
@@ -525,6 +523,11 @@ public:
     }
     
     void close_service();
+    void close_channels()
+    {
+        _channel->close_channels();
+        _channel.release();
+    }
     
     bool ping()
     {

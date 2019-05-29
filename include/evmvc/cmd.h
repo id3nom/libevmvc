@@ -76,6 +76,27 @@ public:
     {
         return _buf;
     }
+    
+    /**
+     Move all data from current evbuffer into another evbuffer.
+    
+    This is a destructive add.  The data from one buffer moves into
+    the other buffer.  However, no unnecessary memory copies occur.
+    
+    @param outbuf the output buffer
+    @param inbuf the input buffer
+    @return 0 if successful, or -1 if an error occurred
+
+    @see evbuffer_remove_buffer()
+    */
+    int move_buffer(evbuffer* dest)
+    {
+        int r = evbuffer_add_buffer(dest, _buf);
+        _buf = evbuffer_new();
+        _rpos = 0;
+        return r;
+    }
+    
     const char* data() const
     {
         if(size() == 0)
