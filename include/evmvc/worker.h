@@ -413,6 +413,8 @@ public:
             
             worker::active_worker(this->shared_from_this());
             
+            _cmd_parsers.clear();
+            
             // change proctitle
             char ppname[17]{0};
             prctl(PR_GET_NAME, ppname);
