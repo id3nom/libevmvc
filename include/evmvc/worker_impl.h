@@ -366,7 +366,7 @@ inline ssize_t channel::_sendcmd(
     );
     if(n == -1){
         std::cerr << fmt::format(
-            "Unable to send cmd, err: '{}'\n", errno
+            "Unable to send cmd id, err: '{}'\n", errno
         );
         return -1;
     }
@@ -378,7 +378,7 @@ inline ssize_t channel::_sendcmd(
     );
     if(n == -1){
         std::cerr << fmt::format(
-            "Unable to send cmd, err: '{}'\n", errno
+            "Unable to send cmd payload length, err: '{}'\n", errno
         );
         return -1;
     }
@@ -391,7 +391,7 @@ inline ssize_t channel::_sendcmd(
         );
         if(n == -1){
             std::cerr << fmt::format(
-                "Unable to send cmd, err: '{}'\n", errno
+                "Unable to send cmd payload, err: '{}'\n", errno
             );
             return -1;
         }

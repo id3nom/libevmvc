@@ -123,6 +123,13 @@ public:
         
         return *this;
     }
+
+    command& write(md::string_view v)
+    {
+        write(v.size());
+        _write(v.data(), v.size());
+        return *this;
+    }
     
     template<typename T>
     command& write_list(const std::vector<T>& v)
@@ -225,18 +232,27 @@ private:
 };
 
 
+// template<>
+// inline command& command::write<md::string_view>(const md::string_view& v)
+// {
+//     write(v.size());
+//     _write(v.data(), v.size());
+//     return *this;
+// }
+
 template<>
-inline command& command::write<md::string_view>(const md::string_view& v)
+inline command& command::write<std::string>(const std::string& v)
 {
     write(v.size());
     _write(v.data(), v.size());
     return *this;
 }
 
+
 template<>
 inline command& command::write<evmvc::json>(const evmvc::json& v)
 {
-    return write(v.dump());
+    return write<md::string_view>(v.dump());
 }
 
 
