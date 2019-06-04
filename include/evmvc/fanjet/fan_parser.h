@@ -250,7 +250,7 @@ public:
     {
         std::string inc_src_incs;
         std::string inc_src_gens = fmt::format(
-            "void register_engine()\n{{\n"
+            "inline void register_engine()\n{{\n"
             "    std::shared_ptr<evmvc::fanjet::view_engine> fjv =\n"
             "        std::shared_ptr<evmvc::fanjet::view_engine>(\n"
             "            new evmvc::fanjet::view_engine(\"{}\")\n"
