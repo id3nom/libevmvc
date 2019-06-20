@@ -183,11 +183,9 @@ inline void worker::sig_received(int sig)
 {
     if(sig == SIGINT){
         auto w = active_worker();
-        if(w){
-            if(w->is_child()){
-                if(w->running())
-                    w->stop();
-            }
+        if(w && w->is_child() && w->running()){
+            w->close_service();
+            //w->send_cmd(command(evmvc::CMD_CLOSE));
         }
     }
 }
@@ -206,14 +204,12 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
             }
             case evmvc::CMD_PONG:{
                 EVMVC_DBG(_log, "CMD PONG recv");
-                
                 break;
             }
             case evmvc::CMD_CLOSE:{
                 if(this->is_child()){
                     if(this->running())
                         this->stop();
-                    //raise(SIGINT);
                 }else{
                     event_active(_channel->rcmd_ev, EV_READ, 1);
                     this->_status = running_state::stopped;
@@ -224,29 +220,10 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
                 if(this->is_child())
                     return;
                 if(auto a = _app.lock())
-                    a->stop([self = this->shared_from_this()](auto err){
-                        if(err)
-                            self->_log->error(err);
-                        event_base_loopbreak(global::ev_base());
-                    });
+                    event_base_loopbreak(global::ev_base());
                 break;
             }
             case evmvc::CMD_LOG:{
-                // //EVMVC_DBG(_log, "CMD LOG recv");
-                // md::log::log_level lvl = (md::log::log_level)(*(int*)p);
-                // p += sizeof(int);
-                
-                // size_t log_path_size = *(size_t*)p;
-                // p += sizeof(size_t);
-                // const char* log_path = p;
-                // p += log_path_size;
-                
-                // size_t log_msg_size = *(size_t*)p;
-                // p += sizeof(size_t);
-                // const char* log_msg = p;
-                // p += log_msg_size;
-
-                //EVMVC_DBG(_log, "CMD LOG recv");
                 md::log::log_level lvl = (md::log::log_level)c->read<int>();
                 std::string log_path = c->read<std::string>();
                 std::string log_msg = c->read<std::string>();
@@ -277,6 +254,11 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
     }else{
         for(auto pfn : _cmd_parsers){
             if(pfn(c))
+                return;
+        }
+        
+        if(auto a = _app.lock()){
+            if(!a->running())
                 return;
         }
         
@@ -362,6 +344,64 @@ inline void http_worker::on_http_worker_accept(int fd, short events, void* arg)
             data.srv_id, data.iproto, sock
         );
     }
+}
+
+inline ssize_t channel::_sendcmd(
+    int cmd_id, const char* payload, size_t payload_len)
+{
+    #ifdef EVMVC_DEBUG_SENDCMD
+    std::clog << "Sending command: '" << cmd_id << 
+        "', from: '" << (_type == channel_type::child ? "Child" : "Master") <<
+        "', to: '" << (_type == channel_type::child ? "Master" : "Child") <<
+        "'" << std::endl;
+    #endif
+    int fd = _type == channel_type::child ?
+        ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
+    
+    ssize_t tn = 0;
+    ssize_t n = md::files::writen(
+        fd,
+        &cmd_id,
+        sizeof(int)
+    );
+    if(n == -1){
+        std::cerr << fmt::format(
+            "Unable to send cmd id, err: '{}'\n", errno
+        );
+        return -1;
+    }
+    tn += n;
+    n = md::files::writen(
+        fd,
+        &payload_len,
+        sizeof(size_t)
+    );
+    if(n == -1){
+        std::cerr << fmt::format(
+            "Unable to send cmd payload length, err: '{}'\n", errno
+        );
+        return -1;
+    }
+    tn += n;
+    if(payload_len > 0){
+        n = md::files::writen(
+            fd,
+            payload,
+            payload_len
+        );
+        if(n == -1){
+            std::cerr << fmt::format(
+                "Unable to send cmd payload, err: '{}'\n", errno
+            );
+            return -1;
+        }
+        tn += n;
+    }
+    
+    // send the command
+    fsync(fd);
+    
+    return tn;
 }
 
 

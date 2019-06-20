@@ -83,6 +83,7 @@ public:
             _log = std::make_shared<md::log::logger>(
                 "/", sinks.begin(), sinks.end()
             );
+            _log->log_err_stack(_options.stack_trace_enabled);
             _log->set_level(
                 std::max(
                     _options.log_file_level, _options.log_console_level
@@ -291,11 +292,6 @@ public:
                 return;
             }
         }
-        
-        if(stopped() || stopping())
-            throw MD_ERR(
-                "app must be in running state to be able to stop it."
-            );
         this->_status = running_state::stopping;
         
         std::clog << "Stopping service" << std::endl;
@@ -307,6 +303,53 @@ public:
             if(w->running()){
                 w->stop();
             }
+        }
+        
+        //timeout in 30 seconds
+        int64_t timeout =
+            date::floor<std::chrono::milliseconds>(
+                std::chrono::system_clock::now()
+            ).time_since_epoch().count() +
+            (int64_t)30000;
+        
+        bool dead = true;
+        do{
+            event_base_loop(global::ev_base(), EVLOOP_ONCE);
+            
+            if(
+                timeout < 
+                date::floor<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now()
+                ).time_since_epoch().count()
+            ){
+                for(auto w : _workers){
+                    kill(w->pid(), SIGKILL);
+                }
+                break;
+            }
+            
+            dead = true;
+            for(auto w : _workers){
+                int r = kill(w->pid(), 0);
+                if(r == 0){
+                    int wstatus;
+                    pid_t p = waitpid(w->pid(), &wstatus, WNOHANG | WUNTRACED);
+                    if(p <= 0 || WIFEXITED(wstatus)){
+                        continue;
+                    }
+                    
+                    dead = false;
+                    break;
+                }else if(r == -1 && errno != ESRCH){
+                    dead = false;
+                    break;
+                }
+            }
+            usleep(10000);
+        }while(!dead);
+        
+        for(auto w : _workers){
+            w->close_channels();
         }
         
         this->_workers.clear();
@@ -550,6 +593,9 @@ private:
         }
         
         #if EVMVC_BUILD_DEBUG
+            if(self->_status != running_state::running)
+                return;
+            
             self->_log->error(MD_ERR(
                 "Worker process crashed!"
             ));

@@ -181,56 +181,7 @@ private:
         }
     }
     
-    ssize_t _sendcmd(int cmd_id, const char* payload, size_t payload_len)
-    {
-        int fd = _type == channel_type::child ?
-            ctop[EVMVC_PIPE_WRITE_FD] : ptoc[EVMVC_PIPE_WRITE_FD];
-        
-        ssize_t tn = 0;
-        ssize_t n = md::files::writen(
-            fd,
-            &cmd_id,
-            sizeof(int)
-        );
-        if(n == -1){
-            std::cerr << fmt::format(
-                "Unable to send cmd, err: '{}'\n", errno
-            );
-            return -1;
-        }
-        tn += n;
-        n = md::files::writen(
-            fd,
-            &payload_len,
-            sizeof(size_t)
-        );
-        if(n == -1){
-            std::cerr << fmt::format(
-                "Unable to send cmd, err: '{}'\n", errno
-            );
-            return -1;
-        }
-        tn += n;
-        if(payload_len > 0){
-            n = md::files::writen(
-                fd,
-                payload,
-                payload_len
-            );
-            if(n == -1){
-                std::cerr << fmt::format(
-                    "Unable to send cmd, err: '{}'\n", errno
-                );
-                return -1;
-            }
-            tn += n;
-        }
-        
-        // send the command
-        fsync(fd);
-        
-        return tn;
-    }
+    ssize_t _sendcmd(int cmd_id, const char* payload, size_t payload_len);
     
     
     evmvc::worker* _worker;
@@ -413,6 +364,8 @@ public:
             
             worker::active_worker(this->shared_from_this());
             
+            _cmd_parsers.clear();
+            
             // change proctitle
             char ppname[17]{0};
             prctl(PR_GET_NAME, ppname);
@@ -480,6 +433,7 @@ public:
                     event_base_loopbreak(global::ev_base());
                 else
                     event_base_loopexit(global::ev_base(), nullptr);
+                exit(0);
             };
             
             if(_stopped_cb)
@@ -495,7 +449,6 @@ public:
                 });
             else
                 stop_evbase_loop();
-            
             return;
         }
         
@@ -506,8 +459,6 @@ public:
                 _channel->sendcmd(
                     command(evmvc::CMD_CLOSE)
                 );
-                _channel->close_channels();
-                _channel.release();
                 this->_status = running_state::stopped;
                 return;
             }catch(const std::exception& err){
@@ -516,7 +467,7 @@ public:
         }
         if(!force)
             _log->warn(
-                "Sending close message faied! closing channels"
+                "Sending close message failed! closing channels"
             );
         
         _channel->close_channels();
@@ -525,6 +476,11 @@ public:
     }
     
     void close_service();
+    void close_channels()
+    {
+        _channel->close_channels();
+        _channel.release();
+    }
     
     bool ping()
     {

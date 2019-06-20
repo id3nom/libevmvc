@@ -50,12 +50,13 @@ class command
 public:
     command(int id)
         : _id(id),
-        _buf(evbuffer_new())
+        _buf(evbuffer_new()),
+        _rpos(0)
     {
     }
     
     command(int id, const char* payload, size_t payload_len)
-        : _id(id), _buf(evbuffer_new())
+        : _id(id), _buf(evbuffer_new()), _rpos(0)
     {
         evbuffer_add(_buf, payload, payload_len);
     }
@@ -75,6 +76,27 @@ public:
     {
         return _buf;
     }
+    
+    /**
+     Move all data from current evbuffer into another evbuffer.
+    
+    This is a destructive add.  The data from one buffer moves into
+    the other buffer.  However, no unnecessary memory copies occur.
+    
+    @param outbuf the output buffer
+    @param inbuf the input buffer
+    @return 0 if successful, or -1 if an error occurred
+
+    @see evbuffer_remove_buffer()
+    */
+    int move_buffer(evbuffer* dest)
+    {
+        int r = evbuffer_add_buffer(dest, _buf);
+        _buf = evbuffer_new();
+        _rpos = 0;
+        return r;
+    }
+    
     const char* data() const
     {
         if(size() == 0)
@@ -87,12 +109,25 @@ public:
         return evbuffer_get_length(_buf);
     }
     
+    size_t read_pos() const {return _rpos;}
+    void reset_read_pos(size_t p = 0)
+    {
+        _rpos = p;
+    }
+    
     template<typename T>
     command& write(const T& v)
     {
         size_t l = sizeof(T);
         _write((const char*)&v, l);
         
+        return *this;
+    }
+
+    command& write(md::string_view v)
+    {
+        write(v.size());
+        _write(v.data(), v.size());
         return *this;
     }
     
@@ -142,9 +177,32 @@ public:
         }
     }
     
+    bool empty() const
+    {
+        return size() == 0;
+    }
+    
+    void drain()
+    {
+        drain(_rpos);
+        _rpos = 0;
+    }
+    
     void drain(size_t n)
     {
         evbuffer_drain(_buf, n);
+    }
+    
+    void resize(size_t n)
+    {
+        if(n < size()){
+            evbuffer* b = evbuffer_new();
+            evbuffer_remove_buffer(_buf, b, n);
+            evbuffer_free(_buf);
+            _buf = b;
+        }else if(n > size()){
+            evbuffer_expand(_buf, n);
+        }
     }
     
 private:
@@ -156,39 +214,45 @@ private:
     
     void _peak(char* d, size_t l, size_t offset = 0) const
     {
-        size_t os = l + offset;
-        unsigned char* s = evbuffer_pullup(_buf, os);
+        unsigned char* s = evbuffer_pullup(_buf, evbuffer_get_length(_buf));
         if(s == nullptr)
             throw MD_ERR("Invalid buffer length");
-        memcpy(d, s + offset, l);
+        memcpy(d, s + (_rpos + offset), l);
     }
     
     void _read(char* d, size_t l)
     {
-        unsigned char* s = evbuffer_pullup(_buf, l);
-        if(s == nullptr)
-            throw MD_ERR("Invalid buffer length");
-        memcpy(d, s, l);
-        evbuffer_drain(_buf, l);
+        _peak(d, l);
+        _rpos += l;
     }
     
     int _id;
     evbuffer* _buf;
+    size_t _rpos;
 };
 
 
+// template<>
+// inline command& command::write<md::string_view>(const md::string_view& v)
+// {
+//     write(v.size());
+//     _write(v.data(), v.size());
+//     return *this;
+// }
+
 template<>
-inline command& command::write<md::string_view>(const md::string_view& v)
+inline command& command::write<std::string>(const std::string& v)
 {
     write(v.size());
     _write(v.data(), v.size());
     return *this;
 }
 
+
 template<>
 inline command& command::write<evmvc::json>(const evmvc::json& v)
 {
-    return write(v.dump());
+    return write<md::string_view>(v.dump());
 }
 
 
