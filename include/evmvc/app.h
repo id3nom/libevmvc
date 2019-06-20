@@ -83,6 +83,7 @@ public:
             _log = std::make_shared<md::log::logger>(
                 "/", sinks.begin(), sinks.end()
             );
+            _log->log_err_stack(_options.stack_trace_enabled);
             _log->set_level(
                 std::max(
                     _options.log_file_level, _options.log_console_level
