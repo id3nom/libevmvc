@@ -61,7 +61,7 @@ public:
         
         // init the default logger
         if(_options.use_default_logger){
-            std::vector<md::log::sinks::sp_logger_sink> sinks;
+            std::vector<md::log::sinks::logger_sink> sinks;
             
             auto out_sink = std::make_shared<md::log::sinks::console_sink>(
                 _options.log_console_enable_color
@@ -80,7 +80,7 @@ public:
             file_sink->set_level(_options.log_file_level);
             sinks.emplace_back(file_sink);
             
-            _log = std::make_shared<md::log::logger>(
+            _log = std::make_shared<md::log::logger_t>(
                 "/", sinks.begin(), sinks.end()
             );
             _log->log_err_stack(_options.stack_trace_enabled);
@@ -114,11 +114,11 @@ public:
     
     app_options& options(){ return _options;}
     
-    void replace_logger(md::log::sp_logger l)
+    void replace_logger(md::log::logger l)
     {
         _log = l;
     }
-    md::log::sp_logger log()
+    md::log::logger log()
     {
         return _log;
     }
@@ -718,7 +718,7 @@ private:
     running_state _status;
     app_options _options;
     sp_router _router;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     std::vector<evmvc::sp_worker> _workers;
     std::vector<evmvc::sp_master_server> _servers;

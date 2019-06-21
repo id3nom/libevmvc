@@ -55,7 +55,7 @@ public:
     child_server(
         wp_worker worker,
         const server_options& config,
-        const md::log::sp_logger& log)
+        const md::log::logger& log)
         : 
         _worker(worker),
         _id(std::hash<std::string>{}(config.name)),
@@ -87,7 +87,7 @@ public:
     bool stopping() const { return _status == running_state::stopping;}
     
     const server_options& config() const { return _config;}
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     SSL_CTX* ssl_ctx() const { return _ssl_ctx;}
     
     const struct timeval& atimeo() const { return _config.atimeo;}
@@ -138,7 +138,7 @@ private:
     wp_worker _worker;
     size_t _id;
     server_options _config;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     SSL_CTX* _ssl_ctx = nullptr;
 };

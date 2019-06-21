@@ -103,7 +103,7 @@ public:
     http_cookies() = delete;
     http_cookies(
         uint64_t id,
-        md::log::sp_logger log,
+        md::log::logger log,
         const evmvc::sp_route& rt,
         const url& uri,
         sp_header_map hdrs
@@ -531,7 +531,7 @@ private:
     }
     
     uint64_t _id;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     evmvc::sp_route _rt;
     sp_header_map _in_hdrs;
     sp_header_map _out_hdrs;

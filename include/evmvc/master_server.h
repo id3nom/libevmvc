@@ -55,7 +55,7 @@ class listener
 public:
     listener(wp_master_server server,
         const listen_options& config,
-        const md::log::sp_logger& log)
+        const md::log::logger& log)
         : _server(server), _config(config),
         _log(
             log->add_child(
@@ -273,7 +273,7 @@ private:
     wp_master_server _server;
     
     listen_options _config;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     address_type _type;
     void* _csa;
@@ -289,7 +289,7 @@ class master_server
 {
 public:
     master_server(wp_app app, const server_options& config,
-        const md::log::sp_logger& log)
+        const md::log::logger& log)
         : 
         _id(std::hash<std::string>{}(config.name)),
         _status(evmvc::running_state::stopped),
@@ -359,7 +359,7 @@ private:
     evmvc::running_state _status;
     wp_app _app;
     server_options _config;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     std::vector<up_listener> _listeners;
 };

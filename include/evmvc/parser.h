@@ -119,7 +119,7 @@ class http_parser
 {
     friend class connection;
 public:
-    http_parser(wp_connection conn, const md::log::sp_logger& log)
+    http_parser(wp_connection conn, const md::log::logger& log)
         : _conn(conn),
         _log(log->add_child("parser"))
     {
@@ -133,7 +133,7 @@ public:
     }
     
     sp_connection get_connection() const { return _conn.lock();}
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     
     struct bufferevent* bev() const;
     
@@ -1060,7 +1060,7 @@ private:
     
     /// private vars
     wp_connection _conn;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     parser_state _status = parser_state::parse_req_line;
     

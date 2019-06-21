@@ -84,7 +84,7 @@ class connection
     
 public:
     connection(
-        const md::log::sp_logger& log,
+        const md::log::logger& log,
         wp_http_worker worker,
         sp_child_server server,
         int sock_fd,
@@ -186,7 +186,7 @@ public:
     }
     
     int id() const { return _id;}
-    const md::log::sp_logger& log() const { return _log;}
+    const md::log::logger& log() const { return _log;}
     sp_http_worker get_worker() const;
     sp_child_server server() const { return _server;}
     evmvc::url_scheme protocol() const { return _protocol;}
@@ -409,7 +409,7 @@ private:
     
     int _closed;
     int _id;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     wp_http_worker _worker;
     sp_child_server _server;
     int _sock_fd;

@@ -37,7 +37,7 @@ public:
         wp_connection _conn,
         FILE* _file_desc,
         md::callback::async_cb _cb,
-        md::log::sp_logger _log)
+        md::log::logger _log)
         :
         res(_res),
         conn(_conn),
@@ -69,7 +69,7 @@ public:
     z_stream* zs;
     uLong zs_size;
     md::callback::async_cb cb;
-    md::log::sp_logger log;
+    md::log::logger log;
 };
 typedef std::shared_ptr<file_reply> sp_file_reply;
 

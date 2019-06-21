@@ -57,9 +57,9 @@ void save_docs(
     const bfs::path& dest
 );
 
-md::log::sp_logger& log()
+md::log::logger& log()
 {
-    static md::log::sp_logger l = nullptr;
+    static md::log::logger l = nullptr;
     return l;
 }
 
@@ -149,12 +149,12 @@ int main(int argc, char** argv)
         if(log_val == -1)
             log_val = (int)md::log::log_level::warning;
         
-        std::vector<md::log::sinks::sp_logger_sink> sinks;
+        std::vector<md::log::sinks::logger_sink> sinks;
         auto out_sink = std::make_shared<md::log::sinks::console_sink>(true);
         out_sink->set_level((md::log::log_level)log_val);
         sinks.emplace_back(out_sink);
         
-        auto _log = std::make_shared<md::log::logger>(
+        auto _log = std::make_shared<md::log::logger_t>(
         "/Fanjet", sinks.begin(), sinks.end()
         );
         _log->set_level((md::log::log_level)log_val);

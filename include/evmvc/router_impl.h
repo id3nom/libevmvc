@@ -28,7 +28,7 @@ SOFTWARE.
 namespace evmvc {
 
 
-inline md::log::sp_logger route_result::log()
+inline md::log::logger route_result::log()
 {
     if(_route)
         return _route->log();
@@ -61,7 +61,7 @@ inline void route_result::execute(
 }
 
 
-inline md::log::sp_logger route::log() const
+inline md::log::logger route::log() const
 {
     if(!_log)
         _log = _rtr.lock()->log()->add_child(this->_rp);

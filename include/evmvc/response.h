@@ -52,7 +52,7 @@ public:
         uint64_t id,
         sp_request req,
         wp_connection conn,
-        md::log::sp_logger log,
+        md::log::logger log,
         const sp_route& rt,
         url uri,
         const sp_http_cookies& http_cookies
@@ -71,7 +71,7 @@ public:
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     
     evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
@@ -438,7 +438,7 @@ private:
     uint64_t _id;
     evmvc::sp_request _req;
     wp_connection _conn;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     sp_route _rt;
     evmvc::sp_response_headers _headers;
     sp_http_cookies _cookies;

@@ -62,7 +62,7 @@ public:
         EVMVC_DEF_TRACE("file_route_result {:p} released", (void*)this);
     }
     
-    md::log::sp_logger log();
+    md::log::logger log();
     
     virtual void execute(
         sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb
@@ -120,7 +120,7 @@ public:
     static sp_route null(wp_app a);
     
     evmvc::sp_router get_router() const { return _rtr.lock();}
-    md::log::sp_logger log() const;
+    md::log::logger log() const;
     
     bool has_callbacks() const { return !_handlers.empty();}
     bool has_policies() const { return !_policies.empty();}
@@ -402,7 +402,7 @@ protected:
     }
     
     std::weak_ptr<router> _rtr;
-    mutable md::log::sp_logger _log;
+    mutable md::log::logger _log;
     std::string _rp;
     
     std::vector<std::string> _param_names;
@@ -443,7 +443,7 @@ public:
     static sp_router null(wp_app a);
     
     evmvc::sp_app get_app() const { return _app.lock();}
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     
     md::string_view path() const { return _path;}
     
@@ -974,7 +974,7 @@ protected:
     
     evmvc::wp_app _app;
     std::string _path;
-    mutable md::log::sp_logger _log;
+    mutable md::log::logger _log;
     //sp_router _parent;
     std::weak_ptr<router> _parent;
     

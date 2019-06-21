@@ -59,7 +59,7 @@ public:
         uint64_t id,
         http_version ver,
         wp_connection conn,
-        md::log::sp_logger log,
+        md::log::logger log,
         const evmvc::sp_route& rt,
         url uri,
         evmvc::method met,
@@ -143,7 +143,7 @@ public:
     evmvc::sp_app get_app() const;
     evmvc::sp_router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     const url& uri() const { return _uri;}
     
     std::string connection_ip() const;
@@ -337,7 +337,7 @@ protected:
     uint64_t _id;
     http_version _version;
     wp_connection _conn;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     evmvc::sp_route _rt;
     evmvc::url _uri;
     evmvc::method _met;

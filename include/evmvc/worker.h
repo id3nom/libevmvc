@@ -222,11 +222,11 @@ inline md::string_view to_string(worker_type t)
 
 namespace sinks{
 class child_sink
-    : public md::log::sinks::logger_sink
+    : public md::log::sinks::logger_sink_t
 {
 public:
     child_sink(std::weak_ptr<worker> w)
-        : md::log::sinks::logger_sink(md::log::log_level::info), _w(w)
+        : md::log::sinks::logger_sink_t(md::log::log_level::info), _w(w)
     {
     }
     
@@ -274,7 +274,7 @@ protected:
     }
     
     worker(const wp_app& app, const app_options& config,
-        worker_type wtype, const md::log::sp_logger& log)
+        worker_type wtype, const md::log::logger& log)
         : _app(app),
         _config(config),
         _wtype(wtype),
@@ -319,7 +319,7 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
-    md::log::sp_logger log() const { return _log;}
+    md::log::logger log() const { return _log;}
     
     int id() const { return _id;}
     int pid() { return _pid;}
@@ -547,7 +547,7 @@ protected:
     app_options _config;
     worker_type _wtype;
     int _id;
-    md::log::sp_logger _log;
+    md::log::logger _log;
     
     int _pid;
     process_type _ptype;
@@ -609,7 +609,7 @@ class http_worker
     
 public:
     http_worker(const wp_app& app, const app_options& config,
-        const md::log::sp_logger& log)
+        const md::log::logger& log)
         : worker(app, config, worker_type::http, log)
     {
     }
@@ -629,7 +629,7 @@ public:
         _log->info("Starting worker, pid: {}", _pid);
         
         // init the event queue
-        md::event_queue::reset(global::ev_base());
+        md::event_queue_t::reset(global::ev_base());
         
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
@@ -770,7 +770,7 @@ class cache_worker
 {
 public:
     cache_worker(const wp_app& app, const app_options& config,
-        const md::log::sp_logger& log)
+        const md::log::logger& log)
         : worker(app, config, worker_type::cache, log)
     {
     }

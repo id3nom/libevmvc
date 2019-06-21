@@ -246,7 +246,7 @@ namespace multip{
     typedef struct multipart_parser_t multipart_parser;
 }
 namespace _internal{
-    md::log::sp_logger& default_logger();
+    md::log::logger& default_logger();
     
     evmvc::sp_response create_http_response(
         wp_connection conn,
@@ -257,7 +257,7 @@ namespace _internal{
     );
     evmvc::sp_response on_headers_completed(
         wp_connection conn,
-        md::log::sp_logger log,
+        md::log::logger log,
         url uri,
         http_version ver,
         sp_header_map hdrs,

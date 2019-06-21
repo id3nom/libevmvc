@@ -58,7 +58,7 @@ inline evmvc::sp_response create_http_response(
     static uint64_t cur_id = 0;
     uint64_t rid = ++cur_id;
     
-    md::log::sp_logger log = c->log()->add_child(rr->log()->path());
+    md::log::logger log = c->log()->add_child(rr->log()->path());
     evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
         rid, log, rr->_route, uri, hdrs
     );
@@ -66,7 +66,7 @@ inline evmvc::sp_response create_http_response(
         uint64_t id,
         http_version ver,
         wp_connection conn,
-        md::log::sp_logger log,
+        md::log::logger log,
         const evmvc::sp_route& rt,
         url uri,
         evmvc::method met,

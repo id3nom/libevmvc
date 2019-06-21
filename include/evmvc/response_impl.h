@@ -42,7 +42,7 @@ inline response::response(
     uint64_t id,
     sp_request req,
     wp_connection conn,
-    md::log::sp_logger log,
+    md::log::logger log,
     const sp_route& rt,
     url uri,
     const sp_http_cookies& http_cookies)

@@ -240,7 +240,7 @@ inline std::string get_boundary(const std::string& hdr_val)
 }
 
 inline std::string get_boundary(
-    md::log::sp_logger log, const std::shared_ptr<header_map>& hdrs)
+    md::log::logger log, const std::shared_ptr<header_map>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_type).data());
     if(it != hdrs->end()){
