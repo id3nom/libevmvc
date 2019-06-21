@@ -87,7 +87,7 @@ public:
     event_wrapper(
         md::string_view name,
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, md::callback::async_cb _nxt,
+        evmvc::response _res, md::callback::async_cb _nxt,
         std::function<void(
             std::shared_ptr<event_wrapper<T>>, int, event_type, T)
             > _cb
@@ -100,7 +100,7 @@ public:
 
     event_wrapper(
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, md::callback::async_cb _nxt,
+        evmvc::response _res, md::callback::async_cb _nxt,
         T _arg,
         std::function<void(
             std::shared_ptr<event_wrapper<T>>, int, event_type, T)
@@ -156,7 +156,7 @@ public:
     
     event_base* ev_base;
     event* ev;
-    evmvc::sp_response res;
+    evmvc::response res;
     md::callback::async_cb nxt;
     T arg;
     std::function<void(
@@ -201,7 +201,7 @@ public:
     event_wrapper(
         md::string_view name,
         event_base* _ev_base, int fd, event_type events,
-        evmvc::sp_response _res, md::callback::async_cb _nxt,
+        evmvc::response _res, md::callback::async_cb _nxt,
         std::function<void(
             std::shared_ptr<event_wrapper<void>>, int, event_type)
             > _cb
@@ -258,7 +258,7 @@ public:
     
     event_base* ev_base;
     event* ev;
-    evmvc::sp_response res;
+    evmvc::response res;
     md::callback::async_cb nxt;
     std::function<void(
         std::shared_ptr<event_wrapper<void>>, int, event_type)
@@ -292,7 +292,7 @@ private:
 // template<typename T>
 // std::shared_ptr<event_wrapper<T>> new_event(
 //     event_base* _ev_base, int fd, event_type events,
-//     evmvc::sp_response _res, md::callback::async_cb _nxt,
+//     evmvc::response _res, md::callback::async_cb _nxt,
 //     T _arg,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<T>>, int, event_type, T)
@@ -307,7 +307,7 @@ private:
 // //template<>
 // std::shared_ptr<event_wrapper<void>> new_event(
 //     event_base* _ev_base, int fd, event_type events,
-//     evmvc::sp_response _res, md::callback::async_cb _nxt,
+//     evmvc::response _res, md::callback::async_cb _nxt,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<void>>, int, event_type)
 //         > _cb
@@ -320,7 +320,7 @@ private:
 
 // std::shared_ptr<event_wrapper<void>> new_event(
 //     int fd, event_type events,
-//     evmvc::sp_response _res, md::callback::async_cb _nxt,
+//     evmvc::response _res, md::callback::async_cb _nxt,
 //     std::function<void(
 //         std::shared_ptr<event_wrapper<void>>, int, event_type)
 //         > _cb

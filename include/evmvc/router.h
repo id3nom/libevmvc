@@ -36,8 +36,8 @@ namespace evmvc {
 
 typedef 
     std::function<void(
-        const evmvc::sp_request,
-        evmvc::sp_response,
+        const evmvc::request,
+        evmvc::response,
         md::callback::async_cb
     )> route_handler_cb;
 
@@ -65,7 +65,7 @@ public:
     md::log::logger log();
     
     virtual void execute(
-        sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb
+        sp_route_result rr, evmvc::response res, md::callback::async_cb cb
     );
     virtual void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
@@ -92,14 +92,14 @@ class route
     };
 
 protected:
-    route(std::weak_ptr<router> rtr)
+    route(std::weak_ptr<router_t> rtr)
         : _rtr(rtr), _log(), _rp(""), _re(nullptr)
     {
         EVMVC_DEF_TRACE("route {:p} created", (void*)this);
     }
     
 public:
-    route(std::weak_ptr<router> rtr, md::string_view route_path)
+    route(std::weak_ptr<router_t> rtr, md::string_view route_path)
         : _rtr(rtr), _log(), _rp(route_path), _re(nullptr)
     {
         EVMVC_DEF_TRACE("route {:p} created", (void*)this);
@@ -119,7 +119,7 @@ public:
     
     static sp_route null(wp_app a);
     
-    evmvc::sp_router get_router() const { return _rtr.lock();}
+    evmvc::router get_router() const { return _rtr.lock();}
     md::log::logger log() const;
     
     bool has_callbacks() const { return !_handlers.empty();}
@@ -216,7 +216,7 @@ public:
 protected:
     
     virtual void _exec(
-        evmvc::sp_request req, evmvc::sp_response res,
+        evmvc::request req, evmvc::response res,
         size_t hidx, md::callback::async_cb cb)
     {
         if(hidx >= _handlers.size())
@@ -401,7 +401,7 @@ protected:
         return "\\/" + rs.re_pattern + _build_route_re(segs, ++seg_idx);
     }
     
-    std::weak_ptr<router> _rtr;
+    std::weak_ptr<router_t> _rtr;
     mutable md::log::logger _log;
     std::string _rp;
     
@@ -422,32 +422,32 @@ enum class use_handler_when
 };
 MD_ENUM_FLAGS(evmvc::use_handler_when)
 
-class router
-    : public std::enable_shared_from_this<router>
+class router_t
+    : public std::enable_shared_from_this<router_t>
 {
-    friend class evmvc::app;
+    friend class evmvc::app_t;
     
-    typedef std::unordered_map<std::string, sp_router> router_map;
+    typedef std::unordered_map<std::string, router> router_map;
     typedef std::unordered_map<std::string, sp_route> route_map;
     typedef std::unordered_map<std::string, route_map> verb_map;
     
 public:
-    router(evmvc::wp_app app);
-    router(evmvc::wp_app app, const md::string_view& path);
+    router_t(evmvc::wp_app app_t);
+    router_t(evmvc::wp_app app_t, const md::string_view& path);
     
-    virtual ~router()
+    virtual ~router_t()
     {
-        EVMVC_DEF_TRACE("router {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("router_t {:p} released", (void*)this);
     }
     
-    static sp_router null(wp_app a);
+    static router null(wp_app a);
     
-    evmvc::sp_app get_app() const { return _app.lock();}
+    evmvc::app get_app() const { return _app.lock();}
     md::log::logger log() const { return _log;}
     
     md::string_view path() const { return _path;}
     
-    evmvc::sp_router parent() const
+    evmvc::router parent() const
     {
         return this->_parent.lock();
     }
@@ -472,7 +472,7 @@ public:
             _router_index.insert(0, "/");
     }
     
-    sp_router find_router(md::string_view path, bool partial_path = false)
+    router find_router(md::string_view path, bool partial_path = false)
     {
         if(partial_path){
             if(!strcasecmp(this->full_path().c_str(), path.data()))
@@ -488,7 +488,7 @@ public:
         }
         
         for(auto it = _routers.begin(); it != _routers.end(); ++it){
-            sp_router rtr = it->second->find_router(path, partial_path);
+            router rtr = it->second->find_router(path, partial_path);
             if(rtr)
                 return rtr;
         }
@@ -499,7 +499,7 @@ public:
         //     return this->shared_from_this();
         
         // for(auto it = _routers.begin(); it != _routers.end(); ++it){
-        //     sp_router rtr = it->second->find_router(path);
+        //     router rtr = it->second->find_router(path);
         //     if(rtr)
         //         return rtr;
         // }
@@ -545,7 +545,7 @@ public:
         // return nullptr;
         md::string_view local_url = url.substr(_path.size());
         
-        // verify if child router match path in insertion order
+        // verify if child router_t match path in insertion order
         if(local_url.size() > 0)
             for(auto rp : _router_paths){
                 if(
@@ -580,7 +580,7 @@ public:
         return nullptr;
     }
     
-    virtual sp_router use(use_handler_when w, route_handler_cb cb)
+    virtual router use(use_handler_when w, route_handler_cb cb)
     {
         if(cb == nullptr)
             return this->shared_from_this();
@@ -593,68 +593,68 @@ public:
         return this->shared_from_this();
     }
     
-    virtual sp_router all(
+    virtual router all(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_route_handler("ALL", route_path, cb, pol);
     }
-    virtual sp_router options(
+    virtual router options(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::options, route_path, cb, pol);
     }
-    virtual sp_router del(
+    virtual router del(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::del, route_path, cb, pol);
     }
-    virtual sp_router head(
+    virtual router head(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::head, route_path, cb, pol);
     }
-    virtual sp_router get(
+    virtual router get(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::get, route_path, cb, pol);
     }
-    virtual sp_router post(
+    virtual router post(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::post, route_path, cb, pol);
     }
-    virtual sp_router put(
+    virtual router put(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::put, route_path, cb, pol);
     }
-    virtual sp_router connect(
+    virtual router connect(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::connect, route_path, cb, pol);
     }
-    virtual sp_router trace(
+    virtual router trace(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::trace, route_path, cb, pol);
     }
-    virtual sp_router patch(
+    virtual router patch(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         return register_handler(evmvc::method::patch, route_path, cb, pol);
     }
     
-    virtual sp_router register_route_handler(
+    virtual router register_route_handler(
         const md::string_view& method,
         const md::string_view& route_path,
         route_handler_cb cb,
@@ -663,61 +663,61 @@ public:
         return register_handler(method, route_path, cb, pol);
     }
     
-    virtual sp_router register_router(sp_router router)
+    virtual router register_router(router router_t)
     {
-        if(router->path() == "/")
+        if(router_t->path() == "/")
             throw MD_ERR(
-                "invalid path '/', can't add router with root path!"
+                "invalid path '/', can't add router_t with root path!"
             );
         
         this->_log->info(
-            "Registering router '{}'",
-            router->_path
+            "Registering router_t '{}'",
+            router_t->_path
         );
         
-        // remove router from previous parent if needed
-        auto p = router->parent();
+        // remove router_t from previous parent if needed
+        auto p = router_t->parent();
         if(p){
             for(auto rp_it = p->_router_paths.begin(); 
                 rp_it != p->_router_paths.end();
                 ++rp_it
             ){
-                if(*rp_it == router->_path){
+                if(*rp_it == router_t->_path){
                     p->_router_paths.erase(rp_it);
                     break;
                 }
             }
-            p->_routers.erase(router->_path);
+            p->_routers.erase(router_t->_path);
         }
         
-        // finaly register the router with the current parent
-        router->_app = this->_app;
-        router->_parent = this->shared_from_this();
-        router->_log = this->_log->add_child(router->_path);
+        // finaly register the router_t with the current parent
+        router_t->_app = this->_app;
+        router_t->_parent = this->shared_from_this();
+        router_t->_log = this->_log->add_child(router_t->_path);
         
-        _router_paths.emplace_back(router->_path);
-        _routers.emplace(std::make_pair(router->_path, router));
+        _router_paths.emplace_back(router_t->_path);
+        _routers.emplace(std::make_pair(router_t->_path, router_t));
         return this->shared_from_this();
     }
     
 
-    virtual sp_router register_policy(policies::filter_policy pol)
+    virtual router register_policy(policies::filter_policy pol)
     {
         this->_log->info(
-            "Registering policy for router '{}'",
+            "Registering policy for router_t '{}'",
             this->_path
         );
         _policies.emplace_back(pol);
         return this->shared_from_this();
     }
     
-    virtual sp_router register_policy(
+    virtual router register_policy(
         const md::string_view& route_path, policies::filter_policy pol)
     {
         return register_policy("ALL", route_path, pol);
     }
     
-    virtual sp_router register_policy(
+    virtual router register_policy(
         evmvc::method method,
         const md::string_view& route_path,
         policies::filter_policy pol)
@@ -726,7 +726,7 @@ public:
         return register_policy(vs, route_path, pol);
     }
     
-    virtual sp_router register_policy(
+    virtual router register_policy(
         const md::string_view& method,
         const md::string_view& route_path,
         policies::filter_policy pol)
@@ -746,7 +746,7 @@ public:
     
     
     void run_pre_handlers(
-        evmvc::sp_request req, evmvc::sp_response res,
+        evmvc::request req, evmvc::response res,
         md::callback::async_cb cb)
     {
         auto p = this->parent();
@@ -766,7 +766,7 @@ public:
     }
 
     void run_post_handlers(
-        evmvc::sp_request req, evmvc::sp_response res,
+        evmvc::request req, evmvc::response res,
         md::callback::async_cb cb)
     {
         auto p = this->parent();
@@ -812,7 +812,7 @@ public:
 protected:
     
     void _run_pre_handlers(
-        evmvc::sp_request req, evmvc::sp_response res,
+        evmvc::request req, evmvc::response res,
         size_t hidx, md::callback::async_cb cb)
     {
         bool cb_called = false;
@@ -842,7 +842,7 @@ protected:
         cb(nullptr);
     }
     void _run_post_handlers(
-        evmvc::sp_request req, evmvc::sp_response res,
+        evmvc::request req, evmvc::response res,
         size_t hidx, md::callback::async_cb cb)
     {
         bool cb_called = false;
@@ -889,7 +889,7 @@ protected:
         return p;
     }
     
-    virtual sp_router register_handler(
+    virtual router register_handler(
         evmvc::method method,
         const md::string_view& route_path,
         route_handler_cb cb,
@@ -899,7 +899,7 @@ protected:
         return register_handler(vs, route_path, cb, pol);
     }
     
-    virtual sp_router register_handler(
+    virtual router register_handler(
         const md::string_view& method,
         const md::string_view& route_path,
         route_handler_cb cb,
@@ -975,8 +975,8 @@ protected:
     evmvc::wp_app _app;
     std::string _path;
     mutable md::log::logger _log;
-    //sp_router _parent;
-    std::weak_ptr<router> _parent;
+    //router _parent;
+    std::weak_ptr<router_t> _parent;
     
     std::vector<policies::filter_policy> _policies;
     
@@ -991,7 +991,7 @@ protected:
     
     verb_map _verbs;
     
-    // use to keep router registration order
+    // use to keep router_t registration order
     std::vector<std::string> _router_paths;
     router_map _routers;
     
@@ -1000,7 +1000,7 @@ protected:
     
     std::string _router_index;
     
-};// class router
+};// class router_t
 
 inline void route::validate_access(
     evmvc::policies::filter_rule_ctx ctx,
@@ -1035,7 +1035,7 @@ class file_route_result
     : public route_result
 {
 public:
-    file_route_result(evmvc::sp_route rt, evmvc::sp_router rtr)
+    file_route_result(evmvc::sp_route rt, evmvc::router rtr)
         : route_result(rt), _rtr(rtr),
         _filepath(), _local_url(""),
         _not_found(true)
@@ -1043,7 +1043,7 @@ public:
         EVMVC_DEF_TRACE("file_route_result {:p} created", (void*)this);
     }
     
-    file_route_result(evmvc::sp_route rt, evmvc::sp_router rtr,
+    file_route_result(evmvc::sp_route rt, evmvc::router rtr,
         bfs::path filepath, const std::string& local_url)
         : route_result(rt), _rtr(rtr), 
         _filepath(filepath), _local_url(local_url), _not_found(false)
@@ -1058,7 +1058,7 @@ public:
     
 protected:
     void execute(
-        sp_route_result rr, evmvc::sp_response res, md::callback::async_cb cb)
+        sp_route_result rr, evmvc::response res, md::callback::async_cb cb)
     {
         std::shared_ptr<file_route_result> frr = 
             std::static_pointer_cast<file_route_result>(rr);
@@ -1113,7 +1113,7 @@ protected:
         // res->send_file(_filepath, "utf-8", cb);
     }
     
-    evmvc::sp_router _rtr;
+    evmvc::router _rtr;
     bfs::path _filepath;
     std::string _local_url;
     bool _not_found;
@@ -1123,7 +1123,7 @@ class file_route
     : public route
 {
 public:
-    file_route(std::weak_ptr<router> rtr)
+    file_route(std::weak_ptr<router_t> rtr)
         : route(rtr)
     {
         EVMVC_DEF_TRACE("file_route {:p} created", (void*)this);
@@ -1136,14 +1136,14 @@ public:
 };
 
 class file_router
-    : public router
+    : public router_t
 {
 public:
     file_router(
-        evmvc::wp_app app,
+        evmvc::wp_app app_t,
         const bfs::path& base_path,
         const md::string_view& virt_path)
-        : router(app, virt_path),
+        : router_t(app_t, virt_path),
         _base_path(bfs::absolute(base_path)), _rt()
     {
         EVMVC_DEF_TRACE("file_router {:p} created", (void*)this);
@@ -1186,7 +1186,7 @@ public:
     
 protected:
     
-    sp_router register_handler(
+    router register_handler(
         const md::string_view& method,
         const md::string_view& route_path,
         route_handler_cb cb)

@@ -39,7 +39,7 @@ public:
     
     view_base(
         sp_view_engine engine,
-        const evmvc::sp_response& _res)
+        const evmvc::response& _res)
         : evmvc::view_base(engine, _res)
     {
     }

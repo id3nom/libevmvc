@@ -110,9 +110,9 @@ namespace bfs = boost::filesystem;
 
 typedef nlohmann::json json;
 
-class app;
-typedef std::shared_ptr<app> sp_app;
-typedef std::weak_ptr<app> wp_app;
+class app_t;
+typedef std::shared_ptr<app_t> app;
+typedef std::weak_ptr<app_t> wp_app;
 
 class child_server;
 typedef std::shared_ptr<child_server> sp_child_server;
@@ -142,8 +142,8 @@ typedef std::shared_ptr<route_result> sp_route_result;
 class route;
 typedef std::shared_ptr<route> sp_route;
 
-class router;
-typedef std::shared_ptr<router> sp_router;
+class router_t;
+typedef std::shared_ptr<router_t> router;
 
 
 struct ci_less_hash
@@ -180,11 +180,11 @@ typedef std::shared_ptr<http_param> sp_http_param;
 class http_params_t;
 typedef std::unique_ptr<http_params_t> http_params;
 
-class response;
-typedef std::shared_ptr<evmvc::response> sp_response;
+class response_t;
+typedef std::shared_ptr<evmvc::response_t> response;
 
-class request;
-typedef std::shared_ptr<evmvc::request> sp_request;
+class request_t;
+typedef std::shared_ptr<evmvc::request_t> request;
 
 enum class running_state
 {
@@ -248,29 +248,29 @@ namespace multip{
 namespace _internal{
     md::log::logger& default_logger();
     
-    evmvc::sp_response create_http_response(
+    evmvc::response create_http_response(
         wp_connection conn,
         http_version ver,
         url uri,
         sp_header_map hdrs,
         sp_route_result rr
     );
-    evmvc::sp_response on_headers_completed(
+    evmvc::response on_headers_completed(
         wp_connection conn,
         md::log::logger log,
         url uri,
         http_version ver,
         sp_header_map hdrs,
-        sp_app a
+        app a
     );
     void on_multipart_request_completed(
-        sp_request req,
-        sp_response res,
-        sp_app a
+        request req,
+        response res,
+        app a
     );
     
     void send_error(
-        evmvc::sp_response res, int status_code,
+        evmvc::response res, int status_code,
         md::string_view msg = ""
     );
     

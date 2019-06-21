@@ -28,24 +28,24 @@ SOFTWARE.
 namespace evmvc {
 
 
-inline evmvc::sp_app request::get_app() const
+inline evmvc::app request_t::get_app() const
 {
     return this->get_router()->get_app();
 }
-inline evmvc::sp_router request::get_router() const
+inline evmvc::router request_t::get_router() const
 {
     return this->get_route()->get_router();
 }
 
 
-inline std::string request::connection_ip() const
+inline std::string request_t::connection_ip() const
 {
     if(auto c = _conn.lock())
         return c->remote_address();
     return "";
 }
 
-inline uint16_t request::connection_port() const
+inline uint16_t request_t::connection_port() const
 {
     if(auto c = _conn.lock())
         return c->remote_port();
@@ -53,10 +53,10 @@ inline uint16_t request::connection_port() const
 }
 
 
-inline sp_connection request::connection() const { return _conn.lock();}
-inline bool request::secure() const { return _conn.lock()->secure();}
+inline sp_connection request_t::connection() const { return _conn.lock();}
+inline bool request_t::secure() const { return _conn.lock()->secure();}
 
-inline evmvc::url_scheme request::protocol() const
+inline evmvc::url_scheme request_t::protocol() const
 {
     //TODO: add trust proxy options
     sp_header h = _headers->get("X-Forwarded-Proto");
@@ -73,7 +73,7 @@ inline evmvc::url_scheme request::protocol() const
     
     return _conn.lock()->protocol();
 }
-inline std::string request::protocol_string() const
+inline std::string request_t::protocol_string() const
 {
     //TODO: add trust proxy options
     sp_header h = _headers->get("X-Forwarded-Proto");
@@ -86,7 +86,7 @@ inline std::string request::protocol_string() const
 }
 
 
-inline void request::_load_multipart_params(
+inline void request_t::_load_multipart_params(
     std::shared_ptr<multip::multipart_subcontent> ms)
 {
     for(auto ct : ms->contents){

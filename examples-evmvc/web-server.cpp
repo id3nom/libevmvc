@@ -54,7 +54,7 @@ void _on_event_fatal_error(int err)
     );
 }
 
-evmvc::sp_app srv(evmvc::sp_app a = nullptr)
+evmvc::app srv(evmvc::app a = nullptr)
 {
     static evmvc::wp_app _a;
     if(a)
@@ -115,13 +115,13 @@ int main(int argc, char** argv)
     
     opts.servers.emplace_back(srv_opts);
     
-    evmvc::sp_app srv = std::make_shared<evmvc::app>(
+    evmvc::app srv = std::make_shared<evmvc::app_t>(
         _ev_base,
         std::move(opts)
     );
     ::srv(srv);
     
-    // show app pid
+    // show app_t pid
     pid_t pid = getpid();
     srv->log()->info(
         "Starting evmvc_web_server, pid: {}",
@@ -195,22 +195,22 @@ void register_app_cbs()
     
     
     srv->get("/views/missing",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->render("examples::home/missing", nxt);
     });
     srv->get("/views/fail",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->render("examples::home/fail", nxt);
     });
     srv->get("/views/index",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->set_data("msg", "bonjour");
         res->render("examples::home/index", nxt);
     });
     
     
     srv->get("/exit",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->send_status(evmvc::status::ok);
         
         evmvc::set_timeout(
@@ -225,7 +225,7 @@ void register_app_cbs()
     
     
     srv->get("/test",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->status(evmvc::status::ok).send(
             req->query("val", "testing 1, 2...")
         );
@@ -233,7 +233,7 @@ void register_app_cbs()
     });
     
     srv->get("/download-file/:[filename]",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->download(
             "cert.pem",
             req->params().get<std::string>("filename", "test.txt")
@@ -242,7 +242,7 @@ void register_app_cbs()
     });
     
     srv->get("/echo/:val",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->status(evmvc::status::ok).send(
             //(md::string_view)req->params()<md::string_view>("val")
             req->params("val")
@@ -251,7 +251,7 @@ void register_app_cbs()
     });
     
     srv->get("/send-json",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         evmvc::json json_val = evmvc::json::parse(
             "{\"menu\": {"
             "\"id\": \"file\","
@@ -270,7 +270,7 @@ void register_app_cbs()
     });
     
     srv->get("/send-file",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         std::string path = req->query("path");
         
         res->log()->info("sending file: '{0}'\n", path);
@@ -285,7 +285,7 @@ void register_app_cbs()
     });
     
     srv->get("/cookies/set/:[name]/:[val]/:[path]",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         evmvc::http_cookies::options opts;
         opts.expires = 
                 date::sys_days{date::year(2021)/01/01} +
@@ -309,7 +309,7 @@ void register_app_cbs()
     });
     
     srv->get("/cookies/get/:[name]",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->status(evmvc::status::ok).send(
             fmt::format("route: {}\ncookie-a: {}, {}: {}", 
                 "/cookies/get/:[name]",
@@ -329,7 +329,7 @@ void register_app_cbs()
     });
     
     srv->get("/cookies/clear/:[name]/:[path]",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         evmvc::http_cookies::options opts;
         opts.path = req->params("path", "");
         
@@ -343,7 +343,7 @@ void register_app_cbs()
     });
     
     srv->get("/error",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->error(
             MD_ERR("testing error sending.")
         );
@@ -374,18 +374,18 @@ void register_app_cbs()
     frtr->register_policy(pol);
     
     srv->register_router(
-        std::static_pointer_cast<evmvc::router>(frtr)
+        std::static_pointer_cast<evmvc::router_t>(frtr)
     );
     
     
     srv->post("/forms/login",
-    [](const evmvc::sp_request req, evmvc::sp_response res, auto nxt){
+    [](const evmvc::request req, evmvc::response res, auto nxt){
         res->redirect("/html/login-results.html");
     });
     
     srv->get("/set_timeout/:[timeout(\\d+)]",
     [&srv](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+        const evmvc::request req, evmvc::response res, auto nxt
     ){
         //res->pause();
         evmvc::set_timeout(
@@ -402,7 +402,7 @@ void register_app_cbs()
     
     srv->get("/set_interval/:[name]/:[interval(\\d+)]",
     [](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+        const evmvc::request req, evmvc::response res, auto nxt
     ){
         res->status(evmvc::status::ok).send(
             "route: /set_interval/:[name]/:[interval(\\d+)]"
@@ -418,7 +418,7 @@ void register_app_cbs()
     });
     srv->get("/clear_interval/:[name]",
     [](
-        const evmvc::sp_request req, evmvc::sp_response res, auto nxt
+        const evmvc::request req, evmvc::response res, auto nxt
     ){
         evmvc::clear_interval(
             req->params("name", "abc")

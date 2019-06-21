@@ -46,20 +46,20 @@ TEST_F(router_test, routes)
         opts.log_console_level = 
             opts.log_file_level = md::log::log_level::off;
         
-        evmvc::sp_app srv = std::make_shared<evmvc::app>(
+        evmvc::app srv = std::make_shared<evmvc::app_t>(
             ev_base,
             std::move(opts)
         );
         
-        evmvc::sp_router r = 
-            std::make_shared<evmvc::router>(srv);
+        evmvc::router r = 
+            std::make_shared<evmvc::router_t>(srv);
         
         std::string rt_val;
         // // # simple route that will match url "/abc/123" and "/abc/123/"
         // // /abc-a/123
         // r->get("/abc-a/123",
         // [&rt_val](
-        //      const evmvc::request& /*req*/, evmvc::response& /*res*/,
+        //      const evmvc::request_t& /*req*/, evmvc::response_t& /*res*/,
         //      md::callback::async_cb cb
         // ){
         //     rt_val = "abc-a";
@@ -70,7 +70,7 @@ TEST_F(router_test, routes)
         // // /abc-b/123/*
         // r->get("/abc-b/123/*",
         // [&rt_val](
-        //      const evmvc::request& /*req*/, evmvc::response& /*res*/
+        //      const evmvc::request_t& /*req*/, evmvc::response_t& /*res*/
         //      md::callback::async_cb cb){
         //     rt_val = "abc-b";
         // });
@@ -79,7 +79,7 @@ TEST_F(router_test, routes)
         // # "/abc-c/123/456/" and any sub path "/abc-c/123/def/sub/path/..."
         // /abc-c/123/**
         r->get("/abc-c/123/**",
-        [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
+        [&rt_val](const evmvc::request /*req*/, evmvc::response /*res*/,
             md::callback::async_cb cb
         ){
             rt_val = "abc-c";
@@ -91,7 +91,7 @@ TEST_F(router_test, routes)
         // // # by enclosing the parameter in square brackets
         // // /abc-d/123/:p1/[:p2]
         // r->get("/abc-d/123/:p1/[:p2]",
-        // [&rt_val](const evmvc::request& /*req*/, evmvc::response& /*res*/,
+        // [&rt_val](const evmvc::request_t& /*req*/, evmvc::response_t& /*res*/,
         //      md::callback::async_cb cb
         // ){
         //     rt_val = "abc-d";
@@ -102,7 +102,7 @@ TEST_F(router_test, routes)
         // /abc-e/123/:p1(\\d+)/[:p2]
         r->get("/abc-e/123/:p1(\\d+)/:[p2]",
         [&rt_val](
-            const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
+            const evmvc::request /*req*/, evmvc::response /*res*/,
             md::callback::async_cb cb
         ){
             rt_val = "abc-e";
@@ -113,7 +113,7 @@ TEST_F(router_test, routes)
         // # regex parameter can be optional as well
         // /abc-f/123/[:p1(\\d+)]
         r->get("/abc-f/123/:[p1(\\d+)]",
-        [&rt_val](const evmvc::sp_request /*req*/, evmvc::sp_response /*res*/,
+        [&rt_val](const evmvc::request /*req*/, evmvc::response /*res*/,
             md::callback::async_cb cb
         ){
             rt_val = "abc-f";
@@ -124,7 +124,7 @@ TEST_F(router_test, routes)
         // # all parameters following an optional parameter must be optional
         // /abc-g/123/:p1(\\d+)/[:p2]/[:p3]
         r->get("/abc-g/123/:p1(\\d+)/:[p2]/:[p3]",
-        [&rt_val](const evmvc::sp_request req, evmvc::sp_response /*res*/,
+        [&rt_val](const evmvc::request req, evmvc::response /*res*/,
             md::callback::async_cb next
         ){
             rt_val = "abc-g";

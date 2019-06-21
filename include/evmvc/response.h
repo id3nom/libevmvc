@@ -40,17 +40,17 @@ SOFTWARE.
 
 namespace evmvc {
 
-class response
-    : public std::enable_shared_from_this<response>
+class response_t
+    : public std::enable_shared_from_this<response_t>
 {
     friend class connection;
     friend class http_parser;
     
 public:
     
-    response(
+    response_t(
         uint64_t id,
-        sp_request req,
+        request req,
         wp_connection conn,
         md::log::logger log,
         const sp_route& rt,
@@ -58,9 +58,9 @@ public:
         const sp_http_cookies& http_cookies
     );
     
-    ~response()
+    ~response_t()
     {
-        EVMVC_DEF_TRACE("response {} {:p} released", _id, (void*)this);
+        EVMVC_DEF_TRACE("response_t {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}
@@ -68,14 +68,14 @@ public:
     sp_connection connection() const;
     bool secure() const;
     
-    evmvc::sp_app get_app() const;
-    evmvc::sp_router get_router()const;
+    evmvc::app get_app() const;
+    evmvc::router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     md::log::logger log() const { return _log;}
     
     evmvc::response_headers& headers() const { return *(_headers.get());}
     http_cookies& cookies() const { return *(_cookies.get());}
-    evmvc::sp_request req() const { return _req;}
+    evmvc::request req() const { return _req;}
     
     bool paused() const { return _paused;}
     void pause();
@@ -115,13 +115,13 @@ public:
         return _status == -1 ? (int16_t)evmvc::status::ok : _status;
     }
     
-    response& status(evmvc::status code)
+    response_t& status(evmvc::status code)
     {
         _status = (uint16_t)code;
         return *this;
     }
     
-    response& status(uint16_t code)
+    response_t& status(uint16_t code)
     {
         _status = code;
         return *this;
@@ -129,7 +129,7 @@ public:
     
     bool has_encoding(){ return !_enc.empty();}
     md::string_view encoding(){ return _enc;}
-    response& encoding(md::string_view enc)
+    response_t& encoding(md::string_view enc)
     {
         _enc = enc.to_string();
         return *this;
@@ -141,7 +141,7 @@ public:
         return _type.empty() ? "" : _type;
     }
     
-    response& type(md::string_view type, md::string_view enc = "")
+    response_t& type(md::string_view type, md::string_view enc = "")
     {
         _type = evmvc::mime::get_type(type);
         if(_type.empty())
@@ -436,7 +436,7 @@ private:
     void _reply_raw(const char* data, size_t len);
     
     uint64_t _id;
-    evmvc::sp_request _req;
+    evmvc::request _req;
     wp_connection _conn;
     md::log::logger _log;
     sp_route _rt;

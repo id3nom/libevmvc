@@ -1077,7 +1077,7 @@ private:
     http_version _http_ver;
     
     std::shared_ptr<header_map> _hdrs;
-    sp_response _res;
+    response _res;
     sp_route_result _rr;
     
     // body data

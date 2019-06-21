@@ -30,7 +30,7 @@ SOFTWARE.
 namespace evmvc {
 
 inline sp_master_server listener::get_server() const { return _server.lock();}
-inline sp_app master_server::get_app() const { return _app.lock();}
+inline app master_server::get_app() const { return _app.lock();}
 
 
 inline void listener::master_listen_cb(
@@ -45,7 +45,7 @@ inline void listener::master_listen_cb(
         close(sock);
         return;
     }
-    sp_app a = s->get_app();
+    app a = s->get_app();
     if(!a){
         close(sock);
         return;

@@ -91,7 +91,7 @@ public:
     }
     
     static void render(
-        const evmvc::sp_response& res,
+        const evmvc::response& res,
         md::string_view path,
         md::callback::value_cb<const std::string&> cb)
     {
@@ -130,7 +130,7 @@ public:
     }
     
     static std::shared_ptr<evmvc::view_base> get(
-        const evmvc::sp_response& res, md::string_view path)
+        const evmvc::response& res, md::string_view path)
     {
         size_t p = path.rfind("::");
         std::string ns = 
@@ -161,12 +161,12 @@ public:
     virtual md::string_view name() const = 0;
     
     virtual std::shared_ptr<evmvc::view_base> get_view(
-        const evmvc::sp_response& res,
+        const evmvc::response& res,
         const std::string& path
     ) = 0;
     virtual bool view_exists(const std::string& view_path) const = 0;
     virtual void render_view(
-        const evmvc::sp_response& res,
+        const evmvc::response& res,
         const std::string& path,
         md::callback::value_cb<const std::string&> cb
     ) = 0;

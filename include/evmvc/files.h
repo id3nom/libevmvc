@@ -104,7 +104,7 @@ private:
 
 class http_files
 {
-    friend class evmvc::request;
+    friend class evmvc::request_t;
     
 public:
     http_files()

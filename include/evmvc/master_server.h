@@ -288,12 +288,12 @@ class master_server
     : public std::enable_shared_from_this<master_server>
 {
 public:
-    master_server(wp_app app, const server_options& config,
+    master_server(wp_app app_t, const server_options& config,
         const md::log::logger& log)
         : 
         _id(std::hash<std::string>{}(config.name)),
         _status(evmvc::running_state::stopped),
-        _app(app), _config(config),
+        _app(app_t), _config(config),
         _log(log->add_child("master-server:" + std::to_string(_id)))
     {
         EVMVC_DEF_TRACE("master_server {:p} created", (void*)this);
@@ -318,7 +318,7 @@ public:
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
     
-    sp_app get_app() const;
+    app get_app() const;
     
     const std::string& name() const { return _config.name;}
     

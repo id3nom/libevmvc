@@ -43,19 +43,19 @@ namespace policies {
 class jwt_filter_rule_t;
 }
 
-class request
-    : public std::enable_shared_from_this<request>
+class request_t
+    : public std::enable_shared_from_this<request_t>
 {
     friend class http_parser;
     friend class policies::jwt_filter_rule_t;
     // friend void _internal::on_multipart_request_completed(
-    //     sp_request req,
-    //     sp_response res,
-    //     sp_app a
+    //     request req,
+    //     response res,
+    //     app a
     // );
     
 public:
-    request(
+    request_t(
         uint64_t id,
         http_version ver,
         wp_connection conn,
@@ -86,7 +86,7 @@ public:
         _body_params(std::make_unique<http_params_t>()),
         _files()
     {
-        EVMVC_DEF_TRACE("request {} {:p} created", _id, (void*)this);
+        EVMVC_DEF_TRACE("request_t {} {:p} created", _id, (void*)this);
         
         if(_log->should_log(md::log::log_level::trace)){
             std::string hdrs_dbg;
@@ -134,14 +134,14 @@ public:
         }while(it_idx > -1 && it_idx < (ssize_t)qry.size());
     }
     
-    ~request()
+    ~request_t()
     {
-        EVMVC_DEF_TRACE("request {} {:p} released", _id, (void*)this);
+        EVMVC_DEF_TRACE("request_t {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}
-    evmvc::sp_app get_app() const;
-    evmvc::sp_router get_router()const;
+    evmvc::app get_app() const;
+    evmvc::router get_router()const;
     evmvc::sp_route get_route()const { return _rt;}
     md::log::logger log() const { return _log;}
     const url& uri() const { return _uri;}

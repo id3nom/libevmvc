@@ -89,7 +89,7 @@ inline void http_parser::validate_headers()
         _uri_string
     );
     
-    sp_app a = this->_conn.lock()->get_worker()->get_app();
+    app a = this->_conn.lock()->get_worker()->get_app();
     
     _rr = a->_router->resolve_url(_method_string, _uri.path());
     if(!_rr && _method == evmvc::method::head)
@@ -199,7 +199,7 @@ inline void http_parser::validate_headers()
 
 inline void http_parser::init_multip()
 {
-    sp_app a = _conn.lock()->get_worker()->get_app();
+    app a = _conn.lock()->get_worker()->get_app();
     _mp_temp_dir = a->options().temp_dir;
     
     _mp_buf = evbuffer_new();

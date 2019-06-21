@@ -37,7 +37,7 @@ namespace evmvc { namespace fanjet {
 typedef std::function<
     std::shared_ptr<fanjet::view_base>(
         sp_view_engine engine,
-        const evmvc::sp_response& res
+        const evmvc::response& res
     )> view_generator_fn;
 
 class view_engine
@@ -58,7 +58,7 @@ public:
     md::string_view name() const { return EVMVC_FANJET_VIEW_ENGINE_NAME;};
     
     void render_view(
-        const evmvc::sp_response& res,
+        const evmvc::response& res,
         const std::string& path,
         md::callback::value_cb<const std::string&> cb)
     {
@@ -143,7 +143,7 @@ public:
     }
     
     std::shared_ptr<evmvc::view_base> get_view(
-        const evmvc::sp_response& res,
+        const evmvc::response& res,
         const std::string& path)
     {
         view_generator_fn vg = find_generator(path);

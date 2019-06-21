@@ -271,7 +271,7 @@ inline std::string root_node_t::gen_header_code(
         // constructor
         "    {0}(\n"
         "        ::evmvc::sp_view_engine engine,\n"
-        "        const ::evmvc::sp_response& _res)\n"
+        "        const ::evmvc::response& _res)\n"
         "        : {1}\n"
         "    {{\n"
         "    }}\n"

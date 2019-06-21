@@ -375,7 +375,7 @@ public:
                 inc_src_gens += fmt::format(
                     "    fjv->register_view_generator( \"{}\", \n"
                     "    [](evmvc::sp_view_engine engine, "
-                    "const evmvc::sp_response& res\n"
+                    "const evmvc::response& res\n"
                     "    )->std::shared_ptr<evmvc::fanjet::view_base>{{\n"
                     "        return std::shared_ptr<{}>(\n"
                     "            new {}(engine, res)\n"

@@ -37,16 +37,16 @@ SOFTWARE.
 
 namespace evmvc {
 
-class request;
-class response;
+class request_t;
+class response_t;
 
 class http_cookies;
 typedef std::shared_ptr<http_cookies> sp_http_cookies;
 
 class http_cookies
 {
-    friend class request;
-    friend class response;
+    friend class request_t;
+    friend class response_t;
     
     // typedef std::map<
     //     md::string_view, md::string_view, md::string_view_cmp

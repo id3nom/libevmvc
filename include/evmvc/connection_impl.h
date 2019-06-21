@@ -345,7 +345,7 @@ inline void connection::on_connection_write(
     // if(evbuffer_get_length(c->bev_out()))
     //     return;
     //
-    // request completed
+    // request_t completed
     // if(c->flag_is(conn_flags::keepalive)){
     //     c->_parser->reset();
     // }else{

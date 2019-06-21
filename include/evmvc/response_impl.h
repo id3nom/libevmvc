@@ -38,9 +38,9 @@ SOFTWARE.
 
 namespace evmvc {
 
-inline response::response(
+inline response_t::response_t(
     uint64_t id,
-    sp_request req,
+    request req,
     wp_connection conn,
     md::log::logger log,
     const sp_route& rt,
@@ -62,9 +62,9 @@ inline response::response(
     _res_data(std::make_shared<evmvc::response_data_map_t>()),
     _err(nullptr), _err_status(evmvc::status::ok)
 {
-    EVMVC_DEF_TRACE("response {} {:p} created", _id, (void*)this);
+    EVMVC_DEF_TRACE("response_t {} {:p} created", _id, (void*)this);
     
-    evmvc::sp_app sa = this->get_app();
+    evmvc::app sa = this->get_app();
     for(auto mit : *sa->app_data()){
         _res_data->emplace(mit);
     }
@@ -85,20 +85,20 @@ static char* header_line_buf()
 }
 
 
-inline sp_connection response::connection() const { return _conn.lock();}
-inline bool response::secure() const { return _conn.lock()->secure();}
+inline sp_connection response_t::connection() const { return _conn.lock();}
+inline bool response_t::secure() const { return _conn.lock()->secure();}
 
-inline evmvc::sp_app response::get_app() const
+inline evmvc::app response_t::get_app() const
 {
     return this->get_router()->get_app();
 }
-inline evmvc::sp_router response::get_router() const
+inline evmvc::router response_t::get_router() const
 {
     return this->get_route()->get_router();
 }
 
 
-inline void response::pause()
+inline void response_t::pause()
 {
     if(_paused)
         return;
@@ -108,7 +108,7 @@ inline void response::pause()
         c->set_conn_flag(conn_flags::paused);
 }
 
-inline void response::resume()
+inline void response_t::resume()
 {
     if(!_paused || _resuming){
         _log->warn(MD_ERR(
@@ -127,7 +127,7 @@ inline void response::resume()
 }
 
 
-inline void response::set_error(
+inline void response_t::set_error(
     const md::callback::cb_error& err,
     evmvc::status status_code)
 {
@@ -142,7 +142,7 @@ inline void response::set_error(
     _err = err;
     _err_status = status_code;
     
-    evmvc::sp_app a = this->get_route()->get_router()->get_app();
+    evmvc::app a = this->get_route()->get_router()->get_app();
     set_data("_err_status", (uint16_t)_err_status);
     set_data("_err_status_desc", evmvc::statuses::status(_err_status));
     set_data("_err_message", std::string(_err.c_str()));
@@ -165,7 +165,7 @@ inline void response::set_error(
 }
 
 
-inline void response::error(
+inline void response_t::error(
     evmvc::status err_status, const md::callback::cb_error& err)
 {
     std::string remote_addr("unknown");
@@ -207,7 +207,7 @@ inline void response::error(
     );
     free(what);
     
-    evmvc::sp_app a = this->get_route()->get_router()->get_app();
+    evmvc::app a = this->get_route()->get_router()->get_app();
 
     if(a->options().stack_trace_enabled && err.has_stack()){
         log_val += fmt::format(
@@ -260,13 +260,13 @@ inline void response::error(
     this->status(err_status).html(err_msg);
 }
 
-inline void response::_prepare_headers()
+inline void response_t::_prepare_headers()
 {
     EVMVC_TRACE(_log, "_prepare_headers");
     
     if(_started)
         throw std::runtime_error(
-            "unable to prepare headers after response is started!"
+            "unable to prepare headers after response_t is started!"
         );
         
     auto c = _conn.lock();
@@ -402,7 +402,7 @@ inline void response::_prepare_headers()
         return this->_reply_end();
 }
 
-inline void response::_reply_raw(const char* data, size_t len)
+inline void response_t::_reply_raw(const char* data, size_t len)
 {
     EVMVC_TRACE(_log, "_reply_raw");
     if(auto c = this->_conn.lock()){
@@ -413,7 +413,7 @@ inline void response::_reply_raw(const char* data, size_t len)
     }
 }
 
-inline void response::_reply_end()
+inline void response_t::_reply_end()
 {
     EVMVC_TRACE(_log, "_reply_end");
 
@@ -426,7 +426,7 @@ inline void response::_reply_end()
 }
 
 
-inline void response::send_file(
+inline void response_t::send_file(
     const bfs::path& filepath,
     const md::string_view& enc, 
     md::callback::async_cb cb)
@@ -615,7 +615,7 @@ inline void response::send_file(
     c->send_file(reply);
 }
 
-inline void response::render(
+inline void response_t::render(
     const std::string& view_path, md::callback::async_cb cb)
 {
     auto self = this->shared_from_this();
@@ -631,7 +631,7 @@ inline void response::render(
 }
 
 template<>
-inline std::string response::get_data<std::string>(
+inline std::string response_t::get_data<std::string>(
     md::string_view name, const std::string& def_val)
 {
     if(name == "_evmvc_version")
@@ -644,7 +644,7 @@ inline std::string response::get_data<std::string>(
 }
 
 template<>
-inline std::string response::get_data<std::string>(md::string_view name)
+inline std::string response_t::get_data<std::string>(md::string_view name)
 {
     auto it = _res_data->find(name.to_string());
     if(it == _res_data->end())

@@ -62,7 +62,7 @@ class view_base
 public:
     view_base(
         sp_view_engine engine,
-        const evmvc::sp_response& _res)
+        const evmvc::response& _res)
         : _engine(engine),
         res(_res),
         req(_res->req())
@@ -329,8 +329,8 @@ private:
 protected:
     
     
-    evmvc::sp_response res;
-    evmvc::sp_request req;
+    evmvc::response res;
+    evmvc::request req;
     
 private:
     

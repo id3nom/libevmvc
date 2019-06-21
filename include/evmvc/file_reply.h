@@ -33,7 +33,7 @@ namespace evmvc {
 class file_reply {
 public:
     file_reply(
-        sp_response _res,
+        response _res,
         wp_connection _conn,
         FILE* _file_desc,
         md::callback::async_cb _cb,
@@ -62,7 +62,7 @@ public:
         evbuffer_free(this->buffer);
         EVMVC_DEF_TRACE("file_reply {:p} released", (void*)this);
     }
-    sp_response res;
+    response res;
     wp_connection conn;
     FILE* file_desc;
     struct evbuffer* buffer;

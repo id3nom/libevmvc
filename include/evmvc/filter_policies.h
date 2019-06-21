@@ -50,8 +50,8 @@ typedef std::function<void(const md::callback::cb_error& err)> validation_cb;
 struct filter_rule_ctx_t
 {
     filter_rule_ctx_t(
-        sp_response res,
-        sp_request req,
+        response res,
+        request req,
         std::shared_ptr<multip::multipart_content_form> form,
         std::shared_ptr<multip::multipart_content_file> file)
         : res(res), req(req), form(form), file(file)
@@ -64,14 +64,14 @@ struct filter_rule_ctx_t
         EVMVC_DEF_TRACE("filter_rule_ctx_t {:p} released", (void*)this);
     }
     
-    sp_response res;
-    sp_request req;
+    response res;
+    request req;
     std::shared_ptr<multip::multipart_content_form> form;
     std::shared_ptr<multip::multipart_content_file> file;
 };
 typedef std::shared_ptr<filter_rule_ctx_t> filter_rule_ctx;
 
-inline filter_rule_ctx new_context(sp_response res)
+inline filter_rule_ctx new_context(response res)
 {
     return std::make_shared<filter_rule_ctx_t>(
         res, res->req(),
@@ -389,7 +389,7 @@ public:
     }
     
 private:
-    std::string _get_jwt(sp_request req)
+    std::string _get_jwt(request req)
     {
         auto auth = req->headers().get(evmvc::field::authorization);
         if(auth){

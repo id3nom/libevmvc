@@ -38,14 +38,14 @@ SOFTWARE.
 
 namespace evmvc {
 
-class app
-    : public std::enable_shared_from_this<app>
+class app_t
+    : public std::enable_shared_from_this<app_t>
 {
     friend class http_parser;
     
 public:
     
-    app(struct event_base* ev_base,
+    app_t(struct event_base* ev_base,
         evmvc::app_options&& opts)
         : _init_rtr(false), _init_dirs(false), _status(running_state::stopped),
         _options(std::move(opts)),
@@ -96,7 +96,7 @@ public:
             );
     }
     
-    ~app()
+    ~app_t()
     {
         if(_ev_verif_childs)
             event_free(_ev_verif_childs);
@@ -182,7 +182,7 @@ public:
         
         if(!stopped())
             throw MD_ERR(
-                "app must be in stopped state to start listening again"
+                "app_t must be in stopped state to start listening again"
             );
         _status = running_state::starting;
         
@@ -255,7 +255,7 @@ public:
         _ev_verif_childs = event_new(
             global::ev_base(),
             -1, EV_READ | EV_PERSIST,
-            app::_verify_child_processes,
+            app_t::_verify_child_processes,
             this
         );
         timeval tv = md::date::ms_to_timeval(1000);
@@ -375,7 +375,7 @@ public:
     }
     
     // ==============
-    // == app data ==
+    // == app_t data ==
     // ==============
     
     evmvc::response_data_map app_data() const
@@ -434,89 +434,89 @@ public:
     }
     
     // ====================
-    // == default router ==
+    // == default router_t ==
     // ====================
     
-    sp_router find_router(md::string_view route, bool partial_path = false)
+    router find_router(md::string_view route, bool partial_path = false)
     {
         if(!_init_rtr)
             throw MD_ERR(
-                "evmvc::app must be initialized by calling "
+                "evmvc::app_t must be initialized by calling "
                 "initialize() method first!"
             );
         return _router->find_router(route, partial_path);
     }
     
-    sp_router use(use_handler_when w, route_handler_cb cb)
+    router use(use_handler_when w, route_handler_cb cb)
     {
         this->_init_router();
         return _router->use(w, cb);
     }
     
-    sp_router all(
+    router all(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->all(route_path, cb, pol);
     }
-    sp_router options(
+    router options(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->options(route_path, cb, pol);
     }
-    sp_router del(
+    router del(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->del(route_path, cb, pol);
     }
-    sp_router head(
+    router head(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->head(route_path, cb, pol);
     }
-    sp_router get(
+    router get(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->get(route_path, cb, pol);
     }
-    sp_router post(
+    router post(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->post(route_path, cb, pol);
     }
-    sp_router put(
+    router put(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->put(route_path, cb, pol);
     }
-    sp_router connect(
+    router connect(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->connect(route_path, cb, pol);
     }
-    sp_router trace(
+    router trace(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
         this->_init_router();
         return _router->trace(route_path, cb, pol);
     }
-    sp_router patch(
+    router patch(
         const md::string_view& route_path, route_handler_cb cb,
         policies::filter_policy pol = policies::filter_policy())
     {
@@ -524,7 +524,7 @@ public:
         return _router->patch(route_path, cb, pol);
     }
     
-    sp_router register_route_handler(
+    router register_route_handler(
         const md::string_view& verb,
         const md::string_view& route_path,
         route_handler_cb cb,
@@ -535,18 +535,18 @@ public:
     }
     
     
-    sp_router register_policy(policies::filter_policy pol)
+    router register_policy(policies::filter_policy pol)
     {
         return _router->register_policy(pol);
     }
     
-    sp_router register_policy(
+    router register_policy(
         const md::string_view& route_path, policies::filter_policy pol)
     {
         return _router->register_policy(route_path, pol);
     }
     
-    sp_router register_policy(
+    router register_policy(
         evmvc::method method,
         const md::string_view& route_path,
         policies::filter_policy pol)
@@ -554,7 +554,7 @@ public:
         return _router->register_policy(method, route_path, pol);
     }
     
-    sp_router register_policy(
+    router register_policy(
         const md::string_view& method,
         const md::string_view& route_path,
         policies::filter_policy pol)
@@ -562,17 +562,17 @@ public:
         return _router->register_policy(method, route_path, pol);
     }
     
-    sp_router register_router(sp_router router)
+    router register_router(router router_t)
     {
         this->_init_router();
-        return _router->register_router(router);
+        return _router->register_router(router_t);
     }
     
 private:
     
     static void _verify_child_processes(int /*fd*/, short /*events*/, void* arg)
     {
-        app* self = (app*)arg;
+        app_t* self = (app_t*)arg;
         
         if(self->_status != running_state::running)
             return;
@@ -677,7 +677,7 @@ private:
         _init_rtr = true;
         
         _router =
-            std::make_shared<router>(
+            std::make_shared<router_t>(
                 this->shared_from_this(), "/"
             );
         //_router->_path = "";
@@ -717,7 +717,7 @@ private:
     bool _init_dirs;
     running_state _status;
     app_options _options;
-    sp_router _router;
+    router _router;
     md::log::logger _log;
     
     std::vector<evmvc::sp_worker> _workers;
@@ -737,7 +737,7 @@ private:
     char** _argv;
     
     
-};//evmvc::app
+};//evmvc::app_t
 
 
 }// ns evmvc

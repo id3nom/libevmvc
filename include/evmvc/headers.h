@@ -290,7 +290,7 @@ private:
 template<bool READ_ONLY>
 class http_headers
 {
-    friend class response;
+    friend class response_t;
     
 public:
     http_headers()

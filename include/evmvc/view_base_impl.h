@@ -69,7 +69,7 @@ inline void view_base::_pop_buffer(md::string_view lng)
         throw MD_ERR(
             "Invalid language\n"
             "Current language is: '{}', "
-            "and the request language to pop is '{}'",
+            "and the request_t language to pop is '{}'",
             _buffer_lngs.top(),
             lng
         );

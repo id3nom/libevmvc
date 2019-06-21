@@ -273,9 +273,9 @@ protected:
         );
     }
     
-    worker(const wp_app& app, const app_options& config,
+    worker(const wp_app& app_t, const app_options& config,
         worker_type wtype, const md::log::logger& log)
-        : _app(app),
+        : _app(app_t),
         _config(config),
         _wtype(wtype),
         _id(nxt_id()),
@@ -325,7 +325,7 @@ public:
     int pid() { return _pid;}
     process_type proc_type() const { return _ptype;}
     
-    sp_app get_app() const { return _app.lock();}
+    app get_app() const { return _app.lock();}
     bool is_valid() const { return (bool)_channel;}
     evmvc::channel& channel() const { return *(_channel.get());}
     
@@ -608,9 +608,9 @@ class http_worker
     static void on_http_worker_accept(int fd, short events, void* arg);
     
 public:
-    http_worker(const wp_app& app, const app_options& config,
+    http_worker(const wp_app& app_t, const app_options& config,
         const md::log::logger& log)
-        : worker(app, config, worker_type::http, log)
+        : worker(app_t, config, worker_type::http, log)
     {
     }
     
@@ -769,9 +769,9 @@ class cache_worker
     public worker
 {
 public:
-    cache_worker(const wp_app& app, const app_options& config,
+    cache_worker(const wp_app& app_t, const app_options& config,
         const md::log::logger& log)
-        : worker(app, config, worker_type::cache, log)
+        : worker(app_t, config, worker_type::cache, log)
     {
     }
     

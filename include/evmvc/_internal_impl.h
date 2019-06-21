@@ -27,7 +27,7 @@ SOFTWARE.
 namespace evmvc { namespace _internal{
 
 inline void send_error(
-    evmvc::sp_response res, int status_code,
+    evmvc::response res, int status_code,
     md::string_view msg)
 {
     res->error(
@@ -37,14 +37,14 @@ inline void send_error(
 }
 
 inline void send_error(
-    evmvc::sp_response res, int status_code,
+    evmvc::response res, int status_code,
     md::callback::cb_error err)
 {
     res->error((evmvc::status)status_code, err);
 }
 
 
-inline evmvc::sp_response create_http_response(
+inline evmvc::response create_http_response(
     wp_connection conn,
     http_version ver,
     url uri,
@@ -75,12 +75,12 @@ inline evmvc::sp_response create_http_response(
         const sp_http_cookies& http_cookies,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p
     */
-    evmvc::sp_request req = std::make_shared<evmvc::request>(
+    evmvc::request req = std::make_shared<evmvc::request_t>(
         rid, ver, conn, log, rr->_route, uri,
         c->parser()->method(), c->parser()->method_string(),
         hdrs, cks, rr->params
     );
-    evmvc::sp_response res = std::make_shared<evmvc::response>(
+    evmvc::response res = std::make_shared<evmvc::response_t>(
         rid, req, conn, log, rr->_route, uri, cks
     );
     
