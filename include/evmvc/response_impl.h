@@ -53,7 +53,7 @@ inline response_t::response_t(
         "res-" + md::num_to_str(id, false) + uri.path()
     )),
     _rt(rt),
-    _headers(std::make_shared<response_headers>()),
+    _headers(std::make_shared<response_headers_t>()),
     _cookies(http_cookies_t),
     _started(false), _ended(false),
     _status(-1), _type(""), _enc(""),
@@ -557,7 +557,7 @@ inline void response_t::send_file(
     if(evmvc::mime::compressible(mime_type)){
         EVMVC_DBG(this->_log, "file is compressible");
         
-        sp_header hdr = _req->headers().get(
+        shared_header hdr = _req->headers().get(
             evmvc::field::accept_encoding
         );
         

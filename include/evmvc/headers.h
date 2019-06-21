@@ -41,21 +41,21 @@ struct accept_encoding
     float weight;
 };
 
-class header;
-typedef std::shared_ptr<header> sp_header;
+class header_t;
+typedef std::shared_ptr<header_t> shared_header;
 
 template<bool READ_ONLY>
 class http_headers;
-using request_headers = http_headers<true>;
-using response_headers = http_headers<false>;
+using request_headers_t = http_headers<true>;
+using response_headers_t = http_headers<false>;
 
-typedef std::shared_ptr<request_headers> sp_request_headers;
-typedef std::shared_ptr<response_headers> sp_response_headers;
+typedef std::shared_ptr<request_headers_t> request_headers;
+typedef std::shared_ptr<response_headers_t> response_headers;
 
-class header
+class header_t
 {
 public:
-    constexpr header(
+    constexpr header_t(
         const md::string_view& hdr_name,
         const md::string_view& hdr_value)
         : _hdr_name(hdr_name), _hdr_value(hdr_value)
@@ -321,17 +321,17 @@ public:
         return it != _hdrs->end();
     }
     
-    evmvc::sp_header get(evmvc::field header_name) const
+    evmvc::shared_header get(evmvc::field header_name) const
     {
         return get(to_string(header_name));
     }
     
-    evmvc::sp_header get(md::string_view header_name) const
+    evmvc::shared_header get(md::string_view header_name) const
     {
         auto it = _hdrs->find(header_name.to_string());
         if(it == _hdrs->end())
             return nullptr;
-        return std::make_shared<evmvc::header>(
+        return std::make_shared<evmvc::header_t>(
             header_name,
             it->second[0]
         );
@@ -348,7 +348,7 @@ public:
         md::string_view header_name,
         md::string_view val, bool case_sensitive = false) const
     {
-        sp_header hdr = get(header_name);
+        shared_header hdr = get(header_name);
         if(!hdr)
             return false;
         
@@ -362,14 +362,14 @@ public:
         return _hdrs;
     }
     
-    std::vector<evmvc::sp_header> list(evmvc::field header_name) const
+    std::vector<evmvc::shared_header> list(evmvc::field header_name) const
     {
         return list(to_string(header_name));
     }
     
-    std::vector<evmvc::sp_header> list(md::string_view header_name) const
+    std::vector<evmvc::shared_header> list(md::string_view header_name) const
     {
-        std::vector<evmvc::sp_header> vals;
+        std::vector<evmvc::shared_header> vals;
         
         auto it = _hdrs->find(header_name.to_string());
         if(it == _hdrs->end())
@@ -377,7 +377,7 @@ public:
         
         for(auto& el : it->second)
             vals.emplace_back(
-                std::make_shared<evmvc::header>(
+                std::make_shared<evmvc::header_t>(
                     header_name,
                     el
                 )

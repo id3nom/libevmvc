@@ -59,7 +59,7 @@ inline bool request_t::secure() const { return _conn.lock()->secure();}
 inline evmvc::url_scheme request_t::protocol() const
 {
     //TODO: add trust proxy options
-    sp_header h = _headers->get("X-Forwarded-Proto");
+    shared_header h = _headers->get("X-Forwarded-Proto");
     if(h){
         if(!strcasecmp(h->value(), "https"))
             return evmvc::url_scheme::https;
@@ -76,7 +76,7 @@ inline evmvc::url_scheme request_t::protocol() const
 inline std::string request_t::protocol_string() const
 {
     //TODO: add trust proxy options
-    sp_header h = _headers->get("X-Forwarded-Proto");
+    shared_header h = _headers->get("X-Forwarded-Proto");
     if(h)
         return boost::to_lower_copy(
             std::string(h->value())

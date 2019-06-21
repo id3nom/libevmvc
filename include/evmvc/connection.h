@@ -312,7 +312,7 @@ public:
     
     void close();
     
-    void send_file(sp_file_reply file)
+    void send_file(shared_file_reply file)
     {
         if(this->flag_is(conn_flags::sending_file))
             throw MD_ERR("Already sending a file");
@@ -429,7 +429,7 @@ private:
     struct timeval _wtimeo = {0,0};
     
     std::shared_ptr<http_parser> _parser = nullptr;
-    sp_file_reply _file = nullptr;
+    shared_file_reply _file = nullptr;
 };
 
 

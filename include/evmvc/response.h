@@ -73,7 +73,7 @@ public:
     evmvc::route get_route()const { return _rt;}
     md::log::logger log() const { return _log;}
     
-    evmvc::response_headers& headers() const { return *(_headers.get());}
+    evmvc::response_headers_t& headers() const { return *(_headers.get());}
     http_cookies_t& cookies() const { return *(_cookies.get());}
     evmvc::request req() const { return _req;}
     
@@ -440,7 +440,7 @@ private:
     wp_connection _conn;
     md::log::logger _log;
     route _rt;
-    evmvc::sp_response_headers _headers;
+    evmvc::response_headers _headers;
     http_cookies _cookies;
     bool _started;
     bool _ended;

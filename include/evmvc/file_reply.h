@@ -71,7 +71,7 @@ public:
     md::callback::async_cb cb;
     md::log::logger log;
 };
-typedef std::shared_ptr<file_reply> sp_file_reply;
+typedef std::shared_ptr<file_reply> shared_file_reply;
 
 }//::evmvc
 #endif//_libevmvc_file_reply_h

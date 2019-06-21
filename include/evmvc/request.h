@@ -79,7 +79,7 @@ public:
         _uri(std::move(uri)),
         _met(met),
         _smet(smet.to_string()),
-        _headers(std::make_shared<evmvc::request_headers>(hdrs)),
+        _headers(std::make_shared<evmvc::request_headers_t>(hdrs)),
         _cookies(http_cookies_t),
         _rt_params(std::make_unique<http_params_t>(p)),
         _qry_params(std::make_unique<http_params_t>()),
@@ -155,7 +155,7 @@ public:
     std::string ip() const
     {
         //TODO: add trust proxy options
-        sp_header h = _headers->get("X-Forwarded-For");
+        shared_header h = _headers->get("X-Forwarded-For");
         if(!h)
             return connection_ip();
         
@@ -169,7 +169,7 @@ public:
     std::vector<std::string> ips() const
     {
         //TODO: add trust proxy options
-        sp_header h = _headers->get("X-Forwarded-For");
+        shared_header h = _headers->get("X-Forwarded-For");
         if(!h)
             return {connection_ip()};
         
@@ -193,7 +193,7 @@ public:
     std::string hostname() const
     {
         //TODO: add trust proxy options
-        sp_header h = _headers->get("X-Forwarded-Host");
+        shared_header h = _headers->get("X-Forwarded-Host");
         if(!h)
             h = _headers->get("host");
         
@@ -203,7 +203,7 @@ public:
     evmvc::url_scheme protocol() const;
     std::string protocol_string() const;
     
-    evmvc::request_headers& headers() const { return *(_headers.get());}
+    evmvc::request_headers_t& headers() const { return *(_headers.get());}
     http_cookies_t& cookies() const { return *(_cookies.get());}
     
     template<typename COOKIE_T>
@@ -343,7 +343,7 @@ protected:
     evmvc::method _met;
     std::string _smet;
     
-    evmvc::sp_request_headers _headers;
+    evmvc::request_headers _headers;
     http_cookies _cookies;
     
     evmvc::http_params _rt_params;

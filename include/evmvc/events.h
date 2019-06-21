@@ -59,11 +59,11 @@ public:
 protected:
     std::string _name; 
 };
-typedef std::shared_ptr<event_wrapper_base> sp_evw;
+typedef std::shared_ptr<event_wrapper_base> shared_evw;
 
-inline std::unordered_map<std::string, sp_evw>& named_events()
+inline std::unordered_map<std::string, shared_evw>& named_events()
 {
-    static std::unordered_map<std::string, sp_evw> _events;
+    static std::unordered_map<std::string, shared_evw> _events;
     return _events;
 }
 
@@ -340,7 +340,7 @@ inline std::string next_event_name()
     return "da724ca0-308c-11e9-9071-5b3166957f05_" + md::num_to_str(++uid);
 }
 
-inline void register_event(sp_evw ev)
+inline void register_event(shared_evw ev)
 {
     EVMVC_DEF_TRACE("Registering event: '{}'", ev->name());
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
@@ -383,7 +383,7 @@ inline void clear_events()
     EVMVC_DEF_TRACE("Clearing all events");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
-    std::vector<_internal::sp_evw> evs;
+    std::vector<_internal::shared_evw> evs;
     for(auto it = _internal::named_events().begin();
         it != _internal::named_events().end(); ++it)
         evs.emplace_back(it->second);
@@ -399,7 +399,7 @@ inline void clear_timeouts()
     EVMVC_DEF_TRACE("Clearing all timeouts");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
-    std::vector<_internal::sp_evw> evs;
+    std::vector<_internal::shared_evw> evs;
     auto it = _internal::named_events().begin();
     while(it != _internal::named_events().end()){
         if(strncmp(it->second->name().c_str(), "to:", 3) == 0){
@@ -419,7 +419,7 @@ inline void clear_intervals()
     EVMVC_DEF_TRACE("Clearing all intervals");
     
     std::unique_lock<std::mutex> lock(_internal::events_mutex());
-    std::vector<_internal::sp_evw> evs;
+    std::vector<_internal::shared_evw> evs;
     auto it = _internal::named_events().begin();
     while(it != _internal::named_events().end()){
         if(strncmp(it->second->name().c_str(), "iv:", 3) == 0){
