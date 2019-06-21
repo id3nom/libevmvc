@@ -32,7 +32,7 @@ SOFTWARE.
 namespace evmvc {
 
 typedef EVP_PKEY* (*ssl_decrypt_cb)(const char* cert_key_file);
-typedef void* (*ssl_scache_init)(evmvc::sp_child_server);
+typedef void* (*ssl_scache_init)(evmvc::child_server);
 
 enum class ssl_verify_mode
 {

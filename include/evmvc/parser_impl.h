@@ -95,7 +95,7 @@ inline void http_parser::validate_headers()
     if(!_rr && _method == evmvc::method::head)
         _rr = a->_router->resolve_url(evmvc::method::get, _uri.path());
     
-    // stop request if no valid route found
+    // stop request if no valid route_t found
     if(!_rr){
         _log->fail(
             "recv: [{}] [{}] from: [{}:{}], err: 404",
@@ -107,10 +107,10 @@ inline void http_parser::validate_headers()
         
         _status = parser_state::error;
         
-        _rr = std::make_shared<route_result>(route::null(a));
+        _rr = std::make_shared<route_result_t>(route_t::null(a));
         _res = _internal::create_http_response(
             _conn, _http_ver, _uri, _hdrs,
-            _rr // std::make_shared<route_result>(route::null(a))
+            _rr // std::make_shared<route_result_t>(route_t::null(a))
         );
         _res->status(404);
         // create validation context

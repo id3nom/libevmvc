@@ -123,7 +123,7 @@ public:
         return _log;
     }
     
-    const std::vector<sp_worker>& workers() const { return _workers;}
+    const std::vector<worker>& workers() const { return _workers;}
     
     running_state status() const
     {
@@ -161,8 +161,8 @@ public:
     void set_callbacks(
         md::callback::async_item_cb<evmvc::process_type> started_cb, 
         md::callback::async_item_cb<evmvc::process_type> stopped_cb,
-        std::function<void(evmvc::sp_worker)> worker_created_cb,
-        std::function<void(evmvc::sp_worker)> worker_deleted_cb)
+        std::function<void(evmvc::worker)> worker_created_cb,
+        std::function<void(evmvc::worker)> worker_deleted_cb)
     {
         _started_cb = started_cb;
         _stopped_cb = stopped_cb;
@@ -188,9 +188,9 @@ public:
         
         this->initialize();
         
-        std::vector<sp_http_worker> twks;
+        std::vector<http_worker> twks;
         for(size_t i = 0; i < _options.worker_count; ++i){
-            sp_http_worker w = std::make_shared<evmvc::http_worker>(
+            http_worker w = std::make_shared<evmvc::http_worker_t>(
                 this->shared_from_this(), _options, this->_log
             );
             if(_worker_created_cb)
@@ -199,7 +199,7 @@ public:
             int pid = fork();
             if(pid == -1){// fork failed
                 _log->fatal(
-                    "Unable to create new worker process!"
+                    "Unable to create new worker_t process!"
                 );
                 return -1;
             }else if(pid == 0){// in child process
@@ -240,7 +240,7 @@ public:
         }
         
         for(auto sc : _options.servers){
-            auto s = std::make_shared<master_server>(
+            auto s = std::make_shared<master_server_t>(
                 this->shared_from_this(), sc, _log
             );
             s->start();
@@ -284,7 +284,7 @@ public:
     
     void stop(md::callback::async_cb cb = nullptr, bool free_ev_base = false)
     {
-        if(auto w = worker::active_worker()){
+        if(auto w = worker_t::active_worker()){
             if(w->is_child()){
                 w->close_service();
                 if(cb)
@@ -437,14 +437,14 @@ public:
     // == default router_t ==
     // ====================
     
-    router find_router(md::string_view route, bool partial_path = false)
+    router find_router(md::string_view route_t, bool partial_path = false)
     {
         if(!_init_rtr)
             throw MD_ERR(
                 "evmvc::app_t must be initialized by calling "
                 "initialize() method first!"
             );
-        return _router->find_router(route, partial_path);
+        return _router->find_router(route_t, partial_path);
     }
     
     router use(use_handler_when w, route_handler_cb cb)
@@ -606,14 +606,14 @@ private:
         // retreive worker instance
         for(auto it = self->_workers.begin(); it != self->_workers.end(); ++it){
             if((*it)->pid() == p){
-                //evmvc::sp_worker w = *it;
+                //evmvc::worker w = *it;
                 if(self->_worker_deleted_cb)
                     self->_worker_deleted_cb(*it);
                 
                 (*it)->stop(true);
                 self->_workers.erase(it);
                 
-                evmvc::sp_worker w = std::make_shared<evmvc::http_worker>(
+                evmvc::worker w = std::make_shared<evmvc::http_worker_t>(
                     self->shared_from_this(), self->_options, self->_log
                 );
                 
@@ -720,14 +720,14 @@ private:
     router _router;
     md::log::logger _log;
     
-    std::vector<evmvc::sp_worker> _workers;
-    std::vector<evmvc::sp_master_server> _servers;
+    std::vector<evmvc::worker> _workers;
+    std::vector<evmvc::master_server> _servers;
     
     md::callback::async_item_cb<evmvc::process_type> _started_cb; 
     md::callback::async_item_cb<evmvc::process_type> _stopped_cb;
     
-    std::function<void(evmvc::sp_worker)> _worker_created_cb; 
-    std::function<void(evmvc::sp_worker)> _worker_deleted_cb;
+    std::function<void(evmvc::worker)> _worker_created_cb; 
+    std::function<void(evmvc::worker)> _worker_deleted_cb;
     
     
     event* _ev_verif_childs;

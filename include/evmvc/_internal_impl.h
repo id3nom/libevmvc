@@ -48,8 +48,8 @@ inline evmvc::response create_http_response(
     wp_connection conn,
     http_version ver,
     url uri,
-    sp_header_map hdrs,
-    sp_route_result rr)
+    header_map hdrs,
+    route_result rr)
 {
     auto c = conn.lock();
     if(!c)
@@ -59,7 +59,7 @@ inline evmvc::response create_http_response(
     uint64_t rid = ++cur_id;
     
     md::log::logger log = c->log()->add_child(rr->log()->path());
-    evmvc::sp_http_cookies cks = std::make_shared<evmvc::http_cookies>(
+    evmvc::http_cookies cks = std::make_shared<evmvc::http_cookies_t>(
         rid, log, rr->_route, uri, hdrs
     );
     /*
@@ -67,12 +67,12 @@ inline evmvc::response create_http_response(
         http_version ver,
         wp_connection conn,
         md::log::logger log,
-        const evmvc::sp_route& rt,
+        const evmvc::route& rt,
         url uri,
         evmvc::method met,
         md::string_view smet,
-        sp_header_map hdrs,
-        const sp_http_cookies& http_cookies,
+        header_map hdrs,
+        const http_cookies& http_cookies_t,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p
     */
     evmvc::request req = std::make_shared<evmvc::request_t>(

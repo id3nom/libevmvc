@@ -42,7 +42,7 @@ constexpr int CMD_CLOSE = evmvc::CMD_SYS_ID + 3;
 constexpr int CMD_CLOSE_APP = evmvc::CMD_SYS_ID + 4;
 
 class command;
-typedef std::shared_ptr<command> sp_command;
+typedef std::shared_ptr<command> shared_command;
 
 class command
     : public std::enable_shared_from_this<command>

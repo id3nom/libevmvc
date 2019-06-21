@@ -29,8 +29,8 @@ SOFTWARE.
 
 namespace evmvc {
 
-inline sp_master_server listener::get_server() const { return _server.lock();}
-inline app master_server::get_app() const { return _app.lock();}
+inline master_server listener::get_server() const { return _server.lock();}
+inline app master_server_t::get_app() const { return _app.lock();}
 
 
 inline void listener::master_listen_cb(
@@ -40,7 +40,7 @@ inline void listener::master_listen_cb(
     static size_t rridx = 100000;
     evmvc::listener* l = (evmvc::listener*)args;
     
-    sp_master_server s = l->get_server();
+    master_server s = l->get_server();
     if(!s){
         close(sock);
         return;
@@ -101,7 +101,7 @@ inline void listener::master_listen_cb(
         rridx = 0;
     size_t cur_idx = rridx;
     
-    sp_worker pw = nullptr;
+    worker pw = nullptr;
     while(!pw){
         if(a->workers()[rridx]->work_type() == worker_type::http &&
             a->workers()[rridx]->is_valid()
@@ -118,7 +118,7 @@ inline void listener::master_listen_cb(
             }
         }
     }
-    // sp_worker pw;
+    // worker pw;
     // for(auto& w : a->workers())
     //     if(w->work_type() == worker_type::http){
     //         if(!pw){

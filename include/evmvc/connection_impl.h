@@ -28,7 +28,7 @@ SOFTWARE.
 namespace evmvc { 
 
 
-inline sp_http_worker connection::get_worker() const
+inline http_worker connection::get_worker() const
 {
     return _worker.lock();
 }

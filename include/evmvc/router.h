@@ -42,22 +42,22 @@ typedef
     )> route_handler_cb;
 
 
-class route_result
+class route_result_t
 {
-    route_result()
+    route_result_t()
         : _route()
     {
-        EVMVC_DEF_TRACE("route_result {:p} created", (void*)this);
+        EVMVC_DEF_TRACE("route_result_t {:p} created", (void*)this);
     }
     
 public:
-    route_result(sp_route r)
+    route_result_t(route r)
         : _route(r)
     {
-        EVMVC_DEF_TRACE("route_result {:p} created", (void*)this);
+        EVMVC_DEF_TRACE("route_result_t {:p} created", (void*)this);
     }
     
-    ~route_result()
+    ~route_result_t()
     {
         EVMVC_DEF_TRACE("file_route_result {:p} released", (void*)this);
     }
@@ -65,21 +65,21 @@ public:
     md::log::logger log();
     
     virtual void execute(
-        sp_route_result rr, evmvc::response res, md::callback::async_cb cb
+        route_result rr, evmvc::response res, md::callback::async_cb cb
     );
     virtual void validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb
     );
     
-    sp_route _route;
+    route _route;
     std::vector<std::shared_ptr<evmvc::http_param>> params;
 };
 
-class route
-    : public std::enable_shared_from_this<route>
+class route_t
+    : public std::enable_shared_from_this<route_t>
 {
-    friend class route_result;
+    friend class route_result_t;
     friend class file_route_result;
     
     struct route_seg
@@ -92,21 +92,21 @@ class route
     };
 
 protected:
-    route(std::weak_ptr<router_t> rtr)
+    route_t(std::weak_ptr<router_t> rtr)
         : _rtr(rtr), _log(), _rp(""), _re(nullptr)
     {
         EVMVC_DEF_TRACE("route {:p} created", (void*)this);
     }
     
 public:
-    route(std::weak_ptr<router_t> rtr, md::string_view route_path)
+    route_t(std::weak_ptr<router_t> rtr, md::string_view route_path)
         : _rtr(rtr), _log(), _rp(route_path), _re(nullptr)
     {
         EVMVC_DEF_TRACE("route {:p} created", (void*)this);
         this->_build_route_re(route_path);
     }
     
-    ~route()
+    ~route_t()
     {
         if(_re){
             pcre_free_study(_re_study);
@@ -114,10 +114,10 @@ public:
         }
         _re = nullptr;
         _re_study = nullptr;
-        EVMVC_DEF_TRACE("route {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("route_t {:p} released", (void*)this);
     }
     
-    static sp_route null(wp_app a);
+    static route null(wp_app a);
     
     evmvc::router get_router() const { return _rtr.lock();}
     md::log::logger log() const;
@@ -125,22 +125,22 @@ public:
     bool has_callbacks() const { return !_handlers.empty();}
     bool has_policies() const { return !_policies.empty();}
     
-    sp_route register_policy(policies::filter_policy pol)
+    route register_policy(policies::filter_policy pol)
     {
         _policies.emplace_back(pol);
         return this->shared_from_this();
     }
     
-    sp_route register_handler(route_handler_cb cb)
+    route register_handler(route_handler_cb cb)
     {
         _handlers.emplace_back(cb);
         return this->shared_from_this();
     }
     
-    virtual sp_route_result match(const md::string_view& value)
+    virtual route_result match(const md::string_view& value)
     {
         if(_re_pattern.size() == 0)
-            return std::make_shared<route_result>(
+            return std::make_shared<route_result_t>(
                 this->shared_from_this()
             );
         
@@ -166,7 +166,7 @@ public:
                 )
             );
         
-        sp_route_result rr = std::make_shared<route_result>(
+        route_result rr = std::make_shared<route_result_t>(
             this->shared_from_this()
         );
         
@@ -428,7 +428,7 @@ class router_t
     friend class evmvc::app_t;
     
     typedef std::unordered_map<std::string, router> router_map;
-    typedef std::unordered_map<std::string, sp_route> route_map;
+    typedef std::unordered_map<std::string, route> route_map;
     typedef std::unordered_map<std::string, route_map> verb_map;
     
 public:
@@ -507,7 +507,7 @@ public:
         // return nullptr;
     }
     
-    sp_route resolve_route(
+    route resolve_route(
         evmvc::method method,
         const md::string_view& url)
     {
@@ -515,7 +515,7 @@ public:
         return resolve_route(vs, url);
     }
     
-    sp_route resolve_route(
+    route resolve_route(
         const md::string_view& method,
         const md::string_view& url)
     {
@@ -530,7 +530,7 @@ public:
         return it->second;
     }
     
-    virtual sp_route_result resolve_url(
+    virtual route_result resolve_url(
         evmvc::method method,
         const md::string_view& url)
     {
@@ -538,7 +538,7 @@ public:
         return resolve_url(vs, url);
     }
     
-    virtual sp_route_result resolve_url(
+    virtual route_result resolve_url(
         const md::string_view& method,
         const md::string_view& url)
     {
@@ -568,7 +568,7 @@ public:
         if(rm != _verbs.end())
             for(auto it = rm->second.begin(); it != rm->second.end(); ++it){
                 if(it->second->has_callbacks()){
-                    sp_route_result rr = it->second->match(local_url);
+                    route_result rr = it->second->match(local_url);
                     if(rr)
                         return rr;
                 }
@@ -919,7 +919,7 @@ protected:
         return this->shared_from_this();
     }
 
-    virtual sp_route register_route(
+    virtual route register_route(
         evmvc::method method,
         const md::string_view& route_path)
     {
@@ -927,7 +927,7 @@ protected:
         return register_route(vs, route_path);
     }
     
-    virtual sp_route register_route(
+    virtual route register_route(
         const md::string_view& method,
         const md::string_view& route_path)
     {
@@ -942,7 +942,7 @@ protected:
             rm = _verbs.find(std::string(method));
         }
         
-        sp_route r = std::make_shared<evmvc::route>(
+        route r = std::make_shared<evmvc::route_t>(
             this->shared_from_this(), route_path
         );
         rm->second.emplace(std::make_pair(route_path, r));
@@ -986,7 +986,7 @@ protected:
     // boost::tribool _match_first;
     // // if routes "/abc/123" and "/abc/123/" are different.
     // boost::tribool _match_strict;
-    // // if route case is sensitive.
+    // // if route_t case is sensitive.
     // boost::tribool _match_case;
     
     verb_map _verbs;
@@ -1002,7 +1002,7 @@ protected:
     
 };// class router_t
 
-inline void route::validate_access(
+inline void route_t::validate_access(
     evmvc::policies::filter_rule_ctx ctx,
     evmvc::policies::validation_cb cb)
 {
@@ -1020,7 +1020,7 @@ inline void route::validate_access(
     });
 }
 
-inline void route_result::validate_access(
+inline void route_result_t::validate_access(
         evmvc::policies::filter_rule_ctx ctx,
         evmvc::policies::validation_cb cb)
 {
@@ -1032,20 +1032,20 @@ inline void route_result::validate_access(
 
 
 class file_route_result
-    : public route_result
+    : public route_result_t
 {
 public:
-    file_route_result(evmvc::sp_route rt, evmvc::router rtr)
-        : route_result(rt), _rtr(rtr),
+    file_route_result(evmvc::route rt, evmvc::router rtr)
+        : route_result_t(rt), _rtr(rtr),
         _filepath(), _local_url(""),
         _not_found(true)
     {
         EVMVC_DEF_TRACE("file_route_result {:p} created", (void*)this);
     }
     
-    file_route_result(evmvc::sp_route rt, evmvc::router rtr,
+    file_route_result(evmvc::route rt, evmvc::router rtr,
         bfs::path filepath, const std::string& local_url)
-        : route_result(rt), _rtr(rtr), 
+        : route_result_t(rt), _rtr(rtr), 
         _filepath(filepath), _local_url(local_url), _not_found(false)
     {
         EVMVC_DEF_TRACE("file_route_result {:p} created", (void*)this);
@@ -1058,7 +1058,7 @@ public:
     
 protected:
     void execute(
-        sp_route_result rr, evmvc::response res, md::callback::async_cb cb)
+        route_result rr, evmvc::response res, md::callback::async_cb cb)
     {
         std::shared_ptr<file_route_result> frr = 
             std::static_pointer_cast<file_route_result>(rr);
@@ -1071,7 +1071,7 @@ protected:
             if(res->started())
                 return cb(nullptr);
             
-            auto rt = sp_route( new route(frr->_rtr));
+            auto rt = route( new route_t(frr->_rtr));
             rt->_rp = frr->_rtr->path().to_string() + "/" + frr->_local_url;
             
             if(frr->_not_found){
@@ -1100,7 +1100,7 @@ protected:
         });
         
         
-        // auto rt = sp_route( new route(_rtr));
+        // auto rt = route( new route_t(_rtr));
         // rt->_rp = _rtr->path().to_string() + "/" + _local_url;
         
         // if(_not_found){
@@ -1120,11 +1120,11 @@ protected:
 };
 
 class file_route
-    : public route
+    : public route_t
 {
 public:
     file_route(std::weak_ptr<router_t> rtr)
-        : route(rtr)
+        : route_t(rtr)
     {
         EVMVC_DEF_TRACE("file_route {:p} created", (void*)this);
     }
@@ -1154,7 +1154,7 @@ public:
         EVMVC_DEF_TRACE("file_router {:p} released", (void*)this);
     }
     
-    sp_route_result resolve_url(
+    route_result resolve_url(
         const md::string_view& method,
         const md::string_view& url)
     {
@@ -1176,7 +1176,7 @@ public:
         if(ec)
             return nullptr;
         
-        return std::static_pointer_cast<route_result>(
+        return std::static_pointer_cast<route_result_t>(
             std::make_shared<file_route_result>(
                 _rt, this->shared_from_this(),
                 file_path, local_url

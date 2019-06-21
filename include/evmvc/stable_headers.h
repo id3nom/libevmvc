@@ -114,17 +114,17 @@ class app_t;
 typedef std::shared_ptr<app_t> app;
 typedef std::weak_ptr<app_t> wp_app;
 
-class child_server;
-typedef std::shared_ptr<child_server> sp_child_server;
+class child_server_t;
+typedef std::shared_ptr<child_server_t> child_server;
 
 class channel;
-class worker;
-class http_worker;
+class worker_t;
+class http_worker_t;
 class cache_worker;
-typedef std::shared_ptr<worker> sp_worker;
-typedef std::weak_ptr<worker> wp_worker;
-typedef std::shared_ptr<http_worker> sp_http_worker;
-typedef std::weak_ptr<http_worker> wp_http_worker;
+typedef std::shared_ptr<worker_t> worker;
+typedef std::weak_ptr<worker_t> wp_worker;
+typedef std::shared_ptr<http_worker_t> http_worker;
+typedef std::weak_ptr<http_worker_t> wp_http_worker;
 typedef std::shared_ptr<cache_worker> sp_cache_worker;
 typedef std::weak_ptr<cache_worker> wp_cache_worker;
 
@@ -136,11 +136,11 @@ typedef std::shared_ptr<parser> sp_parser;
 class url;
 
 
-class route_result;
-typedef std::shared_ptr<route_result> sp_route_result;
+class route_result_t;
+typedef std::shared_ptr<route_result_t> route_result;
 
-class route;
-typedef std::shared_ptr<route> sp_route;
+class route_t;
+typedef std::shared_ptr<route_t> route;
 
 class router_t;
 typedef std::shared_ptr<router_t> router;
@@ -171,8 +171,8 @@ typedef std::unordered_map<
     std::string, 
     std::vector<std::string>,
     ci_less_hash, ci_less_eq
-    > header_map;
-typedef std::shared_ptr<header_map> sp_header_map;
+    > header_map_t;
+typedef std::shared_ptr<header_map_t> header_map;
 
 class http_param;
 typedef std::shared_ptr<http_param> sp_http_param;
@@ -252,15 +252,15 @@ namespace _internal{
         wp_connection conn,
         http_version ver,
         url uri,
-        sp_header_map hdrs,
-        sp_route_result rr
+        header_map hdrs,
+        route_result rr
     );
     evmvc::response on_headers_completed(
         wp_connection conn,
         md::log::logger log,
         url uri,
         http_version ver,
-        sp_header_map hdrs,
+        header_map hdrs,
         app a
     );
     void on_multipart_request_completed(

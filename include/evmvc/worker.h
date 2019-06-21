@@ -58,11 +58,11 @@ typedef struct cmd_log_t
 
 class channel
 {
-    friend class worker;
+    friend class worker_t;
     
 public:
-    channel(evmvc::worker* worker)
-        : _worker(worker), _type(channel_type::unknown)
+    channel(evmvc::worker_t* worker_t)
+        : _worker(worker_t), _type(channel_type::unknown)
     {
         pipe(ptoc);
         pipe(ctop);
@@ -73,7 +73,7 @@ public:
         close_channels();
     }
     
-    evmvc::worker* worker() const { return _worker;}
+    evmvc::worker_t* worker_t() const { return _worker;}
     
     void close_channels()
     {
@@ -95,7 +95,7 @@ public:
     {
         return _sendcmd(cmd.id(), cmd.data(), cmd.size());
     }
-    ssize_t sendcmd(sp_command cmd)
+    ssize_t sendcmd(shared_command cmd)
     {
         return _sendcmd(cmd->id(), cmd->data(), cmd->size());
     }
@@ -184,7 +184,7 @@ private:
     ssize_t _sendcmd(int cmd_id, const char* payload, size_t payload_len);
     
     
-    evmvc::worker* _worker;
+    evmvc::worker_t* _worker;
     channel_type _type = channel_type::unknown;
 
 public:
@@ -225,7 +225,7 @@ class child_sink
     : public md::log::sinks::logger_sink_t
 {
 public:
-    child_sink(std::weak_ptr<worker> w)
+    child_sink(std::weak_ptr<worker_t> w)
         : md::log::sinks::logger_sink_t(md::log::log_level::info), _w(w)
     {
     }
@@ -235,17 +235,17 @@ public:
         md::log::log_level lvl, md::string_view msg
     ) const;
 private:
-    std::weak_ptr<worker> _w;
+    std::weak_ptr<worker_t> _w;
 };
 }//::sinks
 
 void channel_cmd_read(int fd, short events, void* arg);
 
-typedef std::function<bool(sp_command cmd)>
+typedef std::function<bool(shared_command cmd)>
     cmd_parser_fn;
 
-class worker
-    : public std::enable_shared_from_this<worker>
+class worker_t
+    : public std::enable_shared_from_this<worker_t>
 {
     friend void channel_cmd_read(int fd, short events, void* arg);
     static int nxt_id()
@@ -273,7 +273,7 @@ protected:
         );
     }
     
-    worker(const wp_app& app_t, const app_options& config,
+    worker_t(const wp_app& app_t, const app_options& config,
         worker_type wtype, const md::log::logger& log)
         : _app(app_t),
         _config(config),
@@ -292,7 +292,7 @@ protected:
     
 
 public:
-    static sp_worker active_worker(sp_worker w = nullptr)
+    static worker active_worker(worker w = nullptr)
     {
         static wp_worker _w;
         if(w)
@@ -300,7 +300,7 @@ public:
         return _w.lock();
     }
 
-    ~worker()
+    ~worker_t()
     {
         if(running())
             this->stop();
@@ -353,7 +353,7 @@ public:
             
         }else if(pid == 0){
             struct sigaction sigint_sa;
-            sigint_sa.sa_handler = worker::sig_received;
+            sigint_sa.sa_handler = worker_t::sig_received;
             sigaction(SIGINT, &sigint_sa, nullptr);
             
             sigint_sa.sa_handler = SIG_IGN;
@@ -362,7 +362,7 @@ public:
             _ptype = process_type::child;
             _pid = getpid();
             
-            worker::active_worker(this->shared_from_this());
+            worker_t::active_worker(this->shared_from_this());
             
             _cmd_parsers.clear();
             
@@ -390,8 +390,8 @@ public:
             // will send a SIGINT when the parent dies
             prctl(PR_SET_PDEATHSIG, SIGINT);
             
-            event_set_log_callback(worker::_on_event_log);
-            event_set_fatal_callback(worker::_on_event_fatal_error);
+            event_set_log_callback(worker_t::_on_event_log);
+            event_set_fatal_callback(worker_t::_on_event_fatal_error);
             global::ev_base(event_base_new(), false, true);
             
             if(_started_cb)
@@ -533,7 +533,7 @@ public:
     {
         return _channel->sendcmd(cmd);
     }
-    ssize_t send_cmd(sp_command cmd)
+    ssize_t send_cmd(shared_command cmd)
     {
         return _channel->sendcmd(cmd);
     }
@@ -602,15 +602,15 @@ inline void channel::_init()
 }
 
 
-class http_worker
-    : public worker
+class http_worker_t
+    : public worker_t
 {
     static void on_http_worker_accept(int fd, short events, void* arg);
     
 public:
-    http_worker(const wp_app& app_t, const app_options& config,
+    http_worker_t(const wp_app& app_t, const app_options& config,
         const md::log::logger& log)
-        : worker(app_t, config, worker_type::http, log)
+        : worker_t(app_t, config, worker_type::http, log)
     {
     }
     
@@ -622,7 +622,7 @@ public:
     
     void start(int argc, char** argv, int pid)
     {
-        worker::start(argc, argv, pid);
+        worker_t::start(argc, argv, pid);
         if(_ptype != process_type::child)
             return;
         
@@ -633,13 +633,13 @@ public:
         
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
-            http_worker::on_http_worker_accept,
+            http_worker_t::on_http_worker_accept,
             this
         );
         event_add(_channel->rcmsg_ev, nullptr);
         
         for(auto& sc : _config.servers){
-            auto s = std::make_shared<child_server>(
+            auto s = std::make_shared<child_server_t>(
                 this->shared_from_this(), sc, _log
             );
             s->start();
@@ -651,21 +651,21 @@ public:
         _log->info("Closing worker");
     }
     
-    sp_child_server find_server_by_id(size_t id)
+    child_server find_server_by_id(size_t id)
     {
         auto it = _servers.find(id);
         if(it == _servers.end())
             return nullptr;
         return it->second;
     }
-    sp_child_server find_server_by_name(md::string_view name)
+    child_server find_server_by_name(md::string_view name)
     {
         for(auto& s : _servers)
             if(!strcasecmp(s.second->name().c_str(), name.data()))
                 return s.second;
         return nullptr;
     }
-    sp_child_server find_server_by_alias(md::string_view name)
+    child_server find_server_by_alias(md::string_view name)
     {
         for(auto& s : _servers){
             for(auto& alias : s.second->aliases()){
@@ -684,16 +684,16 @@ public:
         _conns.erase(cid);
     }
     
-    sp_http_worker shared_from_self()
+    http_worker shared_from_self()
     {
-        return std::static_pointer_cast<http_worker>(
+        return std::static_pointer_cast<http_worker_t>(
             this->shared_from_this()
         );
     }
     
-    std::shared_ptr<const http_worker> shared_from_self() const
+    std::shared_ptr<const http_worker_t> shared_from_self() const
     {
-        return std::static_pointer_cast<const http_worker>(
+        return std::static_pointer_cast<const http_worker_t>(
             this->shared_from_this()
         );
     }
@@ -739,7 +739,7 @@ private:
         }
         
         
-        sp_child_server srv = find_server_by_id(srv_id);
+        child_server srv = find_server_by_id(srv_id);
         if(!srv)
             _log->fatal(MD_ERR(
                 "Invalid server id: '{}'", srv_id
@@ -761,17 +761,17 @@ private:
     
 private:
     std::unordered_map<int, sp_connection> _conns;
-    std::unordered_map<size_t, sp_child_server> _servers;
+    std::unordered_map<size_t, child_server> _servers;
 };
 
 class cache_worker
     : public std::enable_shared_from_this<cache_worker>,
-    public worker
+    public worker_t
 {
 public:
     cache_worker(const wp_app& app_t, const app_options& config,
         const md::log::logger& log)
-        : worker(app_t, config, worker_type::cache, log)
+        : worker_t(app_t, config, worker_type::cache, log)
     {
     }
     
@@ -814,12 +814,12 @@ namespace _internal {
         
         // verify if the current ctx is valid
         SSL_CTX* ctx = SSL_get_SSL_CTX(s);
-        child_server* cs = (child_server*)SSL_CTX_get_app_data(ctx);
+        child_server_t* cs = (child_server_t*)SSL_CTX_get_app_data(ctx);
         if(!strcasecmp(cs->name().c_str(), name))
             return SSL_TLSEXT_ERR_OK;
         
         // find the requested server
-        sp_child_server rs = w->find_server_by_name(name);
+        child_server rs = w->find_server_by_name(name);
         if(!rs){
             rs = w->find_server_by_alias(name);
             if(!rs)

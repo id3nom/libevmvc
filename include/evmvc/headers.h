@@ -294,12 +294,12 @@ class http_headers
     
 public:
     http_headers()
-        : _hdrs(std::make_shared<header_map>())
+        : _hdrs(std::make_shared<header_map_t>())
     {
         EVMVC_DEF_TRACE("headers {:p} created", (void*)this);
     }
 
-    http_headers(sp_header_map hdrs)
+    http_headers(header_map hdrs)
         : _hdrs(hdrs)
     {
         EVMVC_DEF_TRACE("headers {:p} created", (void*)this);
@@ -357,7 +357,7 @@ public:
         return strcasecmp(hdr->value(), val.data()) == 0;
     }
     
-    sp_header_map data()
+    header_map data()
     {
         return _hdrs;
     }
@@ -477,7 +477,7 @@ public:
     }
     
 private:
-    sp_header_map _hdrs;
+    header_map _hdrs;
 };
 
 

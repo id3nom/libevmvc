@@ -53,9 +53,9 @@ public:
         request req,
         wp_connection conn,
         md::log::logger log,
-        const sp_route& rt,
+        const route& rt,
         url uri,
-        const sp_http_cookies& http_cookies
+        const http_cookies& http_cookies_t
     );
     
     ~response_t()
@@ -70,11 +70,11 @@ public:
     
     evmvc::app get_app() const;
     evmvc::router get_router()const;
-    evmvc::sp_route get_route()const { return _rt;}
+    evmvc::route get_route()const { return _rt;}
     md::log::logger log() const { return _log;}
     
     evmvc::response_headers& headers() const { return *(_headers.get());}
-    http_cookies& cookies() const { return *(_cookies.get());}
+    http_cookies_t& cookies() const { return *(_cookies.get());}
     evmvc::request req() const { return _req;}
     
     bool paused() const { return _paused;}
@@ -439,9 +439,9 @@ private:
     evmvc::request _req;
     wp_connection _conn;
     md::log::logger _log;
-    sp_route _rt;
+    route _rt;
     evmvc::sp_response_headers _headers;
-    sp_http_cookies _cookies;
+    http_cookies _cookies;
     bool _started;
     bool _ended;
     int16_t _status;

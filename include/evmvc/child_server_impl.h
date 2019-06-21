@@ -27,12 +27,12 @@ SOFTWARE.
 
 namespace evmvc { 
 
-inline sp_worker child_server::get_worker() const
+inline worker child_server_t::get_worker() const
 {
     return _worker.lock();
 }
 
-inline void child_server::_init_ssl_ctx()
+inline void child_server_t::_init_ssl_ctx()
 {
     static int session_id_context = 1;
     

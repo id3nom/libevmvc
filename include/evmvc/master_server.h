@@ -35,9 +35,9 @@ class listener;
 typedef std::unique_ptr<listener> up_listener;
 typedef std::weak_ptr<listener> wp_listener;
 
-class master_server;
-typedef std::shared_ptr<master_server> sp_master_server;
-typedef std::weak_ptr<master_server> wp_master_server;
+class master_server_t;
+typedef std::shared_ptr<master_server_t> master_server;
+typedef std::weak_ptr<master_server_t> wp_master_server;
 
 
 enum class address_type
@@ -110,7 +110,7 @@ public:
         EVMVC_DEF_TRACE("listener {:p} released", (void*)this);
     }
     
-    sp_master_server get_server() const;
+    master_server get_server() const;
     
     address_type type() const { return _type;}
     std::string address() const { return _config.address;}
@@ -284,11 +284,11 @@ private:
     struct evconnlistener* _lev;
 };
 
-class master_server
-    : public std::enable_shared_from_this<master_server>
+class master_server_t
+    : public std::enable_shared_from_this<master_server_t>
 {
 public:
-    master_server(wp_app app_t, const server_options& config,
+    master_server_t(wp_app app_t, const server_options& config,
         const md::log::logger& log)
         : 
         _id(std::hash<std::string>{}(config.name)),
@@ -296,15 +296,15 @@ public:
         _app(app_t), _config(config),
         _log(log->add_child("master-server:" + std::to_string(_id)))
     {
-        EVMVC_DEF_TRACE("master_server {:p} created", (void*)this);
+        EVMVC_DEF_TRACE("master_server_t {:p} created", (void*)this);
     }
     
-    ~master_server()
+    ~master_server_t()
     {
         if(running())
             stop();
         
-        EVMVC_DEF_TRACE("master_server {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("master_server_t {:p} released", (void*)this);
     }
     
     size_t id() const { return _id;}

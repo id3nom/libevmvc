@@ -286,7 +286,7 @@ void register_app_cbs()
     
     srv->get("/cookies/set/:[name]/:[val]/:[path]",
     [](const evmvc::request req, evmvc::response res, auto nxt){
-        evmvc::http_cookies::options opts;
+        evmvc::http_cookies_t::options opts;
         opts.expires = 
                 date::sys_days{date::year(2021)/01/01} +
                 std::chrono::hours{23} + std::chrono::minutes{59} +
@@ -330,7 +330,7 @@ void register_app_cbs()
     
     srv->get("/cookies/clear/:[name]/:[path]",
     [](const evmvc::request req, evmvc::response res, auto nxt){
-        evmvc::http_cookies::options opts;
+        evmvc::http_cookies_t::options opts;
         opts.path = req->params("path", "");
         
         res->cookies().clear(

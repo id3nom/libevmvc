@@ -338,7 +338,7 @@ private:
         //     _http_ver = http_version::http_2;
         
         _status = parser_state::parse_header;
-        _hdrs = std::make_shared<header_map>();
+        _hdrs = std::make_shared<header_map_t>();
         
         //_bytes_read += eol_idx + EVMVC_EOL_SIZE;
         return line_len;
@@ -1076,9 +1076,9 @@ private:
     std::string _http_ver_string;
     http_version _http_ver;
     
-    std::shared_ptr<header_map> _hdrs;
+    std::shared_ptr<header_map_t> _hdrs;
     response _res;
-    sp_route_result _rr;
+    route_result _rr;
     
     // body data
     std::string _body_data;

@@ -43,8 +43,8 @@ namespace _internal {
     
 }//::_internal
 
-class child_server
-    : public std::enable_shared_from_this<child_server>
+class child_server_t
+    : public std::enable_shared_from_this<child_server_t>
 {
     static int nxt_id()
     {
@@ -52,27 +52,27 @@ class child_server
         return ++_id;
     }
 public:
-    child_server(
-        wp_worker worker,
+    child_server_t(
+        wp_worker worker_t,
         const server_options& config,
         const md::log::logger& log)
         : 
-        _worker(worker),
+        _worker(worker_t),
         _id(std::hash<std::string>{}(config.name)),
         _config(config),
         _log(log->add_child(
                 "child server-" + config.name
         ))
     {
-        EVMVC_DEF_TRACE("child_server {:p} created", (void*)this);
+        EVMVC_DEF_TRACE("child_server_t {:p} created", (void*)this);
     }
     
-    ~child_server()
+    ~child_server_t()
     {
-        EVMVC_DEF_TRACE("child_server {:p} released", (void*)this);
+        EVMVC_DEF_TRACE("child_server_t {:p} released", (void*)this);
     }
     
-    sp_worker get_worker() const;
+    worker get_worker() const;
     size_t id() const { return _id;}
     std::string name() const { return _config.name;}
     const std::vector<std::string>& aliases() const { return _config.aliases;}

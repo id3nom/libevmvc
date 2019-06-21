@@ -28,15 +28,15 @@ SOFTWARE.
 namespace evmvc {
 
 
-inline md::log::logger route_result::log()
+inline md::log::logger route_result_t::log()
 {
     if(_route)
         return _route->log();
     return md::log::default_logger();
 }
 
-inline void route_result::execute(
-    sp_route_result rr, evmvc::response res, md::callback::async_cb cb)
+inline void route_result_t::execute(
+    route_result rr, evmvc::response res, md::callback::async_cb cb)
 {
     rr->_route->get_router()->run_pre_handlers(res->req(), res,
     [rr, res, cb](const md::callback::cb_error& err){
@@ -61,7 +61,7 @@ inline void route_result::execute(
 }
 
 
-inline md::log::logger route::log() const
+inline md::log::logger route_t::log() const
 {
     if(!_log)
         _log = _rtr.lock()->log()->add_child(this->_rp);
@@ -98,9 +98,9 @@ inline router_t::router_t(evmvc::wp_app app_t, const md::string_view& path)
     EVMVC_DEF_TRACE("router_t {:p} created", (void*)this);
 }
 
-inline sp_route route::null(wp_app a)
+inline route route_t::null(wp_app a)
 {
-    sp_route rt = std::make_shared<route>(
+    route rt = std::make_shared<route_t>(
         router_t::null(a), "null"
     );
     

@@ -40,10 +40,10 @@ namespace evmvc {
 class request_t;
 class response_t;
 
-class http_cookies;
-typedef std::shared_ptr<http_cookies> sp_http_cookies;
+class http_cookies_t;
+typedef std::shared_ptr<http_cookies_t> http_cookies;
 
-class http_cookies
+class http_cookies_t
 {
     friend class request_t;
     friend class response_t;
@@ -100,13 +100,13 @@ public:
     };
     
     
-    http_cookies() = delete;
-    http_cookies(
+    http_cookies_t() = delete;
+    http_cookies_t(
         uint64_t id,
         md::log::logger log,
-        const evmvc::sp_route& rt,
+        const evmvc::route& rt,
         const url& uri,
-        sp_header_map hdrs
+        header_map hdrs
         )
         : _id(id),
         _log(log->add_child(
@@ -114,19 +114,19 @@ public:
         )),
         _rt(rt),
         _in_hdrs(hdrs),
-        _out_hdrs(std::make_shared<header_map>()),
+        _out_hdrs(std::make_shared<header_map_t>()),
         _init(false), _cookies(), _locked(false)
     {
         EVMVC_DEF_TRACE("cookies {} {:p} created", _id, (void*)this);
     }
     
-    ~http_cookies()
+    ~http_cookies_t()
     {
         EVMVC_DEF_TRACE("cookies {} {:p} released", _id, (void*)this);
     }
     
     uint64_t id() const { return _id;}
-    evmvc::sp_route get_route()const { return _rt;}
+    evmvc::route get_route()const { return _rt;}
     
     bool exists(md::string_view name) const
     {
@@ -139,7 +139,7 @@ public:
     template<typename CookieType>
     CookieType get(
         md::string_view name,
-        http_cookies::encoding enc = http_cookies::encoding::base64) const
+        http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     {
         std::stringstream ss;
         ss << "Parsing from cookie '" << name.data()
@@ -160,7 +160,7 @@ public:
     // >
     // inline CookieType get(
     //     md::string_view name,
-    //     http_cookies::encoding /*enc = http_cookies::encoding::base64*/) const
+    //     http_cookies_t::encoding /*enc = http_cookies_t::encoding::base64*/) const
     // {
     //     std::stringstream ss;
     //     ss << "Parsing from cookie '" << name.data()
@@ -182,7 +182,7 @@ public:
     // inline CookieType get(
     //     md::string_view name,
     //     const CookieType& def_val,
-    //     http_cookies::encoding /*enc = http_cookies::encoding::clear*/) const
+    //     http_cookies_t::encoding /*enc = http_cookies_t::encoding::clear*/) const
     // {
     //     std::stringstream ss;
     //     ss << "Parsing from cookie '" << name.data()
@@ -204,7 +204,7 @@ public:
     // >
     // inline CookieType get(
     //     md::string_view name,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return md::str_to_num<CookieType>(
     //         _get_raw(name, enc)
@@ -225,7 +225,7 @@ public:
     // inline CookieType get(
     //     md::string_view name,
     //     const CookieType& def_val,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     if(!exists(name))
     //         return def_val;
@@ -242,7 +242,7 @@ public:
     // >
     // inline CookieType get(
     //     md::string_view name,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return _get_raw(name, enc);
     // }
@@ -256,7 +256,7 @@ public:
     // inline CookieType get(
     //     md::string_view name,
     //     const CookieType& def_val,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return exists(name) ? _get_raw(name, enc) : def_val;
     // }
@@ -270,7 +270,7 @@ public:
     // >
     // inline CookieType get(
     //     md::string_view name,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return md::to_bool(_get_raw(name, enc));
     // }
@@ -284,7 +284,7 @@ public:
     // inline CookieType get(
     //     md::string_view name,
     //     const CookieType& def_val,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return exists(name) ? md::to_bool(_get_raw(name, enc)) : def_val;
     // }
@@ -297,7 +297,7 @@ public:
     // >
     // inline CookieType get(
     //     md::string_view name,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return evmvc::json::parse(_get_raw(name, enc));
     // }
@@ -311,7 +311,7 @@ public:
     // inline CookieType get(
     //     md::string_view name,
     //     const CookieType& def_val,
-    //     http_cookies::encoding enc = http_cookies::encoding::base64) const
+    //     http_cookies_t::encoding enc = http_cookies_t::encoding::base64) const
     // {
     //     return exists(name) ? evmvc::json::parse(_get_raw(name, enc)) : def_val;
     // }
@@ -330,7 +330,7 @@ public:
     inline void set(
         md::string_view name,
         const CookieType& val,
-        const http_cookies::options& opts = {})
+        const http_cookies_t::options& opts = {})
     {
         _set(name, md::num_to_str(val, false), opts);
     }
@@ -344,7 +344,7 @@ public:
     inline void set(
         md::string_view name,
         const CookieType& val,
-        const http_cookies::options& opts = {})
+        const http_cookies_t::options& opts = {})
     {
         _set(name, val, opts);
     }
@@ -358,7 +358,7 @@ public:
     inline void set(
         md::string_view name,
         const CookieType& val,
-        const http_cookies::options& opts = {})
+        const http_cookies_t::options& opts = {})
     {
         _set(name, evmvc::to_string(val), opts);
     }
@@ -372,16 +372,16 @@ public:
     inline void set(
         md::string_view name,
         const CookieType& val,
-        const http_cookies::options& opts = {})
+        const http_cookies_t::options& opts = {})
     {
         _set(name, val.dump(), opts);
     }
     
     inline void clear(
         md::string_view name,
-        const http_cookies::options& opts = {})
+        const http_cookies_t::options& opts = {})
     {
-        http_cookies::options clear_opts = opts;
+        http_cookies_t::options clear_opts = opts;
         clear_opts.max_age = 0;
         _set(name, "", clear_opts);
     }
@@ -391,7 +391,7 @@ private:
     inline void _set(
         md::string_view name,
         md::string_view val,
-        const http_cookies::options& opts)
+        const http_cookies_t::options& opts)
     {
         std::string cv = name.to_string() + "=";
         std::string enc_v = 
@@ -508,7 +508,7 @@ private:
     }
     
     inline std::string _get_raw(
-        md::string_view name, http_cookies::encoding enc) const
+        md::string_view name, http_cookies_t::encoding enc) const
     {
         _init_get();
         const auto it = _cookies.find(name.to_string());
@@ -518,7 +518,7 @@ private:
             );
         
         return
-            enc == http_cookies::encoding::base64 ?
+            enc == http_cookies_t::encoding::base64 ?
                 md::base64_decode(
                     std::string(it->second.data(), it->second.size())
                 ) :
@@ -532,47 +532,47 @@ private:
     
     uint64_t _id;
     md::log::logger _log;
-    evmvc::sp_route _rt;
-    sp_header_map _in_hdrs;
-    sp_header_map _out_hdrs;
+    evmvc::route _rt;
+    header_map _in_hdrs;
+    header_map _out_hdrs;
     mutable bool _init;
     mutable cookie_map _cookies;
     bool _locked;
 };
 
 template<>
-inline std::string http_cookies::get<std::string>(
-    md::string_view name, http_cookies::encoding enc
+inline std::string http_cookies_t::get<std::string>(
+    md::string_view name, http_cookies_t::encoding enc
     ) const
 {
     return _get_raw(name, enc);
 }
 
 template<>
-inline int16_t http_cookies::get<int16_t>(
-    md::string_view name, http_cookies::encoding enc
+inline int16_t http_cookies_t::get<int16_t>(
+    md::string_view name, http_cookies_t::encoding enc
     ) const
 {
     return md::str_to_num<int16_t>(_get_raw(name, enc));
 }
 template<>
-inline int32_t http_cookies::get<int32_t>(
-    md::string_view name, http_cookies::encoding enc
+inline int32_t http_cookies_t::get<int32_t>(
+    md::string_view name, http_cookies_t::encoding enc
     ) const
 {
     return md::str_to_num<int32_t>(_get_raw(name, enc));
 }
 template<>
-inline int64_t http_cookies::get<int64_t>(
-    md::string_view name, http_cookies::encoding enc
+inline int64_t http_cookies_t::get<int64_t>(
+    md::string_view name, http_cookies_t::encoding enc
     ) const
 {
     return md::str_to_num<int64_t>(_get_raw(name, enc));
 }
 
 template<>
-inline nlohmann::json http_cookies::get<nlohmann::json>(
-    md::string_view name, http_cookies::encoding enc
+inline nlohmann::json http_cookies_t::get<nlohmann::json>(
+    md::string_view name, http_cookies_t::encoding enc
     ) const
 {
     return nlohmann::json::parse(_get_raw(name, enc));

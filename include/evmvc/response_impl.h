@@ -43,9 +43,9 @@ inline response_t::response_t(
     request req,
     wp_connection conn,
     md::log::logger log,
-    const sp_route& rt,
+    const route& rt,
     url uri,
-    const sp_http_cookies& http_cookies)
+    const http_cookies& http_cookies_t)
     : _id(id),
     _req(req),
     _conn(conn),
@@ -54,7 +54,7 @@ inline response_t::response_t(
     )),
     _rt(rt),
     _headers(std::make_shared<response_headers>()),
-    _cookies(http_cookies),
+    _cookies(http_cookies_t),
     _started(false), _ended(false),
     _status(-1), _type(""), _enc(""),
     _paused(false),

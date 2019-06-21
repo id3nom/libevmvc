@@ -85,8 +85,8 @@ class connection
 public:
     connection(
         const md::log::logger& log,
-        wp_http_worker worker,
-        sp_child_server server,
+        wp_http_worker worker_t,
+        child_server server,
         int sock_fd,
         evmvc::url_scheme p,
         md::string_view remote_addr,
@@ -99,7 +99,7 @@ public:
                 "conn-{}-{}", to_string(p), _id
             ))
         ),
-        _worker(worker),
+        _worker(worker_t),
         _server(server),
         _sock_fd(sock_fd),
         _protocol(p),
@@ -187,8 +187,8 @@ public:
     
     int id() const { return _id;}
     const md::log::logger& log() const { return _log;}
-    sp_http_worker get_worker() const;
-    sp_child_server server() const { return _server;}
+    http_worker get_worker() const;
+    child_server server() const { return _server;}
     evmvc::url_scheme protocol() const { return _protocol;}
     std::string remote_address() const { return _remote_addr;}
     uint16_t remote_port() const { return _remote_port;}
@@ -411,7 +411,7 @@ private:
     int _id;
     md::log::logger _log;
     wp_http_worker _worker;
-    sp_child_server _server;
+    child_server _server;
     int _sock_fd;
     evmvc::url_scheme _protocol;
     std::string _remote_addr;

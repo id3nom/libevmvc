@@ -60,12 +60,12 @@ public:
         http_version ver,
         wp_connection conn,
         md::log::logger log,
-        const evmvc::sp_route& rt,
+        const evmvc::route& rt,
         url uri,
         evmvc::method met,
         md::string_view smet,
-        sp_header_map hdrs,
-        const sp_http_cookies& http_cookies,
+        header_map hdrs,
+        const http_cookies& http_cookies_t,
         const std::vector<std::shared_ptr<evmvc::http_param>>& p
         )
         : _id(id),
@@ -80,7 +80,7 @@ public:
         _met(met),
         _smet(smet.to_string()),
         _headers(std::make_shared<evmvc::request_headers>(hdrs)),
-        _cookies(http_cookies),
+        _cookies(http_cookies_t),
         _rt_params(std::make_unique<http_params_t>(p)),
         _qry_params(std::make_unique<http_params_t>()),
         _body_params(std::make_unique<http_params_t>()),
@@ -142,7 +142,7 @@ public:
     uint64_t id() const { return _id;}
     evmvc::app get_app() const;
     evmvc::router get_router()const;
-    evmvc::sp_route get_route()const { return _rt;}
+    evmvc::route get_route()const { return _rt;}
     md::log::logger log() const { return _log;}
     const url& uri() const { return _uri;}
     
@@ -204,7 +204,7 @@ public:
     std::string protocol_string() const;
     
     evmvc::request_headers& headers() const { return *(_headers.get());}
-    http_cookies& cookies() const { return *(_cookies.get());}
+    http_cookies_t& cookies() const { return *(_cookies.get());}
     
     template<typename COOKIE_T>
     COOKIE_T cookies(md::string_view name, COOKIE_T def_val) const
@@ -338,13 +338,13 @@ protected:
     http_version _version;
     wp_connection _conn;
     md::log::logger _log;
-    evmvc::sp_route _rt;
+    evmvc::route _rt;
     evmvc::url _uri;
     evmvc::method _met;
     std::string _smet;
     
     evmvc::sp_request_headers _headers;
-    sp_http_cookies _cookies;
+    http_cookies _cookies;
     
     evmvc::http_params _rt_params;
     evmvc::http_params _qry_params;

@@ -153,11 +153,11 @@ TEST_F(router_test, routes)
         if(!rr)
             FAIL();
 
-        auto wrk = std::make_shared<evmvc::http_worker>(
+        auto wrk = std::make_shared<evmvc::http_worker_t>(
             srv, srv->options(), srv->log()
         );
         
-        auto csrv = std::make_shared<evmvc::child_server>(
+        auto csrv = std::make_shared<evmvc::child_server_t>(
             wrk, evmvc::server_options("TESTS"), srv->log()
         );
         int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
@@ -171,7 +171,7 @@ TEST_F(router_test, routes)
             80
         );
         conn->initialize();
-        auto hdrs = std::make_shared<header_map>();
+        auto hdrs = std::make_shared<header_map_t>();
         auto res = _internal::create_http_response(
             conn,
             http_version::http_11,

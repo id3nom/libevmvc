@@ -62,14 +62,14 @@ struct multipart_content_t
     multipart_content_t()
         :
         parent(), type(multipart_content_type::unknown),
-        headers(std::make_shared<header_map>()),
+        headers(std::make_shared<header_map_t>()),
         name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
 
     multipart_content_t(multipart_content_type ct)
         : parent(), type(ct),
-        headers(std::make_shared<header_map>()),
+        headers(std::make_shared<header_map_t>()),
         name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
@@ -79,7 +79,7 @@ struct multipart_content_t
         multipart_content_type ct)
         : parent(p), type(ct),
         //headers(std::make_unique<http_params_t>()),
-        headers(std::make_shared<header_map>()),
+        headers(std::make_shared<header_map_t>()),
         name(""), mime_type(EVMVC_DEFAULT_MIME_TYPE)
     {
     }
@@ -100,7 +100,7 @@ struct multipart_content_t
     
     multipart_content_type type;
     //std::vector<sp_http_param> headers;
-    std::shared_ptr<header_map> headers;
+    std::shared_ptr<header_map_t> headers;
     std::string name;
     std::string mime_type;
 };
@@ -240,7 +240,7 @@ inline std::string get_boundary(const std::string& hdr_val)
 }
 
 inline std::string get_boundary(
-    md::log::logger log, const std::shared_ptr<header_map>& hdrs)
+    md::log::logger log, const std::shared_ptr<header_map_t>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_type).data());
     if(it != hdrs->end()){
@@ -275,7 +275,7 @@ inline std::string get_header_attribute(
     return "";
 }
 
-inline uint64_t get_content_length(const std::shared_ptr<header_map>& hdrs)
+inline uint64_t get_content_length(const std::shared_ptr<header_map_t>& hdrs)
 {
     auto it = hdrs->find(evmvc::to_string(evmvc::field::content_length).data());
     if(it != hdrs->end())

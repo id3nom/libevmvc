@@ -42,7 +42,7 @@ inline void channel_cmd_read(int fd, short events, void* arg)
             int err = errno;
             if(err == EAGAIN || err == EWOULDBLOCK)
                 return;
-            chan->worker()->log()->error(MD_ERR(
+            chan->worker_t()->log()->error(MD_ERR(
                 "Unable to read from pipe: {}, err: {}",
                 fd, err
             ));
@@ -68,14 +68,14 @@ inline void channel_cmd_read(int fd, short events, void* arg)
                 
                 evbuffer_drain(chan->rcmd_buf, EVMVC_CMD_HEADER_SIZE);
                 if(ps == 0){
-                    chan->worker()->parse_cmd(t, nullptr, ps);
+                    chan->worker_t()->parse_cmd(t, nullptr, ps);
                     continue;
                 }
                 
                 char* cmd_payload = (char*)evbuffer_pullup(
                     chan->rcmd_buf, ps
                 );
-                chan->worker()->parse_cmd(t, cmd_payload, ps);
+                chan->worker_t()->parse_cmd(t, cmd_payload, ps);
                 evbuffer_drain(chan->rcmd_buf, ps);
             }
         }
@@ -170,7 +170,7 @@ inline void channel::_init_child_channels()
     event_add(this->rcmd_ev, nullptr);
 }
 
-inline void worker::close_service()
+inline void worker_t::close_service()
 {
     if(this->is_child())
         _channel->sendcmd(command(evmvc::CMD_CLOSE_APP));
@@ -179,7 +179,7 @@ inline void worker::close_service()
     }
 }
 
-inline void worker::sig_received(int sig)
+inline void worker_t::sig_received(int sig)
 {
     if(sig == SIGINT){
         auto w = active_worker();
@@ -190,9 +190,9 @@ inline void worker::sig_received(int sig)
     }
 }
 
-inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
+inline void worker_t::parse_cmd(int cmd_id, const char* p, size_t plen)
 {
-    sp_command c = std::make_shared<command>(
+    shared_command c = std::make_shared<command>(
         cmd_id, p, plen
     );
     if(cmd_id < evmvc::CMD_USER_ID){
@@ -279,9 +279,9 @@ inline void worker::parse_cmd(int cmd_id, const char* p, size_t plen)
 }
 
 
-inline void http_worker::on_http_worker_accept(int fd, short events, void* arg)
+inline void http_worker_t::on_http_worker_accept(int fd, short events, void* arg)
 {
-    http_worker* w = (http_worker*)arg;
+    http_worker_t* w = (http_worker_t*)arg;
     
     while(true){
         //int data;
