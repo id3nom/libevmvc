@@ -244,6 +244,7 @@ void channel_cmd_read(int fd, short events, void* arg);
 typedef std::function<bool(shared_command cmd)>
     cmd_parser_fn;
 
+worker active_worker(worker w = nullptr);
 class worker_t
     : public std::enable_shared_from_this<worker_t>
 {
@@ -292,13 +293,6 @@ protected:
     
 
 public:
-    static worker active_worker(worker w = nullptr)
-    {
-        static wp_worker _w;
-        if(w)
-            _w = w;
-        return _w.lock();
-    }
 
     ~worker_t()
     {
@@ -362,7 +356,7 @@ public:
             _ptype = process_type::child;
             _pid = getpid();
             
-            worker_t::active_worker(this->shared_from_this());
+            evmvc::active_worker(this->shared_from_this());
             
             _cmd_parsers.clear();
             
@@ -558,6 +552,14 @@ protected:
     
     std::vector<cmd_parser_fn> _cmd_parsers;
 };
+
+inline worker active_worker(worker w)
+{
+    static wp_worker _w;
+    if(w)
+        _w = w;
+    return _w.lock();
+}
 
 inline void sinks::child_sink::log(
     md::string_view log_path,

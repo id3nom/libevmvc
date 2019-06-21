@@ -182,7 +182,7 @@ inline void worker_t::close_service()
 inline void worker_t::sig_received(int sig)
 {
     if(sig == SIGINT){
-        auto w = active_worker();
+        auto w = evmvc::active_worker();
         if(w && w->is_child() && w->running()){
             w->close_service();
             //w->send_cmd(command(evmvc::CMD_CLOSE));

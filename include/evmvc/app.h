@@ -284,7 +284,7 @@ public:
     
     void stop(md::callback::async_cb cb = nullptr, bool free_ev_base = false)
     {
-        if(auto w = worker_t::active_worker()){
+        if(auto w = evmvc::active_worker()){
             if(w->is_child()){
                 w->close_service();
                 if(cb)
