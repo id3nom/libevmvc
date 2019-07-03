@@ -1136,6 +1136,12 @@ public:
         return root;
     }
     
+    static bool is_alphanum(char c){
+        return (c >= 'A' && c <= 'Z') ||
+            (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '_';
+    }
+    
     static bool is_token(
         const std::string& token,
         const std::string& text,
@@ -1150,7 +1156,14 @@ public:
             return false;
         
         std::string val = text.substr(start_i, token.size());
-        if(val == token){
+        bool is_valid = true;
+        if(is_alphanum(*token.rbegin())){
+            char nxt_c = val.size() + start_i < text.size() ?
+                text[val.size() + start_i] : '\0';
+            is_valid = !is_alphanum(nxt_c);
+        }
+        
+        if(val == token && is_valid){
             if(token == "*@"){
                 if(start_i + token.size() + 1 <= text.size() -1 &&
                     text.substr(start_i, token.size() + 1) == "*@@"
