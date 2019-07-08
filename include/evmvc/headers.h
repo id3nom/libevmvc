@@ -41,6 +41,13 @@ struct accept_encoding
     float weight;
 };
 
+struct accept_language
+{
+    std::string language;
+    float weight;
+};
+
+
 class header_t;
 typedef std::shared_ptr<header_t> shared_header;
 
@@ -281,6 +288,67 @@ public:
         
         return encs;
     }
+    
+    std::vector<accept_language> accept_languages() const
+    {
+        //Accept-Language: fr-CH, fr;q=0.9, en;q=0.8, de;q=0.7, *;q=0.5
+        //Accept-Language: de
+        //Accept-Language: de-CH
+        //Accept-Language: en-US,en;q=0.5
+        
+        std::vector<accept_language> lngs;
+        
+        std::vector<std::string> eles;
+        std::string tele;
+        for(size_t i = 0; i < _hdr_value.size(); ++i)
+            if(_hdr_value[i] == ','){
+                if(!tele.empty())
+                    eles.emplace_back(tele);
+                tele.clear();
+            }else
+                tele += _hdr_value[i];
+        if(!tele.empty())
+            eles.emplace_back(tele);
+        
+        for(size_t i = 0; i < eles.size(); ++i){
+            auto& ele = eles[i];
+            
+            auto qloc = ele.find(";");
+            if(qloc == std::string::npos){
+                std::string lng_name = md::trim_copy(ele);
+                lngs.emplace_back(
+                    accept_language() = {
+                        lng_name,
+                        100.0f - (float)i
+                    }
+                );
+            } else {
+                std::string lng_name = 
+                    md::trim_copy(ele.substr(0, qloc));
+                std::string enc_q = 
+                    md::trim_copy(ele.substr(qloc+1));
+                auto qvalloc = enc_q.find("=");
+                float q = 100.0f - (float)i;
+                if(qvalloc != std::string::npos)
+                    q = md::str_to_num<float>(enc_q.substr(qvalloc+1));
+                
+                lngs.emplace_back(
+                    accept_language() = {
+                        lng_name,
+                        q
+                    }
+                );
+            }
+        }
+        
+        std::sort(lngs.begin(), lngs.end(), 
+        [](const accept_language& a, const accept_language& b){
+            return a.weight >= b.weight;
+        });
+        
+        return lngs;
+    }
+
     
 private:
     const md::string_view _hdr_name;
