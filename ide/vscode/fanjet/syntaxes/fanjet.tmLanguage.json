@@ -555,6 +555,7 @@
             "patterns": [
                 {"include": "#fanjet-commands-body"},
                 {"include": "#fanjet-commands-this"},
+                {"include": "#fanjet-commands-type"},
                 {"include": "#fanjet-commands-filename"},
                 {"include": "#fanjet-commands-dirname"},
                 {"include": "#fanjet-commands-partial"},
@@ -577,6 +578,13 @@
             "match": "@this",
             "captures": {
                 "0": {"name": "variable.language.this.fan"}
+            }
+        },
+        "fanjet-commands-type":{
+            "name": "meta.commands.body",
+            "match": "@type",
+            "captures": {
+                "0": {"name": "variable.language.type.fan"}
             }
         },
         "fanjet-commands-dirname":{

@@ -1235,6 +1235,8 @@ const char* tokenizer::s_tokens[] = {
     
     "@body",
     "@this",
+    "@type",
+    "@shared_type",
     "@filename",
     "@dirname",
     "@scripts",

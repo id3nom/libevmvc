@@ -88,6 +88,14 @@ std::string replace_fan_keys(document doc, const std::string& s)
             wrd = doc->self_name;
             return;
         }
+        if(wrd == "@type"){
+            wrd = doc->nscls_name;
+            return;
+        }
+        if(wrd == "@shared_type"){
+            wrd = "std::shared_ptr<" + doc->nscls_name + ">";
+            return;
+        }
         if(wrd == "@req"){
             wrd = doc->self_name + "->req";
             return;

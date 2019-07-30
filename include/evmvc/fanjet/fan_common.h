@@ -234,6 +234,14 @@ public:
                 wrd = self_name;
                 return;
             }
+            if(wrd == "@type"){
+                wrd = nscls_name;
+                return;
+            }
+            if(wrd == "@shared_type"){
+                wrd = "std::shared_ptr<" + nscls_name + ">";
+                return;
+            }
             
             for(auto ii : inherits_items)
                 if(ii->alias == wrd){

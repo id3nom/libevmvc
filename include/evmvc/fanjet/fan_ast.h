@@ -1046,6 +1046,10 @@ protected:
 };
 
 
+root_node parse(
+    const std::vector<std::string>& markup_langs,
+    ast::token t
+);
 
 root_node parse(ast::token t);
 class root_node_t

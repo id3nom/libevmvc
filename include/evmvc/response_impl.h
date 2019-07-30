@@ -253,7 +253,7 @@ inline void response_t::error(
             this->log()->warn(log_val);
         else
             this->log()->error(log_val);
-    }catch(std::exception err){
+    }catch(const std::exception& err){
         this->log()->error(MD_ERR(err.what()));
     }
     

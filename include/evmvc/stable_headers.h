@@ -355,7 +355,7 @@ inline std::string version()
             ZLIB_VERSION,
             PCRE_MAJOR, PCRE_MINOR, EVMVC_PCRE_DATE,
             EVMVC_ICU_VERSION,
-            _EVENT_VERSION
+            EVENT__VERSION// _EVENT_VERSION
         );
     }
     
