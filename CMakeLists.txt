@@ -61,6 +61,11 @@ message(STATUS "** BOOST Include: ${Boost_INCLUDE_DIR}")
 message(STATUS "** BOOST Libraries Dirs: ${Boost_LIBRARY_DIRS}")
 message(STATUS "** BOOST Libraries: ${Boost_LIBRARIES}")
 
+if(NOT Boost_LIBRARIES)
+    set(Boost_LIBRARIES Boost::filesystem;Boost::regex;Boost::program_options)
+endif()
+
+
 include_directories(${Boost_INCLUDE_DIR})
 link_directories(${Boost_LIBRARY_DIRS})
 

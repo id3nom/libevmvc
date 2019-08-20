@@ -48,6 +48,13 @@ class request_t
 {
     friend class http_parser;
     friend class policies::jwt_filter_rule_t;
+    friend evmvc::response _internal::create_http_response(
+        wp_connection conn,
+        http_version ver,
+        url uri,
+        header_map hdrs,
+        route_result rr
+    );
     // friend void _internal::on_multipart_request_completed(
     //     request req,
     //     response res,
@@ -320,7 +327,11 @@ public:
     {
         return _token;
     }
-
+    
+    evmvc::response res() const
+    {
+        return _res.lock();
+    }
     
 protected:
     
@@ -352,6 +363,8 @@ protected:
     
     evmvc::sp_http_files _files;
     jwt::decoded_jwt _token;
+    
+    std::weak_ptr<evmvc::response_t> _res;
 };
 
 

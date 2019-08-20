@@ -29,13 +29,13 @@ SOFTWARE.
 int main(int argc, char** argv)
 {
     // initializing globals
-    std::vector<md::log::sinks::sp_logger_sink> sinks;
+    std::vector<md::log::sinks::logger_sink> sinks;
     
     auto out_sink = std::make_shared<md::log::sinks::console_sink>(true);
     out_sink->set_level(md::log::log_level::trace);
     sinks.emplace_back(out_sink);
     
-    auto _log = std::make_shared<md::log::logger>(
+    auto _log = std::make_shared<md::log::logger_t>(
     "/", sinks.begin(), sinks.end()
     );
     _log->set_level(md::log::log_level::trace);

@@ -83,7 +83,7 @@ inline evmvc::response create_http_response(
     evmvc::response res = std::make_shared<evmvc::response_t>(
         rid, req, conn, log, rr->_route, uri, cks
     );
-    
+    req->_res = res;
     return res;
 }
     
