@@ -365,7 +365,11 @@ inline bool open_expr(ast::token& t, ast::node_t* pn)
 
 inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
 {
-    if(!t->is_fan_markup_open())
+    if(
+        !t->is_fan_markup_open() &&
+        !t->is_fan_add_section_open() &&
+        !t->is_fan_write_section_open()
+    )
         return false;
     
     size_t end_hup = 1;
@@ -401,8 +405,18 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
         );
         
     }else if(t->is_fan_add_section_open()){
+        if(boost::starts_with(l, "(")){
+            l = l.substr(1);
+            md::trim(l);
+        }
+        
         l = "<$" + l;
     }else if(t->is_fan_write_section_open()){
+        if(boost::starts_with(l, "(")){
+            l = l.substr(1);
+            md::trim(l);
+        }
+        
         token st = tl;
         size_t send_hup = end_hup;
         while(st && !st->is_curly_brace_open() && !st->is_semicolon()){
@@ -623,6 +637,15 @@ inline void literal_node_t::parse(ast::token t)
                 if(this->is_write_semcolon_section()){
                     close_scope(t, this);
                     return;
+                }else if(this->is_add_section() || this->is_write_section()){
+                    if(open_tag(t, this))
+                        return;
+                    
+                    if(t->is_curly_brace_close()){
+                        close_scope(t, this);
+                        return;
+                    }
+                    break;
                 }
                 
                 if(this->is_markdown()){

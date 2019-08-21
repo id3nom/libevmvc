@@ -62,6 +62,7 @@ Message: @get("msg")
     int j;
     
 }
+
 @add-section(section_a){
     <div>section a</div>
 }
@@ -72,3 +73,6 @@ Message: @get("msg")
 
 @write-section(section_a);
 
+@write-section(section_a){
+    <div>section_a is missing</div>
+}

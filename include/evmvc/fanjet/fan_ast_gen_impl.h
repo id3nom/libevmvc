@@ -474,8 +474,8 @@ inline std::string literal_node_t::gen_header_code(
                 // @write-section(name){ ... }
                 }else if(this->is_write_section()){
                     s += fmt::format(
-                        "if({}->section_exists(\"${}\")){"
-                        "{}->write_section(\"${}\");}else{"
+                        "if({}->section_exists(\"${}\")){{"
+                        "{}->write_section(\"${}\");}}else{{"
                         "{}->begin_write(\"html\");",
                         doc->self_name, this->section_name(),
                         doc->self_name, this->section_name(),
@@ -503,7 +503,9 @@ inline std::string literal_node_t::gen_header_code(
     }
     
     while(n && n != ln){
-        if(n->sec_type() == section_type::token)
+        if(this->is_write_semcolon_section()){
+            // do nothing.
+        }else if(n->sec_type() == section_type::token)
             s += write_tokens_limit(doc, n, ln, escape_cpp_source);
         
         else if(n->node_type() != ast::node_type::directive)
@@ -533,7 +535,7 @@ inline std::string literal_node_t::gen_header_code(
                 // @write-section(name){ ... }
                 }else if(this->is_write_section()){
                     s += fmt::format(
-                        "{}->commit_write(\"html\");}",
+                        "{}->commit_write(\"html\");}}",
                         doc->self_name
                     );
                     

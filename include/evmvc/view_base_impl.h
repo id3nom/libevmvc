@@ -78,7 +78,7 @@ inline void view_base::_pop_buffer(md::string_view lng)
     std::string sec_name;
     bool in_section = *lngc.cbegin() == '$';
     if(in_section){
-        sec_name = lngc.substr(1);
+        sec_name = lngc;//lngc.substr(1);
         lngc = "html";
     }
     
