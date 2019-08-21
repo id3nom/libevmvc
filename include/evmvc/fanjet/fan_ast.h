@@ -1360,6 +1360,35 @@ protected:
             this->markup_language == "wiki";
     }
     
+    bool is_add_section() const
+    {
+        return
+            boost::starts_with(this->markup_language, "<$");
+    }
+    bool is_write_section() const
+    {
+        return
+            boost::starts_with(this->markup_language, "$>");
+    }
+    bool is_write_semcolon_section() const
+    {
+        return
+            boost::starts_with(this->markup_language, "$$");
+    }
+    
+    bool is_section() const
+    {
+        return is_add_section() ||
+            is_write_section() ||
+            is_write_semcolon_section();
+    }
+    
+    std::string section_name() const
+    {
+        if(!is_section())
+            return "";
+        return this->markup_language.substr(2);
+    }
     
 private:
     std::string in_markdown_code;

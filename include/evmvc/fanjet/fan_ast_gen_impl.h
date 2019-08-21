@@ -442,13 +442,15 @@ inline std::string literal_node_t::gen_header_code(
     node n = 
         sec_type() == section_type::literal ? child(0) :
         sec_type() == section_type::markup_html ? child(1) :
-        sec_type() == section_type::markup_other ? child(1) :
+        sec_type() == section_type::markup_other &&
+            !this->is_write_semcolon_section() ? child(1) :
             child(0);
     
     node ln = 
         sec_type() == section_type::literal ? nullptr :
         sec_type() == section_type::markup_html ? last_child() :
-        sec_type() == section_type::markup_other ? last_child() :
+        sec_type() == section_type::markup_other &&
+            !this->is_write_semcolon_section() ? last_child() :
             nullptr;
     
     switch(sec_type()){
@@ -460,10 +462,41 @@ inline std::string literal_node_t::gen_header_code(
             );
             break;
         case section_type::markup_other:
-            s += fmt::format(
-                "{}->begin_write(\"{}\");",
-                doc->self_name, this->markup_language
-            );
+            if(this->is_section()){
+                // @add-section(name){ ... }
+                if(this->is_add_section()){
+                    s += fmt::format(
+                        "{}->begin_write(\"${}\");{}->begin_write(\"html\");",
+                        doc->self_name, this->section_name(),
+                        doc->self_name
+                    );
+                    
+                // @write-section(name){ ... }
+                }else if(this->is_write_section()){
+                    s += fmt::format(
+                        "if({}->section_exists(\"${}\")){"
+                        "{}->write_section(\"${}\");}else{"
+                        "{}->begin_write(\"html\");",
+                        doc->self_name, this->section_name(),
+                        doc->self_name, this->section_name(),
+                        doc->self_name
+                    );
+                    
+                // @write-section(name);
+                }else{
+                    s += fmt::format(
+                        "{}->write_section(\"${}\");",
+                        doc->self_name, this->section_name()
+                    );
+                    
+                }
+                
+            }else{
+                s += fmt::format(
+                    "{}->begin_write(\"{}\");",
+                    doc->self_name, this->markup_language
+                );
+            }
             break;
         default:
             break;
@@ -488,10 +521,37 @@ inline std::string literal_node_t::gen_header_code(
             );
             break;
         case section_type::markup_other:
-            s += fmt::format(
-                "{}->commit_write(\"{}\");",
-                doc->self_name, this->markup_language
-            );
+            if(this->is_section()){
+                // @add-section(name){ ... }
+                if(this->is_add_section()){
+                    s += fmt::format(
+                        "{}->commit_write(\"html\");{}->commit_write(\"${}\");",
+                        doc->self_name,
+                        doc->self_name, this->section_name()
+                    );
+                    
+                // @write-section(name){ ... }
+                }else if(this->is_write_section()){
+                    s += fmt::format(
+                        "{}->commit_write(\"html\");}",
+                        doc->self_name
+                    );
+                    
+                // @write-section(name);
+                }else{
+                    // s += fmt::format(
+                    //     "{}->write_section(\"${}\");",
+                    //     doc->self_name, this->section_name()
+                    // );
+                    
+                }
+                
+            }else{
+                s += fmt::format(
+                    "{}->commit_write(\"{}\");",
+                    doc->self_name, this->markup_language
+                );
+            }
             break;
         default:
             break;

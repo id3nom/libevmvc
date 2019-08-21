@@ -380,7 +380,7 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
     }
     md::trim(l);
     ast::root_node rn = std::static_pointer_cast<ast::root_node_t>(pn->root());
-    if(!rn->support_markup_lang(l)){
+    if(t->is_fan_markup_open() && !rn->support_markup_lang(l)){
         std::unordered_set<std::string> allowed_langs = {
             "html", "htm",
             "markdown", "md",
@@ -399,17 +399,31 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
             md::join(rn->markup_langs(), ", "),
             md::join(allowed_langs, ", ")
         );
-
-        // throw MD_ERR(
-        //     "invalid literal language of '{}', line: '{}', col: '{}'\n"
-        //     "available language are 'html, htm, markdown and md!'",
-        //     md::replace_substring_copy(
-        //         md::replace_substring_copy(
-        //             l, "{", "{{"
-        //         ), "}", "}}"
-        //     ),
-        //     t->line(), t->col()
-        // );
+        
+    }else if(t->is_fan_add_section_open()){
+        l = "<$" + l;
+    }else if(t->is_fan_write_section_open()){
+        token st = tl;
+        size_t send_hup = end_hup;
+        while(st && !st->is_curly_brace_open() && !st->is_semicolon()){
+            ++send_hup;
+            st = st->next();
+        }
+        
+        if(!st)
+            throw MD_ERR(
+                "Invalid @write-section definition '{}'"
+                " at line: '{}', col: '{}'!\n\n"
+                "Are you missing a semi-colon or code block?",
+                l, t->line(), t->col()
+            );
+        
+        if(st->is_curly_brace_open())
+            l = "$>" + l;
+        else{
+            l = "$$" + l;
+            end_hup = send_hup;
+        }
     }
     
     ast::node n = literal_node(new literal_node_t(
@@ -418,10 +432,15 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
             ast::section_type::markup_html :
             ast::section_type::markup_other
     ));
-    while(tl && !tl->is_curly_brace_open()){
-        ++end_hup;
-        tl = tl->next();
-    }
+    if(
+        !std::static_pointer_cast<literal_node_t>(n)
+            ->is_write_semcolon_section()
+    )
+        while(tl && !tl->is_curly_brace_open()){
+            ++end_hup;
+            tl = tl->next();
+        }
+    
     ++end_hup;
     
     return open_scope(t, pn, n, end_hup);
@@ -601,6 +620,11 @@ inline void literal_node_t::parse(ast::token t)
                 break;
             }
             case section_type::markup_other:{
+                if(this->is_write_semcolon_section()){
+                    close_scope(t, this);
+                    return;
+                }
+                
                 if(this->is_markdown()){
                     if(open_tag(t, this))
                         return;

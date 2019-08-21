@@ -256,8 +256,10 @@ public:
             is_fan_code_block() ||
             is_fan_code() ||
             
-            
-            is_fan_markup_open();
+            is_fan_markup_open() ||
+            is_fan_add_section_open() ||
+            is_fan_write_section_open()
+            ;
     }
     
     bool is_fan_start_key() const
@@ -285,7 +287,11 @@ public:
             is_fan_funa() ||
             is_fan_await() ||
             
-            is_fan_markup_open();
+            is_fan_markup_open() ||
+            is_fan_add_section_open() ||
+            is_fan_write_section_open()
+            
+            ;
     }
     
     bool is_fan_escape() const { return _text == "@@";}
@@ -389,6 +395,8 @@ public:
     bool is_fan_await() const { return _text == "@await";}
     
     bool is_fan_markup_open() const { return _text == "@(";}
+    bool is_fan_add_section_open() const { return _text == "@add-section";}
+    bool is_fan_write_section_open() const { return _text == "@write-section";}
     
     bool is_double_quote() const { return _text == "\"";}
     bool is_single_quote() const { return _text == "'";}

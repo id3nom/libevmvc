@@ -271,6 +271,13 @@ public:
     {
         res->styles().emplace_back(src);
     }
+    
+    bool section_exists(const std::string& name)
+    {
+        auto it = res->sections().find(name);
+        return it != res->sections().end();
+    }
+    
     void add_section(const std::string& name, const std::string& src)
     {
         auto it = res->sections().find(name);
