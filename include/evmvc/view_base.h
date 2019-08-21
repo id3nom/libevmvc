@@ -271,6 +271,14 @@ public:
     {
         res->styles().emplace_back(src);
     }
+    void add_section(const std::string& name, const std::string& src)
+    {
+        auto it = res->sections().find(name);
+        if(it != res->sections().end())
+            it->second = src;
+        else
+            res->sections().emplace(std::make_pair(name, src));
+    }
     
     void write_scripts()
     {
@@ -297,6 +305,24 @@ public:
             );
         }
         this->write_raw(styles);
+        this->commit_write("html");
+    }
+    
+    void write_section(
+        const std::string& name,
+        const std::string& src_default = ""
+        )
+    {
+        auto it = res->sections().find(name);
+        if(it == res->sections().end()){
+            this->begin_write("html");
+            this->write_raw(src_default);
+            this->commit_write("html");
+            return;
+        }
+        
+        this->begin_write("html");
+        this->write_raw(it->second);
         this->commit_write("html");
     }
     
@@ -328,11 +354,11 @@ private:
     
 protected:
     
-    
     evmvc::response res;
     evmvc::request req;
     
 private:
+    
     
 };
 

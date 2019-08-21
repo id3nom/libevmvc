@@ -297,6 +297,10 @@ public:
     {
         return _scripts;
     }
+    std::map<std::string, std::string>& sections()
+    {
+        return _sections;
+    }
     
     bool has_error() const
     {
@@ -458,6 +462,7 @@ private:
     
     std::vector<std::string> _styles;
     std::vector<std::string> _scripts;
+    std::map<std::string, std::string> _sections;
 };
 
 

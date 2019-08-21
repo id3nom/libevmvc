@@ -65,7 +65,8 @@ inline void view_base::render_view(
 
 inline void view_base::_pop_buffer(md::string_view lng)
 {
-    if(_buffer_lngs.top() != lng.to_string())
+    std::string lngc = lng.to_string();
+    if(_buffer_lngs.top() != lngc)
         throw MD_ERR(
             "Invalid language\n"
             "Current language is: '{}', "
@@ -74,14 +75,23 @@ inline void view_base::_pop_buffer(md::string_view lng)
             lng
         );
     
+    std::string sec_name;
+    bool in_section = *lngc.cbegin() == '$';
+    if(in_section){
+        sec_name = lngc.substr(1);
+        lngc = "html";
+    }
+    
     // look for a parser
-    evmvc::view_engine::parse_language(lng.to_string(), _buffers.top());
+    evmvc::view_engine::parse_language(lngc, _buffers.top());
     
     std::string tbuf = _buffers.top();
     _buffers.pop();
     _buffer_lngs.pop();
     
-    if(_buffers.size() == 0)
+    if(in_section){
+        this->add_section(sec_name, tbuf);
+    }else if(_buffers.size() == 0)
         _out_buffer += tbuf;
     else
         _buffers.top() += tbuf;

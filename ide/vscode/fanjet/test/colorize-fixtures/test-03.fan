@@ -69,8 +69,17 @@ SOFTWARE.
     
     @>header;
     
-    
     @body
-
+    
     @>footer;
+    
+    @add-section(test){
+        <div>test</div>
+    }
+    
+    @write-section(test){
+        <div>if section is missing</div>
+    }
+    @write-section(test);
+    
 </body>

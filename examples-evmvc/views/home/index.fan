@@ -62,3 +62,13 @@ Message: @get("msg")
     int j;
     
 }
+@add-section(section_a){
+    <div>section a</div>
+}
+
+@write-section( missing_section ){
+    <div>if section is missing</div>
+}
+
+@write-section(section_a);
+

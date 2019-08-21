@@ -23,6 +23,9 @@
                 {"include": "#fanjet-markup-tex"},
                 {"include": "#fanjet-markup-latex"},
                 {"include": "#fanjet-markup-wiki"},
+                {"include": "#fanjet-markup-html-add-section"},
+                {"include": "#fanjet-markup-html-write-section-def"},
+                {"include": "#fanjet-markup-html-write-section"},
                 
                 {"include": "#cpp-block"}
             ]
@@ -51,7 +54,11 @@
         {"include": "#fanjet-markup-tex"},
         {"include": "#fanjet-markup-latex"},
         {"include": "#fanjet-markup-wiki"},
-        {"include": "#fanjet-markup-html"}
+        {"include": "#fanjet-markup-html"},
+        {"include": "#fanjet-markup-html-add-section"},
+        {"include": "#fanjet-markup-html-write-section-def"},
+        {"include": "#fanjet-markup-html-write-section"}
+        
     ],
     "repository": {
         
@@ -154,6 +161,48 @@
             "beginCaptures":{
                 "1": { "name": "keyword.control.fan"},
                 "2": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.basic"}
+            ]
+        },
+        "fanjet-markup-html-add-section": {
+            "begin": "(@add-section\\s*)(\\()(\\s*\\w*\\s*)(\\))\\s*(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "5": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.basic"}
+            ]
+        },
+        "fanjet-markup-html-write-section-def": {
+            "begin": "(@write-section\\s*)(\\()(\\s*\\w*\\s*)(\\))\\s*(;)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "5": { "name": "ponctuation.definition.bracket.start"}
+            },
+            "end": "(?<!@)\\}",
+            "endCaptures":{
+                "0": { "name": "ponctuation.definition.bracket.end"}
+            },
+            "patterns":[
+                {"include": "text.html.basic"}
+            ]
+        },
+        "fanjet-markup-html-write-section": {
+            "begin": "(@write-section\\s*)(\\()(\\s*\\w*\\s*)(\\))\\s*(\\{)",
+            "beginCaptures":{
+                "1": { "name": "keyword.control.fan"},
+                "5": { "name": "ponctuation.definition.bracket.start"}
             },
             "end": "(?<!@)\\}",
             "endCaptures":{
