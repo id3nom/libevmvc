@@ -861,16 +861,45 @@ inline void tag_node_t::parse(ast::token t)
                     this->_done = true;
                     close_scope(t, this);
                     return;
+                    
+                } else if(
+                    open_fan_comment(t, this)
+                    //|| open_fan_directive(t, this)
+                    || open_fan_output(t, this)
+                    
+                    || open_fan_code_block(t, this)
+                    || open_fan_control(t, this)
+                    || open_fan_try(t, this)
+                    
+                    || open_fan_funi_func(t, this)
+                    || open_fan_funa_await(t, this)
+                    
+                    || open_fan_markup(t, this)
+                    
+                    || open_fan_key(t, this)
+                    || open_fan_fn(t, this)
+                    
+                    //|| open_tag(t, this)
+                    
+                    //|| open_expr(t, this)
+                    
+                    //|| open_code_string(t, this)
+                    //|| open_code_block(t, this)
+                    
+                    //|| open_control(t, this)
+                    //|| open_try(t, this)
+                ){
+                    return;
                 }
             
             }else if(t->is_tag_slash_gt()){
-                    this->_start_completed = true;
-                    this->_end_started = true;
-                    this->_end_completed = true;
-                    this->_done = true;
-                    close_scope(t, this);
-                    return;
-
+                this->_start_completed = true;
+                this->_end_started = true;
+                this->_end_completed = true;
+                this->_done = true;
+                close_scope(t, this);
+                return;
+                
             }else if(t->is_tag_gt()){
                 this->_start_completed = true;
             }else if(
@@ -900,7 +929,7 @@ inline void tag_node_t::parse(ast::token t)
                 //|| open_control(t, this)
                 //|| open_try(t, this)
             ){
-                    return;
+                return;
             }
             
             if(t) t = t->next();
