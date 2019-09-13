@@ -65,7 +65,7 @@ inline bool open_scope(
 {
     if(!n)
         return false;
-        
+    
     token nt = t;
     t = nt->snip();
     pn->add_child(n);
@@ -234,7 +234,8 @@ inline bool open_fan_output(ast::token& t, ast::node_t* pn)
     ast::node expr_n = expr_node(new expr_node_t(
         expr_type::semicol
     ));
-    return open_scope(t, n.get(), expr_n);
+    
+    return open_scope(t, n.get(), expr_n, 0);
 }
 
 inline bool open_fan_code_block(ast::token& t, ast::node_t* pn)
