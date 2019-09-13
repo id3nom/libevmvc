@@ -697,6 +697,10 @@ public:
         
         _router_paths.emplace_back(router_t->_path);
         _routers.emplace(std::make_pair(router_t->_path, router_t));
+        std::sort(_router_paths.begin(), _router_paths.end(),
+        [](auto a, auto b){
+            return a.size() > b.size();
+        });
         return this->shared_from_this();
     }
     
