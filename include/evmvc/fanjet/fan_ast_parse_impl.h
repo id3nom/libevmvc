@@ -112,7 +112,7 @@ inline bool open_attr_string(ast::token& t, ast::node_t* pn)
         return false;
     
     ast::node n = string_node(new string_node_t(
-        t->text(), ""
+        t->text(), t->is_double_quote() ? "\\\"" : "\\'"
     ));
     return open_scope(t, pn, n);
 }
