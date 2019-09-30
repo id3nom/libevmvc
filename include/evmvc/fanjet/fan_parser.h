@@ -51,7 +51,7 @@ public:
         };
         for(auto l : markup_langs)
             if(allowed_langs.find(l) == allowed_langs.end())
-                md::log::warn(
+                md::log::debug(
                     "Unsupported language '{}'\n"
                     "Fanjet parser support the following markup languages:\n{}",
                     l, md::join(allowed_langs, ", ")

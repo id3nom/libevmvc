@@ -394,7 +394,7 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
             "wiki"
         };
         
-        md::log::warn(
+        md::log::debug(
             "Invalid markup language '{}' at line: '{}', col: '{}'!\n\n"
             "Available language are: '{}'\n"
             "Known language are: '{}'\n"
