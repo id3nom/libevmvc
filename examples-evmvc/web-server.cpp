@@ -159,7 +159,7 @@ void register_app_cbs()
 {
     auto srv = ::srv();
     
-    auto md_parse = [](std::string& str){
+    auto md_parse = [](evmvc::response /*res*/, std::string& str){
         str = evmvc::html_escape(str);
         
         str.insert(0, "<div data-markup=\"md\">");
@@ -171,7 +171,7 @@ void register_app_cbs()
     //     str.insert(0, "<div data-markup=\"tex\">");
     //     str.append("</div>");
     // };
-    auto tex_parse = [](std::string& str){
+    auto tex_parse = [](evmvc::response /*res*/, std::string& str){
         str = evmvc::html_escape(str);
         
         str.insert(0, "<div><div data-markup=\"tex\">");

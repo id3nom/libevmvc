@@ -83,7 +83,7 @@ inline void view_base::_pop_buffer(md::string_view lng)
     }
     
     // look for a parser
-    evmvc::view_engine::parse_language(lngc, _buffers.top());
+    evmvc::view_engine::parse_language(lngc, this->res, _buffers.top());
     
     std::string tbuf = _buffers.top();
     _buffers.pop();

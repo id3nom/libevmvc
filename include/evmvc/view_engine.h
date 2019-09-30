@@ -30,7 +30,9 @@ SOFTWARE.
 
 namespace evmvc {
 
-typedef std::function<void(std::string& source)> view_lang_parser_fn;
+typedef std::function<
+    void(evmvc::response res, std::string& source)
+> view_lang_parser_fn;
 
 class view_engine
     : public std::enable_shared_from_this<view_engine>
@@ -70,11 +72,12 @@ public:
         );
     }
     
-    static void parse_language(const std::string& lang, std::string& s)
+    static void parse_language(
+        const std::string& lang, evmvc::response res, std::string& s)
     {
         auto it = lang_parsers().find(lang);
         if(it != lang_parsers().end())
-            it->second(s);
+            it->second(res, s);
     }
     
     static void register_engine(const std::string& ns, sp_view_engine engine)
