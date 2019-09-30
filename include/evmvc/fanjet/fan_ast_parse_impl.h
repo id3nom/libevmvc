@@ -394,7 +394,7 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
             "wiki"
         };
         
-        throw MD_ERR(
+        md::log::warn(
             "Invalid markup language '{}' at line: '{}', col: '{}'!\n\n"
             "Available language are: '{}'\n"
             "Known language are: '{}'\n"
@@ -404,6 +404,17 @@ inline bool open_fan_markup(ast::token& t, ast::node_t* pn)
             md::join(rn->markup_langs(), ", "),
             md::join(allowed_langs, ", ")
         );
+        
+        // throw MD_ERR(
+        //     "Invalid markup language '{}' at line: '{}', col: '{}'!\n\n"
+        //     "Available language are: '{}'\n"
+        //     "Known language are: '{}'\n"
+        //     "Please note that known language must be enabled, "
+        //     "except for 'html' and 'htm' languages.",
+        //     l, t->line(), t->col(),
+        //     md::join(rn->markup_langs(), ", "),
+        //     md::join(allowed_langs, ", ")
+        // );
         
     }else if(t->is_fan_add_section_open()){
         if(boost::starts_with(l, "(")){

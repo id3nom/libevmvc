@@ -51,11 +51,16 @@ public:
         };
         for(auto l : markup_langs)
             if(allowed_langs.find(l) == allowed_langs.end())
-                throw MD_ERR(
+                md::log::warn(
                     "Unsupported language '{}'\n"
                     "Fanjet parser support the following markup languages:\n{}",
                     l, md::join(allowed_langs, ", ")
                 );
+                // throw MD_ERR(
+                //     "Unsupported language '{}'\n"
+                //     "Fanjet parser support the following markup languages:\n{}",
+                //     l, md::join(allowed_langs, ", ")
+                // );
         
         ast::token root_token = ast::tokenizer::tokenize(text);
         ast::root_node r = ast::parse(markup_langs, root_token);
