@@ -200,14 +200,14 @@ inline ssize_t find_eol(const char* data, size_t len, size_t start_pos)
     return -1;
 }
 
-inline std::string uri_encode(md::string_view s)
+inline std::string escape(md::string_view s)
 {
     char* r = evhttp_encode_uri(s.data());
     std::string tmp(r);
     free(r);
     return tmp;
 }
-inline std::string uri_decode(md::string_view s)
+inline std::string unescape(md::string_view s)
 {
     char* r = evhttp_decode_uri(s.data());
     std::string tmp(r);
@@ -222,6 +222,72 @@ inline std::string html_escape(md::string_view s)
     return tmp;
 }
 
+inline std::string encode_uri(md::string_view s)
+{
+    std::ostringstream os;
+    
+    for(auto c : s){
+        if(
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == ';' || c == ',' || c == '/' || c == '?' || c == ':' ||
+            c == '@' || c == '&' || c == '=' || c == '+' || c == '$' ||
+            c == '-' || c == '_' || c == '.' || c == '!' || c == '~' ||
+            c == '*' || c == '\'' || c == '(' || c == ')' || c == '#'
+        ){
+            os << c;
+            continue;
+        }
+        
+        os << "%";
+        os << std::hex << std::setw(2) << (int)c;
+    }
+    
+    return os.str();
+}
+inline std::string decode_uri(md::string_view s)
+{
+    std::ostringstream os;
+    
+    for(size_t i = 0; i < s.size(); ++i){
+        if(s[i] == '%' && i < s.size()-2){
+            os << (unsigned char)strtol(s.data() +i+1, nullptr, 16);
+            i += 2;
+            continue;
+        }
+        
+        os << s[i];
+    }
+    
+    return os.str();
+}
+inline std::string encode_uri_component(md::string_view s)
+{
+    std::ostringstream os;
+    
+    for(auto c : s){
+        if(
+            (c >= 'a' && c <= 'z') ||
+            (c >= 'A' && c <= 'Z') ||
+            (c >= '0' && c <= '9') ||
+            c == '-' || c == '_' || c == '.' || c == '!' || c == '~' ||
+            c == '*' || c == '\'' || c == '(' || c == ')'
+        ){
+            os << c;
+            continue;
+        }
+        
+        os << "%";
+        os << std::hex << std::setw(2) << (int)c;
+    }
+    
+    return os.str();
+}
+inline std::string decode_uri_component(md::string_view s)
+{
+    return decode_uri(s);
+}
 
 
 

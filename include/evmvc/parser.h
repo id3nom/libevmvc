@@ -538,8 +538,8 @@ private:
                 else if(c == '&'){
                     _res->_req->_body_params->emplace_back(
                         std::make_shared<http_param>(
-                            evmvc::uri_decode(k),
-                            evmvc::uri_decode(v)
+                            evmvc::unescape(k),
+                            evmvc::unescape(v)
                         )
                     );
                     
@@ -555,8 +555,8 @@ private:
             if(!k.empty() || !v.empty())
                 _res->_req->_body_params->emplace_back(
                     std::make_shared<http_param>(
-                        evmvc::uri_decode(k),
-                        evmvc::uri_decode(v)
+                        evmvc::unescape(k),
+                        evmvc::unescape(v)
                     )
                 );
             
