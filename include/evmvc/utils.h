@@ -241,7 +241,7 @@ inline std::string encode_uri(md::string_view s)
         }
         
         os << "%";
-        os << std::hex << std::setw(2) << (int)c;
+        os << std::uppercase << std::hex << std::setw(2) << (int)c;
     }
     
     return os.str();
@@ -249,10 +249,12 @@ inline std::string encode_uri(md::string_view s)
 inline std::string decode_uri(md::string_view s)
 {
     std::ostringstream os;
-    
+    char t[3]{0,0,0};
     for(size_t i = 0; i < s.size(); ++i){
         if(s[i] == '%' && i < s.size()-2){
-            os << (unsigned char)strtol(s.data() +i+1, nullptr, 16);
+            t[0] = *(s.data() +i+1);
+            t[1] = *(s.data() +i+2);
+            os << (unsigned char)strtol(t, nullptr, 16);
             i += 2;
             continue;
         }
@@ -279,7 +281,7 @@ inline std::string encode_uri_component(md::string_view s)
         }
         
         os << "%";
-        os << std::hex << std::setw(2) << (int)c;
+        os << std::uppercase << std::hex << std::setw(2) << (int)c;
     }
     
     return os.str();

@@ -16,6 +16,7 @@ include_directories("${PROJECT_BINARY_DIR}"
 
 set(test_sources
     main.cpp
+    utils_tests.cpp
     routing/router_tests.cpp
     fanjet/fanjet_tests.cpp
 )

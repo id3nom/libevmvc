@@ -28,6 +28,7 @@ SOFTWARE.
 #include <sys/types.h>
 #include <sys/socket.h>
 
+#define EVMVC_COUT std::cout << "[--------->] " <<
 namespace evmvc { namespace tests {
 
 
@@ -36,52 +37,6 @@ class router_test: public testing::Test
 public:
 };
 
-TEST_F(router_test, encode_uri)
-{
-    // Reserved Characters
-    std::string set1 = ";,/?:@&=+$#";
-    // Unreserved Marks
-    std::string set2 = "-_.!~*'()";
-    // Alphanumeric Characters + Space
-    std::string set3 = "ABC abc 123";
-    
-    
-    std::cout << std::endl << std::endl;
-    // ;,/?:@&=+$#
-    std::cout << evmvc::encode_uri(set1) << std::endl;
-    // -_.!~*'()
-    std::cout << evmvc::encode_uri(set2) << std::endl;
-    // ABC%20abc%20123 (the space gets encoded as %20)
-    std::cout << evmvc::encode_uri(set3) << std::endl;
-    
-    
-    std::cout << std::endl << std::endl;
-    // %3B%2C%2F%3F%3A%40%26%3D%2B%24%23
-    std::cout << evmvc::encode_uri_component(set1) << std::endl;
-    // -_.!~*'()
-    std::cout << evmvc::encode_uri_component(set2) << std::endl;
-    // ABC%20abc%20123 (the space gets encoded as %20)
-    std::cout << evmvc::encode_uri_component(set3) << std::endl;
-    
-    
-    std::cout << std::endl << std::endl;
-    std::cout << evmvc::decode_uri(
-        evmvc::encode_uri(set1)) << std::endl;
-    std::cout << evmvc::decode_uri(
-        evmvc::encode_uri(set2)) << std::endl;
-    std::cout << evmvc::decode_uri(
-        evmvc::encode_uri(set3)) << std::endl;
-    
-    
-    std::cout << std::endl << std::endl;
-    std::cout << evmvc::decode_uri_component(
-        evmvc::encode_uri_component(set1)) << std::endl;
-    std::cout << evmvc::decode_uri_component(
-        evmvc::encode_uri_component(set2)) << std::endl;
-    std::cout << evmvc::decode_uri_component(
-        evmvc::encode_uri_component(set3)) << std::endl;
-    
-}
 
 TEST_F(router_test, routes)
 {
@@ -91,6 +46,7 @@ TEST_F(router_test, routes)
         opts.use_default_logger = false;
         opts.log_console_level = 
             opts.log_file_level = md::log::log_level::off;
+        md::log::default_logger()->set_level(md::log::log_level::off);
         
         evmvc::app srv = std::make_shared<evmvc::app_t>(
             ev_base,
@@ -254,7 +210,7 @@ TEST_F(router_test, routes)
         });
         
     }catch(const std::exception& err){
-        std::cout << "Error: " << err.what() << std::endl;
+        EVMVC_COUT "Error: " << err.what() << std::endl;
         FAIL();
     }
     event_base_free(ev_base);
