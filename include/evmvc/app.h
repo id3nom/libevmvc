@@ -225,6 +225,8 @@ public:
                     _log->info(MD_ERR(
                         "unix connect err: {}", errno
                     ));
+                    usleep(30000);
+                    
                 }else
                     break;
                 
@@ -235,6 +237,7 @@ public:
                     ));
                     return -1;
                 }
+                
             }while(w->channel().usock == -1);
             _internal::unix_set_sock_opts(w->channel().usock);
         }
