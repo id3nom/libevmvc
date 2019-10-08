@@ -585,9 +585,7 @@ private:
         
         if(WIFSIGNALED(wstatus)){
             int sig = WTERMSIG(wstatus);
-            if(sig == SIGINT ||
-                sig == SIGKILL
-            ){
+            if(sig == SIGINT || sig == SIGKILL){
                 return;
             }
         }
