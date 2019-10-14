@@ -597,10 +597,20 @@ private:
             if(self->_status != running_state::running)
                 return;
             
-            self->_log->error(MD_ERR(
-                "Worker process crashed!"
-            ));
-            raise(SIGINT);
+            // verify if it's a worker process.
+            for(
+                auto it = self->_workers.begin();
+                it != self->_workers.end();
+                ++it
+            ){
+                if((*it)->pid() == p){
+                    self->_log->error(MD_ERR(
+                        "Worker process crashed!"
+                    ));
+                    raise(SIGINT);
+                    break;
+                }
+            }
             return;
         #endif
         
