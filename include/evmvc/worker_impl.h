@@ -279,7 +279,8 @@ inline void worker_t::parse_cmd(int cmd_id, const char* p, size_t plen)
 }
 
 
-inline void http_worker_t::on_http_worker_accept(int fd, short events, void* arg)
+inline void http_worker_t::on_http_worker_accept(
+    int fd, short events, void* arg)
 {
     http_worker_t* w = (http_worker_t*)arg;
     
