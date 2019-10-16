@@ -129,9 +129,13 @@ public:
     
     sp_http_file get(md::string_view name) const
     {
-        for(auto& f : _files)
-            if(strcasecmp(f->_name.c_str(), name.data()) == 0)
+        size_t n = name.size();
+        for(auto& f : _files){
+            if(f->_name.size() != n)
+                continue;
+            if(strncasecmp(f->_name.c_str(), name.data(), n) == 0)
                 return f;
+        }
         return sp_http_file();
     }
     
