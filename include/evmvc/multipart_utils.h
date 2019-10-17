@@ -269,8 +269,15 @@ inline std::string get_header_attribute(
         if(kv.size() != 2)
             continue;
         
-        if(md::trim_copy(kv[0]) == attr_name)
-            return md::trim_copy(kv[1]);
+        if(md::trim_copy(kv[0]) == attr_name){
+            std::string val = md::trim_copy(kv[1]);
+            if(*val.begin() == '"')
+                val = val.substr(1);
+            if(*val.rbegin() == '"')
+                val = val.substr(0, val.size() -1);
+            
+            return val;
+        }
     }
     return "";
 }

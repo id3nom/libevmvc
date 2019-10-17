@@ -689,7 +689,12 @@ private:
                 
                 cc->filename = filename;
                 cc->temp_path = _mp_temp_dir / bfs::unique_path();
-                cc->fd = open(cc->temp_path.c_str(), O_CREAT | O_WRONLY);
+                cc->fd = open(
+                    cc->temp_path.c_str(),
+                    O_CREAT | O_WRONLY,
+                    // owner read write, no exec
+                    0600
+                );
                 if(cc->fd == -1)
                     return false;
                 
