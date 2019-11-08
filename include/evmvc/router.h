@@ -188,7 +188,15 @@ public:
         unsigned char* tabptr = name_table;
         for(int i = 0; i < namecnt; ++i){
             int n = (tabptr[0] << 8) | tabptr[1];
-            std::string pname((char*)(tabptr + 2), name_entry_size -3);
+            // find eos
+            int eidx = 0;
+            while(
+                eidx < name_entry_size -3 &&
+                tabptr[2 + (++eidx)] != '\0'
+            );
+            std::string pname((char*)(tabptr + 2), eidx);
+            
+            //std::string pname((char*)(tabptr + 2), name_entry_size -3);
             std::string pval(
                 (char*)(value.data() + ovector[2*n]),
                 ovector[2*n+1] - ovector[2*n]
