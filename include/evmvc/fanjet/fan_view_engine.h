@@ -81,11 +81,22 @@ public:
         views.emplace_back(v);
         
         std::shared_ptr<evmvc::view_base> tv = v;
+        
         while(tv && !tv->layout().empty()){
             std::string s = tv->layout().to_string();
-            if(s.find("::") == std::string::npos)
-                tv = this->get_view(res, s);
-            else
+            if(s.find("::") == std::string::npos){
+                // first find with relative path
+                std::string rel_path = path;
+                size_t rplsep = rel_path.rfind("/");
+                if(rplsep == std::string::npos)
+                    rel_path.clear();
+                else
+                    rel_path = rel_path.substr(0, rplsep +1);
+                tv = this->get_view(res, rel_path + s);
+                // then find with path
+                if(!tv)
+                    tv = this->get_view(res, s);
+            }else
                 tv = evmvc::view_engine::get(res, s);
                 
             if(tv){
