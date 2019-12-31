@@ -1208,6 +1208,8 @@ const char* tokenizer::s_tokens[] = {
     "<=", ">=",
     "<", ">",
     
+    "#if","#else", "#endif", "#define"
+    
     "@@",
     "@{",
     "@}", // escaping closing bracket
