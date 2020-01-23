@@ -55,7 +55,7 @@ inline response_t::response_t(
     _rt(rt),
     _headers(std::make_shared<response_headers_t>()),
     _cookies(http_cookies_t),
-    _started(false), _ended(false),
+    _started(false), _event_started(false), _ended(false),
     _status(-1), _type(""), _enc(""),
     _paused(false),
     _resuming(false),
@@ -425,6 +425,128 @@ inline void response_t::_reply_end()
     c->complete_response();
 }
 
+inline void response_t::send_event(
+    md::string_view event, md::string_view data, md::string_view id)
+{
+    if(!this->_event_started){
+        if(this->_started)
+            throw std::runtime_error(
+                "Can't use send_event, the response is already started!"
+            );
+        this->type("text/event-stream", "utf-8");
+        
+        _reply_start();
+        this->_event_started = true;
+    }
+    
+    EVMVC_TRACE(_log, "send_event");
+    if(auto c = this->_conn.lock()){
+        if(!event.empty()){
+            std::string val = "event: " + event.to_string();
+            if(*val.rbegin() != '\n')
+                val += "\n";
+            bufferevent_write(c->bev(), val.c_str(), val.size());
+        }
+        
+        if(!data.empty()){
+            std::vector<std::string> lines;
+            std::string val = data.to_string();
+            boost::split(lines, val, boost::is_any_of("\n"));
+            val.clear();
+            for(auto s : lines)
+                val += "data: " + s + "\n";
+            bufferevent_write(c->bev(), val.c_str(), val.size());
+        }
+        
+        if(!id.empty()){
+            std::string val = "id: " + id.to_string();
+            if(*val.rbegin() != '\n')
+                val += "\n";
+            bufferevent_write(c->bev(), val.c_str(), val.size());
+        }
+        
+        if(event.empty() && data.empty() && id.empty())
+            bufferevent_write(c->bev(), ": \n", 3);
+        
+        bufferevent_write(c->bev(), "\n", 1);
+        c->reset_timeouts();
+        c->wake();
+    }else{
+        return this->_reply_end();
+    }
+}
+
+inline void response_t::send_event_message(md::string_view message)
+{
+    if(!this->_event_started){
+        if(this->_started)
+            throw std::runtime_error(
+                "Can't use send_event, the response is already started!"
+            );
+        this->type("text/event-stream", "utf-8");
+        
+        _reply_start();
+        this->_event_started = true;
+    }
+    
+    EVMVC_TRACE(_log, "send_event");
+    if(auto c = this->_conn.lock()){
+        if(!message.empty()){
+            std::vector<std::string> lines;
+            std::string val = message.to_string();
+            boost::split(lines, val, boost::is_any_of("\n"));
+            val.clear();
+            for(auto s : lines)
+                val += "data: " + s + "\n";
+            bufferevent_write(c->bev(), val.c_str(), val.size());
+            
+        }else{
+            bufferevent_write(c->bev(), ": \n", 3);
+        }
+        
+        bufferevent_write(c->bev(), "\n", 1);
+        c->reset_timeouts();
+        c->wake();
+    }else{
+        return this->_reply_end();
+    }
+}
+
+inline void response_t::send_event_comment(md::string_view comment)
+{
+    if(!this->_event_started){
+        if(this->_started)
+            throw std::runtime_error(
+                "Can't use send_event, the response is already started!"
+            );
+        this->type("text/event-stream", "utf-8");
+        
+        _reply_start();
+        this->_event_started = true;
+    }
+    
+    EVMVC_TRACE(_log, "send_event");
+    if(auto c = this->_conn.lock()){
+        if(!comment.empty()){
+            std::vector<std::string> lines;
+            std::string val = comment.to_string();
+            boost::split(lines, val, boost::is_any_of("\n"));
+            val.clear();
+            for(auto s : lines)
+                val += ": " + s + "\n";
+            bufferevent_write(c->bev(), val.c_str(), val.size());
+            
+        }else{
+            bufferevent_write(c->bev(), ": \n", 3);
+        }
+        
+        bufferevent_write(c->bev(), "\n", 1);
+        c->reset_timeouts();
+        c->wake();
+    }else{
+        return this->_reply_end();
+    }
+}
 
 inline void response_t::send_file(
     const bfs::path& filepath,

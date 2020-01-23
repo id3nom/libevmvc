@@ -264,11 +264,36 @@ public:
             _wtimeo = *wto;
     }
     
+    void reset_timeouts()
+    {
+        struct timeval rto =
+            #if EVMVC_BUILD_DEBUG
+                // set to 30 seconds in debug build
+                {30,0};
+            #else
+                rtimeo();
+            #endif
+        struct timeval wto =
+            #if EVMVC_BUILD_DEBUG
+                // set to 30 seconds in debug build
+                {30,0};
+            #else 
+                wtimeo();
+            #endif
+        bufferevent_set_timeouts(_bev, &rto, &wto);
+    }
+    
     const std::shared_ptr<http_parser>& parser() const
     {
         return _parser;
     }
     
+    void wake()
+    {
+        //_parser->_res->_resume(nullptr);
+        bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);
+        event_active(_resume_ev, EV_WRITE, 1);
+    }
     
     void resume()
     {

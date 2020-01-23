@@ -364,7 +364,7 @@ inline bool event_exists(const std::string& name)
 
 inline bool timeout_exists(md::string_view name)
 {
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    //std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
     std::string n = "to:" + name.to_string();
     return _internal::event_exists(n);
@@ -372,7 +372,7 @@ inline bool timeout_exists(md::string_view name)
 
 inline bool interval_exists(md::string_view name)
 {
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    //std::unique_lock<std::mutex> lock(_internal::events_mutex());
 
     std::string n = "iv:" + name.to_string();
     return _internal::event_exists(n);

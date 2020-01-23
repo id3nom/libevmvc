@@ -187,6 +187,14 @@ public:
         this->end();
     }
     
+    void send_event(
+        md::string_view event,
+        md::string_view data = "",
+        md::string_view id = ""
+    );
+    void send_event_message(md::string_view message);
+    void send_event_comment(md::string_view comment);
+    
     void html(md::string_view html_val)
     {
         this->encoding("utf-8").type("html").send(html_val);
@@ -447,6 +455,7 @@ private:
     evmvc::response_headers _headers;
     http_cookies _cookies;
     bool _started;
+    bool _event_started;
     bool _ended;
     int16_t _status;
     std::string _type;
