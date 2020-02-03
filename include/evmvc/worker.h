@@ -714,12 +714,19 @@ private:
             
         else{
             if(saddr.sa_family == AF_UNIX){
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic push
+    #pragma GCC diagnostic ignored "-Warray-bounds"
+#endif
                 auto addr_un = (sockaddr_un*)&saddr;
                 memcpy(
                     remote_addr,
                     addr_un->sun_path,
                     sizeof(addr_un->sun_path)
                 );
+#if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
+    #pragma GCC diagnostic pop
+#endif
             
             }else if(saddr.sa_family == AF_INET){
                 auto addr_in = (sockaddr_in*)&saddr;
@@ -739,7 +746,6 @@ private:
                 remote_port = ntohs(addr_in6->sin6_port);
             }
         }
-        
         
         child_server srv = find_server_by_id(srv_id);
         if(!srv)

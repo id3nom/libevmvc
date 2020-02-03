@@ -179,7 +179,17 @@ private:
             _sin_len = sizeof(struct sockaddr_un);
             sockun->sun_family = AF_UNIX;
             
-            strncpy(sockun->sun_path, baddr, strlen(baddr));
+            //size_t len = strlen(baddr);
+            int n = snprintf(
+                sockun->sun_path, sizeof(sockun->sun_path),
+                "%s", baddr
+            );
+            if(n < 0 || (size_t)n > sizeof(sockun->sun_path))
+                throw MD_ERR(
+                    "UNIX socket path '{}' is out of bound",
+                    baddr
+                );
+            
             _sa = (struct sockaddr*)sockun;
             
         }else if(!strncasecmp(baddr, "[", 1)){
