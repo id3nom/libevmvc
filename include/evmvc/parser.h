@@ -250,7 +250,7 @@ public:
                             break;
                     }
                     
-                    if(_status = parser_state::error;
+                    if(_status = parser_state::error)
                         return 0;
                     
                     if(_res && _res->paused())
