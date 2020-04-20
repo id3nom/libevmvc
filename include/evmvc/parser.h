@@ -306,90 +306,102 @@ private:
             return 0;
         }
         
-        ssize_t em_idx = find_ch(line, line_len, ' ', 0);
-        if(em_idx == -1){
-            _status = parser_state::error;
-            ec = MD_ERR("Bad request line format");
-            return 0;
+        try{
+            ssize_t em_idx = find_ch(line, line_len, ' ', 0);
+            if(em_idx == -1){
+                _status = parser_state::error;
+                ec = MD_ERR("Bad request line format");
+                return 0;
+            }
+            ssize_t eu_idx = find_ch(line, line_len, ' ', em_idx+1);
+            if(eu_idx == -1){
+                _status = parser_state::error;
+                ec = MD_ERR("Bad request line format");
+                return 0;
+            }
+            
+            _method_string = data_substr(line, 0, em_idx);
+            md::trim(_method_string);
+            _method = evmvc::parse_method(_method_string);
+            
+            _uri_string = data_substring(line, em_idx+1, eu_idx);
+            _uri = url(_uri_string);
+            
+            _http_ver_string = data_substring(line, eu_idx+1, line_len);
+            md::trim(_http_ver_string);
+            _http_ver = http_version::unknown;
+            if(!strcasecmp(_http_ver_string.c_str(), "http/1.0"))
+                _http_ver = http_version::http_10;
+            if(!strcasecmp(_http_ver_string.c_str(), "http/1.1"))
+                _http_ver = http_version::http_11;
+            //TODO: add http/2 support
+            // if(!strcasecmp(_http_ver_string.c_str(), "http/2"))
+            //     _http_ver = http_version::http_2;
+            
+            _status = parser_state::parse_header;
+            _hdrs = std::make_shared<header_map_t>();
+            
+            //_bytes_read += eol_idx + EVMVC_EOL_SIZE;
+        }catch(const std::exception& err){
+            _log->error("Failed to parse request line!\n{}", err.what());
+            this->reset();
         }
-        ssize_t eu_idx = find_ch(line, line_len, ' ', em_idx+1);
-        if(eu_idx == -1){
-            _status = parser_state::error;
-            ec = MD_ERR("Bad request line format");
-            return 0;
-        }
         
-        _method_string = data_substr(line, 0, em_idx);
-        md::trim(_method_string);
-        _method = evmvc::parse_method(_method_string);
-        
-        _uri_string = data_substring(line, em_idx+1, eu_idx);
-        _uri = url(_uri_string);
-        
-        _http_ver_string = data_substring(line, eu_idx+1, line_len);
-        md::trim(_http_ver_string);
-        _http_ver = http_version::unknown;
-        if(!strcasecmp(_http_ver_string.c_str(), "http/1.0"))
-            _http_ver = http_version::http_10;
-        if(!strcasecmp(_http_ver_string.c_str(), "http/1.1"))
-            _http_ver = http_version::http_11;
-        //TODO: add http/2 support
-        // if(!strcasecmp(_http_ver_string.c_str(), "http/2"))
-        //     _http_ver = http_version::http_2;
-        
-        _status = parser_state::parse_header;
-        _hdrs = std::make_shared<header_map_t>();
-        
-        //_bytes_read += eol_idx + EVMVC_EOL_SIZE;
         return line_len;
     }
     
     size_t parse_headers(
         const char* line, size_t line_len, md::callback::cb_error& ec)
     {
-        // if header section has ended.
-        if(line_len == 0){
-            validate_headers();
-            post_headers_validation();
-            return EVMVC_EOH_SIZE;
-        }
-        
-        ssize_t sep = find_ch(line, line_len, ':', 0);
-        if(sep == -1){
-            _status = parser_state::error;
-            ec = MD_ERR("Bad header line format");
-            return 0;
-        }
-        
-        std::string hn(line, sep);
-        // EVMVC_TRACE(_log,
-        //     "Inserting header, name: '{}', value: '{}'",
-        //     hn, data_substring(line, sep+1, line_len)
-        // );
-        
-        // move offset to start of text
-        ++sep;
-        while(sep < (ssize_t)line_len && line[sep] == ' '){
+        try{
+            // if header section has ended.
+            if(line_len == 0){
+                validate_headers();
+                post_headers_validation();
+                return EVMVC_EOH_SIZE;
+            }
+            
+            ssize_t sep = find_ch(line, line_len, ':', 0);
+            if(sep == -1){
+                _status = parser_state::error;
+                ec = MD_ERR("Bad header line format");
+                return 0;
+            }
+            
+            std::string hn(line, sep);
+            // EVMVC_TRACE(_log,
+            //     "Inserting header, name: '{}', value: '{}'",
+            //     hn, data_substring(line, sep+1, line_len)
+            // );
+            
+            // move offset to start of text
             ++sep;
-        }
-        std::string val;
-        if(sep < (ssize_t)line_len)
-            val = data_substring(line, sep, line_len);
-        
-        auto it = _hdrs->find(hn);
-        if(it != _hdrs->end())
-            it->second.emplace_back(
-                //data_substring(line, sep+1, line_len)
-                val
-            );
-        else
-            _hdrs->emplace(std::make_pair(
-                std::move(hn),
-                std::vector<std::string>{
+            while(sep < (ssize_t)line_len && line[sep] == ' '){
+                ++sep;
+            }
+            std::string val;
+            if(sep < (ssize_t)line_len)
+                val = data_substring(line, sep, line_len);
+            
+            auto it = _hdrs->find(hn);
+            if(it != _hdrs->end())
+                it->second.emplace_back(
                     //data_substring(line, sep+1, line_len)
                     val
-                }
-            ));
+                );
+            else
+                _hdrs->emplace(std::make_pair(
+                    std::move(hn),
+                    std::vector<std::string>{
+                        //data_substring(line, sep+1, line_len)
+                        val
+                    }
+                ));
+            
+        }catch(const std::exception& err){
+            _log->error("Failed to parse header line!\n{}", err.what());
+            this->reset();
+        }
         
         return line_len + EVMVC_EOL_SIZE;
     }
