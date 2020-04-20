@@ -242,6 +242,9 @@ inline void connection::on_connection_read(
     void* buf = evbuffer_pullup(c->bev_in(), blen);
     md::callback::cb_error ec;
     size_t n = c->_parser->parse((const char*)buf, blen, ec);
+    // if an error occured, drain the buffer.
+    if(!c->_parser->ok())
+        evbuffer_drain(c->bev_in(), blen);
     if(n > 0)
         evbuffer_drain(c->bev_in(), n);
     
