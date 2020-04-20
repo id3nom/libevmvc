@@ -310,6 +310,69 @@ private:
         }
         
         try{
+            // start parsing from the end of the line to account for invalid
+            // data at the beginning of the buffer
+            
+            // here are the request-line parts
+            // Method SP Request-URI SP HTTP-Version
+            
+            // parse the HTTP-Version
+            // find the second space (' ') char position, 
+            // that's the one between URI and HTTP/VER.
+            ssize_t ssp_idx = rfind_ch(line, line_len, ' ', -1);
+            if(ssp_idx == -1) // not a valid request line
+                return line_len;
+            
+            _http_ver_string = data_substring(line, ssp_idx+1, line_len);
+            md::trim(_http_ver_string);
+            _http_ver = http_version::unknown;
+            if(!strcasecmp(_http_ver_string.c_str(), "http/1.0"))
+                _http_ver = http_version::http_10;
+            else if(!strcasecmp(_http_ver_string.c_str(), "http/1.1"))
+                _http_ver = http_version::http_11;
+            else {
+                //TODO: add http/2 support
+                // if(!strcasecmp(_http_ver_string.c_str(), "http/2"))
+                //     _http_ver = http_version::http_2;
+                return line_len;
+            }
+            
+            // parse the URI
+            // find the first space (' ') char position,
+            // thats the one between METHOD and URI.
+            ssize_t fsp_idx = rfind_ch(line, line_len, ' ', ssp_idx-1);
+            if(fsp_idx == -1) // not a valid request line
+                return line_len;
+            
+            _uri_string = data_substring(line, fsp_idx+1, ssp_idx);
+            _uri = url(_uri_string);
+            
+            // parse the METHOD
+            _method_string.reserve(10);
+            _method_string.clear();
+            
+            const char* ch = line+fsp_idx;
+            do{
+                --ch;
+                if(
+                    (*ch >= 'a' && *ch <= 'z') ||
+                    (*ch >= 'A' && *ch <= 'Z') ||
+                    (*ch >= '0' && *ch <= '9') ||
+                    *ch == '-' || *ch == '_'
+                )
+                    _method_string += *ch;
+                else
+                    break;
+            }while(ch != line);
+            _method = evmvc::parse_method_reversed(_method_string);
+            if(_method != evmvc::method::unknown)
+                _method_string = evmvc::to_string(_method).to_string();
+            else{
+                std::reverse(_method_string.begin(), _method_string.end());
+                //md::trim(_method_string);
+            }
+            
+            /*
             ssize_t em_idx = find_ch(line, line_len, ' ', 0);
             if(em_idx == -1){
                 _status = parser_state::error;
@@ -340,7 +403,7 @@ private:
             //TODO: add http/2 support
             // if(!strcasecmp(_http_ver_string.c_str(), "http/2"))
             //     _http_ver = http_version::http_2;
-            
+            */
             _status = parser_state::parse_header;
             _hdrs = std::make_shared<header_map_t>();
             

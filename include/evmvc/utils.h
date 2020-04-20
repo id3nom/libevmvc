@@ -192,6 +192,22 @@ inline ssize_t find_ch(
     return -1;
 }
 
+inline ssize_t rfind_ch(
+    const char* data, size_t len, char ch, ssize_t start_pos = -1)
+{
+    if(start_pos == -1)
+        start_pos = (ssize_t)len -1;
+    for(size_t i = (size_t)start_pos; i >= 0; --i)
+        if(data[i] == ch)
+            return i;
+    return -1;
+    // for(size_t i = start_pos; i < len; ++i)
+    //     if(data[i] == ch)
+    //         return i;
+    // return -1;
+}
+
+
 inline ssize_t find_eol(const char* data, size_t len, size_t start_pos)
 {
     for(size_t i = start_pos; i < len -1; ++i)

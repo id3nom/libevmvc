@@ -101,5 +101,57 @@ inline evmvc::method parse_method(md::string_view s)
     return evmvc::method::unknown;
 }
 
+inline evmvc::method parse_method_reversed(md::string_view s)
+{
+    if(s.size() == 0)
+        return evmvc::method::unknown;
+    
+    const char* ch = s.data() + (s.size()-1);
+    
+    // GET
+    if(*ch == 'G' || *ch == 'g'){
+        if(s.size() >= 3 && !strncasecmp("teg", ch-2, 3))
+            return evmvc::method::get;
+        
+    // POST, PUT, PATCH
+    }else if(*ch == 'P' || *ch == 'p'){
+        if(s.size() >= 4 && !strncasecmp("tsop", ch-3, 4))
+            return evmvc::method::post;
+        else if(s.size() >= 3 && !strncasecmp("tup", ch-2, 3))
+            return evmvc::method::put;
+        else if(s.size() >= 5 && !strncasecmp("hctap", ch-4, 5))
+            return evmvc::method::patch;
+        
+    // CONNECT
+    }else if(*ch == 'C' || *ch == 'c'){
+        if(s.size() >= 7 && !strncasecmp("tcennoc", ch-6, 7))
+            return evmvc::method::connect;
+        
+    // HEAD
+    }else if(*ch == 'H' || *ch == 'h'){
+        if(s.size() >= 4 && !strncasecmp("deah", ch-3, 4))
+            return evmvc::method::head;
+        
+    // DELETE
+    }else if(*ch == 'D' || *ch == 'd'){
+        if(s.size() >= 7 && !strncasecmp("eteled", ch-6, 7))
+            return evmvc::method::del;
+        
+    // TRACE
+    }else if(*ch == 'T' || *ch == 't'){
+        if(s.size() >= 5 && !strncasecmp("ecart", ch-4, 5))
+            return evmvc::method::trace;
+        
+    // OPTIONS
+    }else if(*ch == 'O' || *ch == 'o'){
+        if(s.size() >= 7 && !strncasecmp("snoitpo", ch-6, 7))
+            return evmvc::method::options;
+        
+    }
+    
+    return evmvc::method::unknown;
+}
+
+
 } //ns evmvc
 #endif //_libevmvc_methods_h
