@@ -297,6 +297,22 @@ public:
         return h->flag("application/json");
     }
     
+    bool is_form_url_encoded() const
+    {
+        auto h = this->_headers->get(evmvc::field::content_type);
+        if(!h)
+            return false;
+        return h->flag("application/x-www-form-urlencoded");
+    }
+    
+    bool is_multipart_form_data() const
+    {
+        auto h = this->_headers->get(evmvc::field::content_type);
+        if(!h)
+            return false;
+        return h->flag("multipart/form-data");
+    }
+    
     std::string raw_body() const
     {
         auto p = _body_params->get("");
