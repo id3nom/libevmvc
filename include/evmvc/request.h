@@ -259,6 +259,13 @@ public:
         return def_val;
     }
     
+    bool has_body(md::string_view name) const
+    {
+        auto p = _body_params->get(name);
+        if(p)
+            return true;
+        return false;
+    }
     http_params_t& body() const { return *(_body_params.get());}
     http_param& body(md::string_view name) const
     {
