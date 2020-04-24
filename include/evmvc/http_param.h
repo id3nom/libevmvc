@@ -63,7 +63,7 @@ public:
     template<
         typename ParamType,
         typename std::enable_if<
-            std::is_same<int16_t, ParamType>::value ||
+            (std::is_same<int16_t, ParamType>::value ||
             std::is_same<int32_t, ParamType>::value ||
             std::is_same<int64_t, ParamType>::value ||
 
@@ -72,7 +72,7 @@ public:
             std::is_same<uint64_t, ParamType>::value ||
 
             std::is_same<float, ParamType>::value ||
-            std::is_same<double, ParamType>::value
+            std::is_same<double, ParamType>::value)
         , int32_t>::type = -1
     >
     ParamType get() const
@@ -110,6 +110,15 @@ template<>
 inline nlohmann::json evmvc::http_param::get<nlohmann::json, -1>() const
 {
     return nlohmann::json::parse(_param_value);
+}
+
+template<>
+inline bool evmvc::http_param::get<bool, -1>() const
+{
+    std::string lv = md::lower_case_copy(_param_value);
+    if(lv.empty() || lv == "false" || lv == "0" || lv == "0.0")
+        return false;
+    return true;
 }
 
 
