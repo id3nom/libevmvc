@@ -537,6 +537,7 @@ private:
         _mp_buf = evbuffer_new();
         if(_body_size == 0){
             _mp_completed = true;
+            _status = parser_state::ready_to_exec;
             _res->resume();
         }else
             _mp_completed = false;
