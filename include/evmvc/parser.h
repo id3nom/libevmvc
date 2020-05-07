@@ -535,9 +535,10 @@ private:
     {
         _mp_uploaded_size = 0;
         _mp_buf = evbuffer_new();
-        if(_body_size == 0)
+        if(_body_size == 0){
             _mp_completed = true;
-        else
+            _res->resume();
+        }else
             _mp_completed = false;
     }
     void reset_body()
