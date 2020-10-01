@@ -67,9 +67,11 @@ inline std::unordered_map<std::string, shared_evw>& named_events()
     return _events;
 }
 
-inline std::mutex& events_mutex()
+//inline std::mutex& events_mutex()
+inline std::recursive_mutex& events_mutex()
 {
-    static std::mutex _m;
+//    static std::mutex _m;
+    static std::recursive_mutex _m;
     return _m;
 }
 
@@ -134,7 +136,7 @@ public:
     
     void stop()
     {
-        std::unique_lock<std::mutex> lock(events_mutex());
+        std::unique_lock<std::recursive_mutex> lock(events_mutex());
         if(_ewt){
             delete this->_ewt;
             this->_ewt = nullptr;
@@ -234,7 +236,7 @@ public:
     
     void stop()
     {
-        std::unique_lock<std::mutex> lock(events_mutex());
+        std::unique_lock<std::recursive_mutex> lock(events_mutex());
         
         if(_ewt){
             delete this->_ewt;
@@ -335,7 +337,7 @@ private:
 
 inline std::string next_event_name()
 {
-    std::unique_lock<std::mutex> lock(events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(events_mutex());
     static size_t uid = 0;
     return "da724ca0-308c-11e9-9071-5b3166957f05_" + md::num_to_str(++uid);
 }
@@ -343,7 +345,7 @@ inline std::string next_event_name()
 inline void register_event(shared_evw ev)
 {
     EVMVC_DEF_TRACE("Registering event: '{}'", ev->name());
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     auto it = named_events().find(ev->name());
     if(it != named_events().end())
         throw MD_ERR(
@@ -354,7 +356,7 @@ inline void register_event(shared_evw ev)
 
 inline bool event_exists(const std::string& name)
 {
-    std::unique_lock<std::mutex> lock(events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(events_mutex());
     
     auto it = named_events().find(name);
     return it != named_events().end();
@@ -364,7 +366,7 @@ inline bool event_exists(const std::string& name)
 
 inline bool timeout_exists(md::string_view name)
 {
-    //std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    //std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
 
     std::string n = "to:" + name.to_string();
     return _internal::event_exists(n);
@@ -372,7 +374,7 @@ inline bool timeout_exists(md::string_view name)
 
 inline bool interval_exists(md::string_view name)
 {
-    //std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    //std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
 
     std::string n = "iv:" + name.to_string();
     return _internal::event_exists(n);
@@ -382,7 +384,7 @@ inline void clear_events()
 {
     EVMVC_DEF_TRACE("Clearing all events");
     
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     std::vector<_internal::shared_evw> evs;
     for(auto it = _internal::named_events().begin();
         it != _internal::named_events().end(); ++it)
@@ -398,7 +400,7 @@ inline void clear_timeouts()
 {
     EVMVC_DEF_TRACE("Clearing all timeouts");
     
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     std::vector<_internal::shared_evw> evs;
     auto it = _internal::named_events().begin();
     while(it != _internal::named_events().end()){
@@ -418,7 +420,7 @@ inline void clear_intervals()
 {
     EVMVC_DEF_TRACE("Clearing all intervals");
     
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     std::vector<_internal::shared_evw> evs;
     auto it = _internal::named_events().begin();
     while(it != _internal::named_events().end()){
@@ -440,7 +442,7 @@ inline void clear_timeout(md::string_view name)
 {
     EVMVC_DEF_TRACE("Clearing timeout '{}'", name);
     
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     auto ns = "to:" + name.to_string();
     auto it = _internal::named_events().find(ns);
     if(it == _internal::named_events().end())
@@ -453,7 +455,7 @@ inline void clear_interval(md::string_view name)
 {
     EVMVC_DEF_TRACE("Clearing interval '{}'", name);
     
-    std::unique_lock<std::mutex> lock(_internal::events_mutex());
+    std::unique_lock<std::recursive_mutex> lock(_internal::events_mutex());
     auto ns = "iv:" + name.to_string();
     auto it = _internal::named_events().find(ns);
     if(it == _internal::named_events().end())
