@@ -604,8 +604,13 @@ private:
                 ++it
             ){
                 if((*it)->pid() == p){
+                    int sig = WTERMSIG(wstatus);
+                    int ext = WEXITSTATUS(wstatus);
+
                     self->_log->error(MD_ERR(
                         "Worker process crashed!"
+                        "\nworker id: {}\npid: {}\nsignal: {}\nexit code: {}",
+                        (*it)->id(), (*it)->pid(), sig, ext
                     ));
                     raise(SIGINT);
                     break;
