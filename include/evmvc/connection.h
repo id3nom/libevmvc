@@ -50,11 +50,11 @@ enum class conn_flags
     paused          = (1 << 2),
     connected       = (1 << 3),
     waiting         = (1 << 4),
-    
+
     keepalive       = (1 << 5),
     server_via_sni  = (1 << 6),
     wait_release    = (1 << 7),
-    
+
     sending_file    = (1 << 8),
 };
 MD_ENUM_FLAGS(evmvc::conn_flags);
@@ -75,13 +75,13 @@ class connection
     //     struct bufferevent* bev, void* arg);
     // friend void _internal::on_connection_event(
     //     struct bufferevent* bev, short events, void* arg);
-    
+
     static int nxt_id()
     {
         static int _id = -1;
         return ++_id;
     }
-    
+
 public:
     connection(
         const md::log::logger& log,
@@ -108,19 +108,19 @@ public:
     {
         EVMVC_DEF_TRACE("connection {} {:p} created", _id, (void*)this);
     }
-    
+
     ~connection()
     {
         close();
         EVMVC_DEF_TRACE("connection {} {:p} released", _id, (void*)this);
     }
-    
+
     void initialize()
     {
         log()->debug("Initializing connection");
-        
+
         set_sock_opts();
-        
+
         switch(_protocol){
             case url_scheme::http:
             case url_scheme::https:
@@ -131,7 +131,7 @@ public:
             default:
                 throw MD_ERR("Unkonwn protocol: '{}'", (int)_protocol);
         }
-        
+
         if(_protocol == url_scheme::https){
             _ssl = SSL_new(_server->ssl_ctx());
             _bev = bufferevent_openssl_socket_new(
@@ -141,16 +141,16 @@ public:
                 BUFFEREVENT_SSL_ACCEPTING,
                 BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS
             );
-            
+
         }else{
             _bev = bufferevent_socket_new(
-                global::ev_base(), 
+                global::ev_base(),
                 _sock_fd,
                 BEV_OPT_CLOSE_ON_FREE | BEV_OPT_DEFER_CALLBACKS
             );
-            
+
         }
-        
+
         struct timeval rto =
             #if EVMVC_BUILD_DEBUG
                 // set to 30 seconds in debug build
@@ -162,18 +162,18 @@ public:
             #if EVMVC_BUILD_DEBUG
                 // set to 30 seconds in debug build
                 {30,0};
-            #else 
+            #else
                 wtimeo();
             #endif
         bufferevent_set_timeouts(_bev, &rto, &wto);
-        
+
         _resume_ev = event_new(
             global::ev_base(), -1, EV_READ | EV_PERSIST,
             connection::on_connection_resume,
             this
         );
         event_add(_resume_ev, nullptr);
-        
+
         bufferevent_setcb(_bev,
             connection::on_connection_read,
             connection::on_connection_write,
@@ -181,10 +181,10 @@ public:
             this
         );
         bufferevent_enable(_bev, EV_READ);
-        
+
         _log->success("connection initialized");
     }
-    
+
     int id() const { return _id;}
     const md::log::logger& log() const { return _log;}
     http_worker get_worker() const;
@@ -192,7 +192,7 @@ public:
     evmvc::url_scheme protocol() const { return _protocol;}
     std::string remote_address() const { return _remote_addr;}
     uint16_t remote_port() const { return _remote_port;}
-    
+
     bool flag_is(conn_flags flag)
     {
         return MD_TEST_FLAG(_flags, flag);
@@ -207,9 +207,9 @@ public:
     {
         _flags &= ~flag;
     }
-    
+
     bool secure() const { return _ssl;}
-    
+
     bufferevent* bev() const
     {
         return _bev;
@@ -222,7 +222,7 @@ public:
     {
         return bufferevent_get_output(_bev);
     }
-    
+
     struct timeval atimeo() const
     {
         if(_atimeo.tv_sec > 0 || _atimeo.tv_usec > 0)
@@ -250,7 +250,7 @@ public:
         else
             return {3, 0};
     }
-    
+
     void set_timeouts(
         const struct timeval* ato,
         const struct timeval* rto,
@@ -262,8 +262,12 @@ public:
             _rtimeo = *rto;
         if(wto)
             _wtimeo = *wto;
+
+        auto rt = rtimeo();
+        auto wt = wtimeo();
+        bufferevent_set_timeouts(_bev, &rt, &wt);
     }
-    
+
     void reset_timeouts()
     {
         struct timeval rto =
@@ -277,24 +281,24 @@ public:
             #if EVMVC_BUILD_DEBUG
                 // set to 30 seconds in debug build
                 {30,0};
-            #else 
+            #else
                 wtimeo();
             #endif
         bufferevent_set_timeouts(_bev, &rto, &wto);
     }
-    
+
     const std::shared_ptr<http_parser>& parser() const
     {
         return _parser;
     }
-    
+
     void wake()
     {
         //_parser->_res->_resume(nullptr);
         bufferevent_flush(_bev, EV_WRITE, BEV_FLUSH);
         event_active(_resume_ev, EV_WRITE, 1);
     }
-    
+
     void resume()
     {
         EVMVC_TRACE(_log, "Resuming connection!");
@@ -303,12 +307,12 @@ public:
             set_conn_flag(conn_flags::error);
             return;
         }
-        
+
         unset_conn_flag(conn_flags::paused);
         _parser->_res->_resume(nullptr);
         event_active(_resume_ev, EV_WRITE, 1);
     }
-    
+
     void complete_response()
     {
         _parser->_status = parser_state::completed;
@@ -317,37 +321,37 @@ public:
         else
             event_active(_resume_ev, EV_WRITE, 1);
     }
-    
+
     void keep_alive(bool en)
     {
         if(en && flag_is(conn_flags::keepalive))
             return;
-        
+
         int v = en ? 1 : 0;
         if(setsockopt(_sock_fd, SOL_SOCKET, SO_KEEPALIVE,
             (void*)&v, sizeof(v)) == -1
         )
             _log->fatal("SOL_SOCKET, SO_KEEPALIVE, err: {}", errno);
-        
+
         if(en)
             set_conn_flag(conn_flags::keepalive);
         else
             unset_conn_flag(conn_flags::keepalive);
     }
-    
+
     void close();
-    
+
     void send_file(shared_file_reply file)
     {
         if(this->flag_is(conn_flags::sending_file))
             throw MD_ERR("Already sending a file");
-        
+
         set_conn_flag(conn_flags::sending_file);
         _file = file;
         _send_file_chunk_start();
     }
 
-    
+
     #if EVMVC_BUILD_DEBUG
         std::string debug_string() const
         {
@@ -376,16 +380,16 @@ public:
                     "wait_release " : ""
             );
         }
-        
+
     #endif //EVMVC_BUILD_DEBUG
-    
-    
+
+
 private:
     void set_sock_opts()
     {
         evutil_make_socket_closeonexec(_sock_fd);
         evutil_make_socket_nonblocking(_sock_fd);
-        
+
         int on = 1;
         if(setsockopt(_sock_fd, SOL_SOCKET, SO_KEEPALIVE,
             (void*)&on, sizeof(on)) == -1
@@ -403,14 +407,14 @@ private:
                 return _log->fatal("SOL_SOCKET, SO_REUSEPORT");
             EVMVC_DBG(_log, "SO_REUSEPORT NOT SUPPORTED");
         }
-        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_NODELAY, 
+        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_NODELAY,
             (void*)&on, sizeof(on)) == -1
         ){
             if(errno != EOPNOTSUPP)
                 return _log->fatal("IPPROTO_TCP, TCP_NODELAY");
             EVMVC_DBG(_log, "TCP_NODELAY NOT SUPPORTED");
         }
-        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_DEFER_ACCEPT, 
+        if(setsockopt(_sock_fd, IPPROTO_TCP, TCP_DEFER_ACCEPT,
             (void*)&on, sizeof(on)) == -1
         ){
             if(errno != EOPNOTSUPP)
@@ -418,20 +422,20 @@ private:
             EVMVC_DBG(_log, "TCP_DEFER_ACCEPT NOT SUPPORTED");
         }
     }
-    
+
     static void on_connection_resume(int fd, short events, void* arg);
     static void on_connection_read(struct bufferevent* bev, void* arg);
     static void on_connection_write(struct bufferevent* bev, void* arg);
     static void on_connection_event(
         struct bufferevent* bev, short events, void* arg
     );
-    
-    
+
+
     void _send_file_chunk_start();
     evmvc::status _send_file_chunk();
     void _send_file_chunk_end();
     void _send_chunk(struct evbuffer* chunk);
-    
+
     int _closed;
     int _id;
     md::log::logger _log;
@@ -441,18 +445,18 @@ private:
     evmvc::url_scheme _protocol;
     std::string _remote_addr;
     uint16_t _remote_port;
-    
+
     conn_flags _flags = conn_flags::none;
-    
+
     SSL* _ssl = nullptr;
-    
+
     struct event* _resume_ev = nullptr;
     struct bufferevent* _bev = nullptr;
-    
+
     struct timeval _atimeo = {0,0};
     struct timeval _rtimeo = {0,0};
     struct timeval _wtimeo = {0,0};
-    
+
     std::shared_ptr<http_parser> _parser = nullptr;
     shared_file_reply _file = nullptr;
 };
