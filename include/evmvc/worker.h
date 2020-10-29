@@ -59,7 +59,7 @@ typedef struct cmd_log_t
 class channel
 {
     friend class worker_t;
-    
+
 public:
     channel(evmvc::worker_t* worker_t)
         : _worker(worker_t), _type(channel_type::unknown)
@@ -67,14 +67,14 @@ public:
         pipe(ptoc);
         pipe(ctop);
     }
-    
+
     ~channel()
     {
         close_channels();
     }
-    
+
     evmvc::worker_t* worker_t() const { return _worker;}
-    
+
     void close_channels()
     {
         if(_type == channel_type::master){
@@ -83,14 +83,14 @@ public:
             _close_child_channels();
         }
     }
-    
+
     ssize_t sendmsg(const msghdr *__message, int __flags)
     {
         if(_type == channel_type::master)
             return ::sendmsg(usock, __message, __flags);
         throw MD_ERR("sendmsg can only be called in master process!");
     }
-    
+
     ssize_t sendcmd(const command& cmd)
     {
         return _sendcmd(cmd.id(), cmd.data(), cmd.size());
@@ -99,12 +99,12 @@ public:
     {
         return _sendcmd(cmd->id(), cmd->data(), cmd->size());
     }
-    
+
 private:
     void _init();
     void _init_master_channels();
     void _init_child_channels();
-    
+
     void _close_master_channels()
     {
         if(usock > -1 && remove(usock_path.c_str()) == -1){
@@ -118,18 +118,18 @@ private:
                 );
             usock = -1;
         }
-        
+
         if(rcmd_ev){
             event_del(rcmd_ev);
             event_free(rcmd_ev);
             rcmd_ev = nullptr;
         }
-        
+
         if(rcmd_buf){
             evbuffer_free(rcmd_buf);
             rcmd_buf = nullptr;
         }
-        
+
         if(ptoc[EVMVC_PIPE_WRITE_FD] > -1){
             close(ptoc[EVMVC_PIPE_WRITE_FD]);
             ptoc[EVMVC_PIPE_WRITE_FD] = -1;
@@ -139,7 +139,7 @@ private:
             ctop[EVMVC_PIPE_READ_FD] = -1;
         }
     }
-    
+
     void _close_child_channels()
     {
         if(rcmsg_ev){
@@ -147,7 +147,7 @@ private:
             event_free(rcmsg_ev);
             rcmsg_ev = nullptr;
         }
-        
+
         if(usock > -1 && remove(usock_path.c_str()) == -1){
             int err = errno;
             if(err != ENOENT)
@@ -159,18 +159,18 @@ private:
                 );
             usock = -1;
         }
-        
+
         if(rcmd_ev){
             event_del(rcmd_ev);
             event_free(rcmd_ev);
             rcmd_ev = nullptr;
         }
-        
+
         if(rcmd_buf){
             evbuffer_free(rcmd_buf);
             rcmd_buf = nullptr;
         }
-        
+
         if(ptoc[EVMVC_PIPE_READ_FD] > -1){
             close(ptoc[EVMVC_PIPE_READ_FD]);
             ptoc[EVMVC_PIPE_READ_FD] = -1;
@@ -180,10 +180,10 @@ private:
             ctop[EVMVC_PIPE_WRITE_FD] = -1;
         }
     }
-    
+
     ssize_t _sendcmd(int cmd_id, const char* payload, size_t payload_len);
-    
-    
+
+
     evmvc::worker_t* _worker;
     channel_type _type = channel_type::unknown;
 
@@ -229,7 +229,7 @@ public:
         : md::log::sinks::logger_sink_t(md::log::log_level::info), _w(w)
     {
     }
-    
+
     void log(
         md::string_view log_path,
         md::log::log_level lvl, md::string_view msg
@@ -256,8 +256,8 @@ class worker_t
     }
 
 protected:
-    static void sig_received(int sig);
-    
+    static void sig_received(int sig, short events, void *arg);
+
     static void _on_event_log(int severity, const char *msg)
     {
         if(severity == _EVENT_LOG_DEBUG)
@@ -265,7 +265,7 @@ protected:
         else
             md::log::default_logger()->error(msg);
     }
-    
+
     static void _on_event_fatal_error(int err)
     {
         md::log::default_logger()->fatal(
@@ -273,7 +273,7 @@ protected:
             err
         );
     }
-    
+
     worker_t(const wp_app& app_t, const app_options& config,
         worker_type wtype, const md::log::logger& log)
         : _app(app_t),
@@ -287,10 +287,11 @@ protected:
         ),
         _pid(-1),
         _ptype(process_type::unknown),
-        _channel(std::make_unique<evmvc::channel>(this))
+        _channel(std::make_unique<evmvc::channel>(this)),
+        _evsigint(nullptr), _evsigpipe(nullptr)
     {
     }
-    
+
 
 public:
 
@@ -300,10 +301,10 @@ public:
             this->stop();
         _channel.release();
     }
-    
+
     worker_type work_type() const { return _wtype;}
     virtual int workload() const = 0;
-    
+
     running_state status() const
     {
         return _status;
@@ -312,27 +313,27 @@ public:
     bool starting() const { return _status == running_state::starting;}
     bool running() const { return _status == running_state::running;}
     bool stopping() const { return _status == running_state::stopping;}
-    
+
     md::log::logger log() const { return _log;}
-    
+
     int id() const { return _id;}
     int pid() { return _pid;}
     process_type proc_type() const { return _ptype;}
-    
+
     app get_app() const { return _app.lock();}
     bool is_valid() const { return (bool)_channel;}
     evmvc::channel& channel() const { return *(_channel.get());}
-    
+
     bool is_child() const { return _ptype == process_type::child;}
-    
+
     void set_callbacks(
-        md::callback::async_item_cb<evmvc::process_type> started_cb, 
+        md::callback::async_item_cb<evmvc::process_type> started_cb,
         md::callback::async_item_cb<evmvc::process_type> stopped_cb)
     {
         _started_cb = started_cb;
         _stopped_cb = stopped_cb;
     }
-    
+
     virtual void start(int argc, char** argv, int pid)
     {
         if(!stopped())
@@ -340,54 +341,71 @@ public:
                 "Worker must be in stopped state to start listening again"
             );
         _status = running_state::starting;
-        
+
         if(pid > 0){
             _ptype = process_type::master;
             _pid = pid;
-            
+
         }else if(pid == 0){
-            struct sigaction sigint_sa;
-            sigint_sa.sa_handler = worker_t::sig_received;
-            sigaction(SIGINT, &sigint_sa, nullptr);
-            
-            sigint_sa.sa_handler = SIG_IGN;
-            sigaction(SIGPIPE, &sigint_sa, nullptr);
-            
+            // struct sigaction sigint_sa;
+            // sigint_sa.sa_handler = worker_t::sig_received;
+            // sigaction(SIGINT, &sigint_sa, nullptr);
+            //
+            // sigint_sa.sa_handler = SIG_IGN;
+            // sigaction(SIGPIPE, &sigint_sa, nullptr);
+
             _ptype = process_type::child;
             _pid = getpid();
-            
+
             evmvc::active_worker(this->shared_from_this());
-            
+
             _cmd_parsers.clear();
-            
+
             // change proctitle
             char ppname[17]{0};
             prctl(PR_GET_NAME, ppname);
-            
-            std::string pname = 
+
+            std::string pname =
                 fmt::format(
                     "evmvc-worker"
                 );
             prctl(PR_SET_NAME, pname.c_str());
-            
+
             pname += ":";
             pname += ppname;
-            
+
             size_t pname_size = strlen(argv[0]);
             strncpy(argv[0], pname.c_str(), pname_size);
-            
+
             auto self = this->shared_from_this();
             auto c_sink = std::make_shared<evmvc::sinks::child_sink>(self);
             c_sink->set_level(_log->level());
             _log->replace_sink(c_sink);
-            
+
             // will send a SIGINT when the parent dies
             prctl(PR_SET_PDEATHSIG, SIGINT);
-            
+
             event_set_log_callback(worker_t::_on_event_log);
             event_set_fatal_callback(worker_t::_on_event_fatal_error);
             global::ev_base(event_base_new(), false, true);
-            
+
+            _evsigint = evsignal_new(
+                global::ev_base(),
+                SIGINT,
+                worker_t::sig_received,
+                nullptr
+            );
+            evsignal_add(_evsigint, nullptr);
+
+            _evsigpipe = evsignal_new(
+                global::ev_base(),
+                SIGPIPE,
+                worker_t::sig_received,
+                nullptr
+            );
+            evsignal_add(_evsigpipe, nullptr);
+
+
             if(_started_cb)
                 set_timeout([self](auto ew){
                     self->_started_cb(process_type::child,
@@ -400,11 +418,11 @@ public:
                     });
                 }, 0);
         }
-        
+
         _channel->_init();
         _status = running_state::running;
     }
-    
+
     void stop(bool force = false)
     {
         if(stopped() || stopping())
@@ -412,7 +430,19 @@ public:
                 "Worker must be in running state to be able to stop it."
             );
         this->_status = running_state::stopping;
-        
+
+        if(_evsigint){
+            evsignal_del(_evsigint);
+            event_free(_evsigint);
+            _evsigint = nullptr;
+        }
+
+        if(_evsigpipe){
+            evsignal_del(_evsigpipe);
+            event_free(_evsigpipe);
+            _evsigpipe = nullptr;
+        }
+
         if(this->is_child()){
             _log->info(
                 "Closing worker: {}, force: {}",
@@ -421,7 +451,7 @@ public:
             // closing worker on the master process
             //_channel->sendcmd(EVMVC_CMD_CLOSE, nullptr, 0);
             _channel.release();
-            
+
             auto stop_evbase_loop = [force]() -> void{
                 if(force)
                     event_base_loopbreak(global::ev_base());
@@ -429,7 +459,7 @@ public:
                     event_base_loopexit(global::ev_base(), nullptr);
                 exit(0);
             };
-            
+
             if(_stopped_cb)
                 _stopped_cb(process_type::child,
                 [stop_evbase_loop](const md::callback::cb_error& err)->void{
@@ -445,7 +475,7 @@ public:
                 stop_evbase_loop();
             return;
         }
-        
+
         if(!force){
             try{
                 _log->info("Sending close message to worker: {}", _id);
@@ -463,30 +493,30 @@ public:
             _log->warn(
                 "Sending close message failed! closing channels"
             );
-        
+
         _channel->close_channels();
         _channel.release();
         this->_status = running_state::stopped;
     }
-    
+
     void close_service();
     void close_channels()
     {
         _channel->close_channels();
         _channel.release();
     }
-    
+
     bool ping()
     {
         try{
             _channel->sendcmd(command(evmvc::CMD_PING));
             return true;
         }catch(const std::exception& err){
-            
+
             return false;
         }
     }
-    
+
     ssize_t send_log(
         md::log::log_level lvl, md::string_view path, md::string_view msg)
     {
@@ -499,12 +529,12 @@ public:
         //     sizeof(int) + // log level
         //     (sizeof(size_t) * 2) + // lengths of path and msg
         //     path.size() + msg.size();
-        
+
         // char p[pl];
         // char* pp = p;
         // *((int*)pp) = (int)lvl;
         // pp += sizeof(int);
-        
+
         // *((size_t*)pp) = path.size();
         // pp += sizeof(size_t);
         // for(size_t i = 0; i < path.size(); ++i)
@@ -514,10 +544,10 @@ public:
         // pp += sizeof(size_t);
         // for(size_t i = 0; i < msg.size(); ++i)
         //     *((char*)pp++) = msg.data()[i];
-        
+
         // return _channel->sendcmd(EVMVC_CMD_LOG, p, pl);
     }
-    
+
     void emplace_parser(cmd_parser_fn fn)
     {
         _cmd_parsers.emplace_back(fn);
@@ -531,25 +561,27 @@ public:
     {
         return _channel->sendcmd(cmd);
     }
-    
+
 protected:
     virtual void parse_cmd(int cmd_id, const char* p, size_t plen);
-    
+
     running_state _status = running_state::stopped;
-    
+
     wp_app _app;
     app_options _config;
     worker_type _wtype;
     int _id;
     md::log::logger _log;
-    
+
     int _pid;
     process_type _ptype;
     std::unique_ptr<evmvc::channel> _channel;
+    struct event* _evsigint;
+    struct event* _evsigpipe;
 
     md::callback::async_item_cb<evmvc::process_type> _started_cb;
     md::callback::async_item_cb<evmvc::process_type> _stopped_cb;
-    
+
     std::vector<cmd_parser_fn> _cmd_parsers;
 };
 
@@ -580,16 +612,16 @@ inline void sinks::child_sink::log(
 
 inline void channel::_init()
 {
-    channel_type ct = 
+    channel_type ct =
         _worker->proc_type() == process_type::master ?
             channel_type::master :
         _worker->proc_type() == process_type::child ?
             channel_type::child :
         channel_type::unknown;
-    
+
     if(ct == channel_type::unknown)
         throw MD_ERR("invalid channel_type 'unknown'!");
-    
+
     _type = ct;
     switch(ct){
         case channel_type::master:
@@ -608,38 +640,38 @@ class http_worker_t
     : public worker_t
 {
     static void on_http_worker_accept(int fd, short events, void* arg);
-    
+
 public:
     http_worker_t(const wp_app& app_t, const app_options& config,
         const md::log::logger& log)
         : worker_t(app_t, config, worker_type::http, log)
     {
     }
-    
+
     int workload() const
     {
         //TODO: implement this...
         return -1;
     }
-    
+
     void start(int argc, char** argv, int pid)
     {
         worker_t::start(argc, argv, pid);
         if(_ptype != process_type::child)
             return;
-        
+
         _log->info("Starting worker, pid: {}", _pid);
-        
+
         // init the event queue
         md::event_queue_t::reset(global::ev_base());
-        
+
         _channel->rcmsg_ev = event_new(
             global::ev_base(), _channel->usock, EV_READ | EV_PERSIST,
             http_worker_t::on_http_worker_accept,
             this
         );
         event_add(_channel->rcmsg_ev, nullptr);
-        
+
         for(auto& sc : _config.servers){
             auto s = std::make_shared<child_server_t>(
                 this->shared_from_this(), sc, _log
@@ -647,12 +679,12 @@ public:
             s->start();
             _servers.emplace(s->id(), s);
         }
-        
+
         event_base_loop(global::ev_base(), 0);
         event_base_free(global::ev_base());
         _log->info("Closing worker");
     }
-    
+
     child_server find_server_by_id(size_t id)
     {
         auto it = _servers.find(id);
@@ -677,7 +709,7 @@ public:
         }
         return nullptr;
     }
-    
+
     void remove_connection(int cid)
     {
         auto it = _conns.find(cid);
@@ -685,21 +717,21 @@ public:
             return;
         _conns.erase(cid);
     }
-    
+
     http_worker shared_from_self()
     {
         return std::static_pointer_cast<http_worker_t>(
             this->shared_from_this()
         );
     }
-    
+
     std::shared_ptr<const http_worker_t> shared_from_self() const
     {
         return std::static_pointer_cast<const http_worker_t>(
             this->shared_from_this()
         );
     }
-    
+
 private:
     void _revc_sock(size_t srv_id, int iproto, int sock_fd)
     {
@@ -708,10 +740,10 @@ private:
         uint16_t remote_port = 0;
         struct sockaddr saddr = {0};
         socklen_t slen;
-        
+
         if(getpeername(sock_fd, &saddr, &slen) == -1)
             _log->error("getpeername failed, err: {}", errno);
-            
+
         else{
             if(saddr.sa_family == AF_UNIX){
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
@@ -727,14 +759,14 @@ private:
 #if defined(__clang__) || defined(__GNUC__) || defined(__GNUG__)
     #pragma GCC diagnostic pop
 #endif
-            
+
             }else if(saddr.sa_family == AF_INET){
                 auto addr_in = (sockaddr_in*)&saddr;
                 inet_ntop(
                     AF_INET, &addr_in->sin_addr, remote_addr, INET_ADDRSTRLEN
                 );
                 remote_port = ntohs(addr_in->sin_port);
-                
+
             }else if(saddr.sa_family == AF_INET6){
                 auto addr_in6 = (sockaddr_in6*)&saddr;
                 inet_ntop(
@@ -746,14 +778,14 @@ private:
                 remote_port = ntohs(addr_in6->sin6_port);
             }
         }
-        
+
         child_server srv = find_server_by_id(srv_id);
         if(!srv)
             _log->fatal(MD_ERR(
                 "Invalid server id: '{}'", srv_id
             ));
         url_scheme proto = (url_scheme)iproto;
-        
+
         sp_connection c = std::make_shared<connection>(
             this->_log,
             this->shared_from_self(),
@@ -766,7 +798,7 @@ private:
         c->initialize();
         _conns.emplace(c->id(), c);
     }
-    
+
 private:
     std::unordered_map<int, sp_connection> _conns;
     std::unordered_map<size_t, child_server> _servers;
@@ -782,9 +814,9 @@ public:
         : worker_t(app_t, config, worker_type::cache, log)
     {
     }
-    
+
     int workload() const { return -1;}
-    
+
 private:
 };
 
@@ -794,38 +826,38 @@ private:
 
 
 namespace _internal {
-    
+
     // struct shared_ssl_sess
     // {
     //     //struct ebmb_node key;
     //     unsigned char key_data[SSL_MAX_SSL_SESSION_ID_LENGTH];
     //     int data_len;
     //     unsigned char data[EVMVC_MAX_SSL_DATA_LEN];
-        
+
     //     struct shared_ssl_sess* p;
     //     struct shared_ssl_sess* n;
     // };
-    
+
     inline int _ssl_sni_servername(SSL* s, int *al, void *arg)
     {
         const char* name = SSL_get_servername(s, TLSEXT_NAMETYPE_host_name);
         if(!name)
             return SSL_TLSEXT_ERR_NOACK;
-        
+
         evmvc::connection* c = (evmvc::connection*)SSL_get_app_data(s);
         if(!c)
             return SSL_TLSEXT_ERR_NOACK;
-        
+
         auto w = c->get_worker();
         if(!w)
             return SSL_TLSEXT_ERR_NOACK;
-        
+
         // verify if the current ctx is valid
         SSL_CTX* ctx = SSL_get_SSL_CTX(s);
         child_server_t* cs = (child_server_t*)SSL_CTX_get_app_data(ctx);
         if(!strcasecmp(cs->name().c_str(), name))
             return SSL_TLSEXT_ERR_OK;
-        
+
         // find the requested server
         child_server rs = w->find_server_by_name(name);
         if(!rs){
@@ -833,23 +865,23 @@ namespace _internal {
             if(!rs)
                 return SSL_TLSEXT_ERR_NOACK;
         }
-        
+
         c->set_conn_flag(conn_flags::server_via_sni);
         c->_server = rs;
-        
+
         SSL_set_SSL_CTX(s, rs->ssl_ctx());
         SSL_set_options(s, SSL_CTX_get_options(ctx));
-        
+
         if(SSL_get_verify_mode(s) == SSL_VERIFY_NONE ||
             SSL_num_renegotiations(s) == 0
         ){
             SSL_set_verify(
-                s, 
+                s,
                 SSL_CTX_get_verify_mode(ctx),
                 SSL_CTX_get_verify_callback(ctx)
             );
         }
-        
+
         return SSL_TLSEXT_ERR_OK;
     }
     // int _ssl_client_hello(SSL* s, int *al, void *arg)
@@ -864,13 +896,13 @@ namespace _internal {
         // unsigned char* p = buf;
         // const unsigned char* cp = buf;
         // len = i2d_SSL_SESSION(sess, &p);
-        
+
         // unsigned int sid_len;
         // const unsigned char* sid = SSL_SESSION_get_id(sess, &sid_len);
-        
+
         return 0;
     }
-    
+
     inline SSL_SESSION* _ssl_get_cache_entry(
         SSL* /*ssl*/, const unsigned char* /*sid*/,
         int /*sid_len*/, int* /*copy*/)
@@ -878,15 +910,15 @@ namespace _internal {
         //TODO: implement shared mem
         return nullptr;
     }
-    
+
     inline void _ssl_remove_cache_entry(SSL_CTX* /*ctx*/, SSL_SESSION* /*sess*/)
     {
         //TODO: implement shared mem
         return;
     }
-    
-    
-    
+
+
+
 }//::_internal
 
 };//::evmvc
