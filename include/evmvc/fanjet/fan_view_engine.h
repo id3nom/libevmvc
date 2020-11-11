@@ -45,28 +45,28 @@ class view_engine
 {
     friend class app;
 public:
-    
+
     view_engine(
         const std::string& ns)
         : evmvc::view_engine(ns)
     {
     }
-    
+
     /**
      * View Engine name
      */
     md::string_view name() const { return EVMVC_FANJET_VIEW_ENGINE_NAME;};
-    
+
     void render_view(
         const evmvc::response& res,
         const std::string& path,
         md::callback::value_cb<const std::string&> cb)
     {
-        md::log::default_logger()->info(MD_ERR(
+        md::log::default_logger()->debug(MD_ERR(
             "request view at '{}'",
             path
         ));
-        
+
         view_generator_fn vg = find_generator(path);
         if(vg == nullptr){
             cb(MD_ERR(
@@ -76,12 +76,12 @@ public:
             return;
         }
         std::shared_ptr<evmvc::view_base> v = vg(this->shared_from_this(), res);
-        
+
         std::vector<std::shared_ptr<evmvc::view_base>> views;
         views.emplace_back(v);
-        
+
         std::shared_ptr<evmvc::view_base> tv = v;
-        
+
         while(tv && !tv->layout().empty()){
             std::string s = tv->layout().to_string();
             if(s.find("::") == std::string::npos){
@@ -98,37 +98,37 @@ public:
                     tv = this->get_view(res, s);
             }else
                 tv = evmvc::view_engine::get(res, s);
-                
+
             if(tv){
                 // assign current view body
                 tv->set_body(*views.rbegin());
                 views.emplace_back(tv);
             }
         }
-        
+
         // fetch the upper layout
         v = *views.rbegin();
-        
+
         // render all views starting with the fartest child
-        md::async::each<std::shared_ptr<evmvc::view_base>>(views, 
+        md::async::each<std::shared_ptr<evmvc::view_base>>(views,
         [views, res](
             std::shared_ptr<evmvc::view_base> v,
             md::callback::async_cb ecb
         ){
             try{
-                md::log::default_logger()->info(MD_ERR(
+                md::log::default_logger()->debug(MD_ERR(
                     "rendering view '{}'",
                     v->abs_path()
                 ));
                 v->render(v, [v, ecb](const md::callback::cb_error& err){
                     if(err){
-                        md::log::default_logger()->info(MD_ERR(
+                        md::log::default_logger()->error(MD_ERR(
                             "view '{}' rendering failed!{}",
                             v->abs_path(),
                             err
                         ));
                     }else{
-                        md::log::default_logger()->info(MD_ERR(
+                        md::log::default_logger()->debug(MD_ERR(
                             "view '{}' rendering succeeded",
                             v->abs_path()
                         ));
@@ -144,15 +144,15 @@ public:
             if(err)
                 return cb(err, "");
 
-            md::log::default_logger()->info(MD_ERR(
+            md::log::default_logger()->debug(MD_ERR(
                 "view '{}' rendered",
                 v->abs_path()
             ));
             cb(nullptr, v->buffer());
         });
-        
+
     }
-    
+
     std::shared_ptr<evmvc::view_base> get_view(
         const evmvc::response& res,
         const std::string& path)
@@ -162,14 +162,14 @@ public:
             return nullptr;
         return vg(this->shared_from_this(), res);
     }
-    
+
     bool view_exists(const std::string& view_path) const
     {
         return find_generator(view_path) != nullptr;
     }
-    
-    
-    
+
+
+
     void register_view_generator(bfs::path view_path, view_generator_fn vg)
     {
         auto it = _views.find(view_path.string());
@@ -178,14 +178,14 @@ public:
                 "Engine '{}' view '{}::{}' is already registered!",
                 this->name(), this->ns(), view_path.string()
             );
-        
+
         _views.emplace(
             std::make_pair(view_path.string(), vg)
         );
     }
-    
-    
-    
+
+
+
 private:
     view_generator_fn find_generator(
         const std::string& path) const
@@ -194,68 +194,68 @@ private:
             throw MD_ERR(
                 "path is empty!"
             );
-        
+
         //TODO: isolate per namespace
         // std::string ns;
         // size_t nsp = path.rfind("::");
         // if(nsp == std::string::npos)
         //     ns = doc->ns;
-        
+
         std::vector<std::string> parts;
         std::string p = path;
             //*path.rbegin() == '/' ? path.substr(1) : doc->path + path;
         boost::split(parts, p, boost::is_any_of("/"));
-        
+
         std::string name = *parts.rbegin();
-        
+
         // std::vector<view_generator_fn> ds;
         // for(auto d : docs)
         //     if(d->name == name)
         //         ds.emplace_back(d);
-        
+
         // if(ds.empty())
         //     throw MD_ERR(
         //         "No view matching path: '{}'", path
         //     );
-        
+
         for(ssize_t i = (ssize_t)parts.size() -1; i >= 0; --i){
-            // look for the file in this order: 
+            // look for the file in this order:
             //  path dir,
             //  partials dir,
             //  layouts dir,
             //  helpers dir,
-            
+
             std::string rp;
             for(ssize_t j = 0; j < i; ++j)
                 rp += parts[j] + "/";
-            
+
             for(auto& v : _views){
                 if(v.first == rp + name)
                     return v.second;
-                
+
                 if(v.first == rp + "partials/" + name)
                     return v.second;
-                
+
                 if(v.first == rp + "layouts/" + name)
                     return v.second;
-                
+
                 if(v.first == rp + "helpers/" + name)
                     return v.second;
-                
+
                 // if(d->path == rp)
                 //     return d;
-                
+
                 // if(d->path == rp + "partials/")
                 //     return d;
-                
+
                 // if(d->path == rp + "layouts/")
                 //     return d;
-                
+
                 // if(d->path == rp + "helpers/")
                 //     return d;
             }
         }
-        
+
         // throw MD_ERR(
         //     "No view matching path: '{}'", path
         // );
@@ -263,7 +263,7 @@ private:
     }
 
     std::unordered_map<std::string, view_generator_fn> _views;
-    
+
 };
 
 }};//evmvc::fanjet
